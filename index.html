@@ -19,7 +19,7 @@
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; font-size:13px; }
     #app { display:flex; flex-direction:column; height:100vh; }
 
-    /* ── HEADER ── */
+    /* HEADER */
     header { display:flex; align-items:center; justify-content:space-between;
       padding:0 20px; height:52px; background:var(--surface);
       border-bottom:1px solid var(--border); flex-shrink:0; }
@@ -30,7 +30,7 @@
       padding:2px 7px; border-radius:4px; background:#0e2a1a;
       color:var(--c-found); border:1px solid #1a4a2a; }
 
-    /* ── BUTTONS ── */
+    /* BUTTONS */
     .btn { background:var(--accent); border:none; color:#fff; padding:6px 14px;
       font-family:inherit; font-size:12px; font-weight:600; cursor:pointer;
       border-radius:6px; transition:background .15s,opacity .15s; white-space:nowrap; }
@@ -43,34 +43,49 @@
     .btn.dim { background:var(--surface2); border:1px solid var(--border2); color:var(--muted); }
     .btn.dim:hover { color:var(--text); border-color:var(--text); background:var(--surface2); }
     .btn.secondary { background:var(--surface2); border:1px solid var(--border2); color:var(--text); }
-    .btn.secondary:hover { border-color:var(--accent); color:var(--accent); background:var(--surface2); }
+    .btn.secondary:hover { border-color:var(--accent); color:var(--accent); }
+    .btn.icon { padding:5px 9px; font-size:15px; line-height:1; }
 
-    /* ── VIEW TOGGLE ── */
+    /* VIEW TOGGLE */
     .vtog-wrap { display:flex; flex-shrink:0; }
     .vtog { background:var(--surface2); border:1px solid var(--border2); color:var(--muted);
       padding:4px 9px; font-size:14px; line-height:1; cursor:pointer; transition:all .15s; }
     .vtog:first-child { border-radius:6px 0 0 6px; border-right:none; }
     .vtog:last-child  { border-radius:0 6px 6px 0; }
+    .vtog:not(:first-child):not(:last-child) { border-right:none; }
     .vtog.active { background:var(--accent); border-color:var(--accent); color:#fff; }
-    .vtog:not(.active):hover { color:var(--text); border-color:var(--border2); }
+    .vtog:not(.active):hover { color:var(--text); }
 
-    /* ── TABS ── */
+    /* TABS */
     .tab-bar { display:flex; background:var(--surface); border-bottom:1px solid var(--border);
-      flex-shrink:0; padding:0 20px; }
+      flex-shrink:0; padding:0 20px; gap:0; overflow-x:auto; }
     .tab-btn { background:transparent; border:none; border-bottom:2px solid transparent;
-      color:var(--muted); padding:12px 16px; font-family:inherit; font-size:12px;
-      font-weight:600; letter-spacing:.5px; cursor:pointer; transition:color .15s,border-color .15s; }
+      color:var(--muted); padding:12px 14px; font-family:inherit; font-size:12px;
+      font-weight:600; letter-spacing:.5px; cursor:pointer; transition:color .15s,border-color .15s;
+      white-space:nowrap; }
     .tab-btn:hover { color:var(--text); }
     .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
 
-    /* ── CACHE BAR ── */
+    /* CACHE BAR */
     #cache-bar { display:none; align-items:center; gap:10px; padding:7px 20px;
       background:var(--surface2); border-bottom:1px solid var(--border);
       flex-shrink:0; font-size:11px; color:var(--muted); }
     #cache-msg { flex:1; }
     #cache-bar.stale #cache-msg { color:#f59e0b; }
 
-    /* ── EMPTY STATE ── */
+    /* HEALTH BAR */
+    #health-bar { display:none; align-items:center; gap:18px; padding:5px 20px;
+      background:var(--surface); border-bottom:1px solid var(--border);
+      flex-shrink:0; font-size:11px; flex-wrap:wrap; }
+    #health-bar.visible { display:flex; }
+    .hstat { display:flex; align-items:center; gap:5px; color:var(--muted); cursor:default; }
+    .hstat b { color:var(--text); font-weight:600; }
+    .hstat.bad b { color:var(--c-miss); }
+    .hstat.warn b { color:#f59e0b; }
+    .hstat.clickable { cursor:pointer; }
+    .hstat.clickable:hover b { text-decoration:underline; }
+
+    /* EMPTY STATE */
     #empty-state { flex:1; display:flex; flex-direction:column; align-items:center;
       justify-content:center; gap:14px; }
     .empty-icon { font-size:40px; opacity:.2; }
@@ -85,18 +100,18 @@
     .reconnect-name { font-weight:600; color:var(--text); }
     .empty-divider { font-size:11px; color:var(--border2); letter-spacing:1px; }
 
-    /* ── MAIN ── */
+    /* MAIN */
     #main { display:none; flex:1; flex-direction:column; overflow:hidden; }
     #main.visible { display:flex; }
     .tab-pane { display:none; flex:1; overflow:hidden; flex-direction:column; }
     .tab-pane.active { display:flex; }
 
-    /* ── TOOLBAR ── */
+    /* TOOLBAR */
     .toolbar { display:flex; align-items:center; gap:8px; padding:10px 20px;
       background:var(--surface); border-bottom:1px solid var(--border);
       flex-shrink:0; flex-wrap:wrap; }
     .search { background:var(--surface2); border:1px solid var(--border); color:var(--text);
-      padding:6px 11px; font-family:inherit; font-size:12px; width:190px;
+      padding:6px 11px; font-family:inherit; font-size:12px; width:180px;
       border-radius:6px; outline:none; }
     .search:focus { border-color:var(--accent); }
     .search::placeholder { color:var(--muted); }
@@ -114,9 +129,9 @@
     .type-pill[data-t="SAMPLER"].on    { background:var(--c-sam); }
     .type-pill[data-t="MIDIOUT"].on    { background:var(--c-mid); }
     .type-pill[data-t="FMSYNTH"].on    { background:var(--c-fm); color:#fff; }
-    .stat-chip { font-size:11px; color:var(--muted); margin-left:auto; white-space:nowrap; }
+    .stat-chip { font-size:11px; color:var(--muted); white-space:nowrap; }
 
-    /* ── SAMPLE CATALOGUE NOTICE ── */
+    /* SAMPLE CATALOGUE NOTICE */
     .cat-notice { display:flex; align-items:center; gap:10px; padding:8px 20px;
       background:#1a1000; border-bottom:1px solid #3a2800; flex-shrink:0; font-size:12px; }
     .cat-notice.done { background:var(--surface2); border-color:var(--border); }
@@ -124,19 +139,43 @@
     .cat-notice.done .cat-msg { color:var(--muted); }
     .cat-prog { font-size:11px; color:var(--muted); }
 
-    /* ── SCROLL ── */
+    /* TYPE BREAKDOWN STRIP */
+    .type-strip-bar { padding:6px 20px 0; background:var(--surface);
+      border-bottom:1px solid var(--border); flex-shrink:0; }
+    .type-strip { display:flex; height:4px; border-radius:2px; overflow:hidden; gap:1px; margin-bottom:4px; }
+    .ts-seg { height:100%; transition:width .3s; }
+    .type-strip-labels { display:flex; gap:12px; padding-bottom:6px; font-size:10px; flex-wrap:wrap; }
+    .ts-lbl { display:flex; align-items:center; gap:4px; color:var(--muted); }
+    .ts-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+
+    /* SCROLL */
     .scroll-area { flex:1; overflow-y:auto; }
     .scroll-area::-webkit-scrollbar { width:5px; }
     .scroll-area::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
 
-    /* ── SONGS — LIST ROWS ── */
+    /* SONGS — COMPACT ROWS */
+    .song-compact-item { border-bottom:1px solid var(--border); }
+    .s-crow { display:grid;
+      grid-template-columns:minmax(120px,1fr) minmax(70px,140px) 58px 90px;
+      align-items:center; gap:0 12px; padding:6px 20px;
+      cursor:pointer; user-select:none; transition:background .1s; }
+    .s-crow:hover { background:var(--surface); }
+    .s-cname { font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-cfile { font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-cver  { font-size:11px; color:var(--muted); }
+    .s-cmiss { font-size:10px; font-weight:600; padding:2px 7px; border-radius:4px;
+      white-space:nowrap; text-align:center; justify-self:end; }
+    .s-cmiss.bad  { background:#2d0f0f; color:var(--c-miss); border:1px solid #4a1a1a; }
+    .s-cmiss.good { background:#0e2a1a; color:var(--c-found); border:1px solid #1a4a2a; }
+    .s-cmiss.pend { color:var(--muted); font-weight:400; }
+    .s-cmiss.none { color:var(--border2); font-weight:400; }
+
+    /* SONGS — LIST ROWS */
     .song-item { border-bottom:1px solid var(--border); }
-    .song-row {
-      display:grid;
-      grid-template-columns:16px minmax(140px,1fr) minmax(80px,170px) 58px 70px 120px;
-      align-items:center; gap:0 14px; padding:9px 20px;
-      cursor:pointer; user-select:none; transition:background .1s;
-    }
+    .song-row { display:grid;
+      grid-template-columns:16px minmax(130px,1fr) minmax(70px,150px) 62px 70px 110px;
+      align-items:center; gap:0 12px; padding:9px 20px;
+      cursor:pointer; user-select:none; transition:background .1s; }
     .song-row:hover { background:var(--surface); }
     .song-item.open .song-row { background:var(--surface); }
     .s-chev { color:var(--muted); transition:transform .15s; font-size:9px; }
@@ -153,11 +192,10 @@
     .s-miss.none { color:var(--border2); font-weight:400; }
     .bundle-dot { font-size:9px; color:var(--accent); opacity:.7; margin-left:4px; vertical-align:middle; }
 
-    /* ── SONGS — FOLDER TREE NODES ── */
+    /* SONGS — FOLDER TREE */
     .song-folder-hdr { display:flex; align-items:center; gap:8px;
       background:var(--surface2); border-bottom:1px solid var(--border);
-      cursor:pointer; user-select:none; transition:background .1s;
-      padding:8px 20px; }
+      cursor:pointer; user-select:none; padding:8px 20px; transition:background .1s; }
     .song-folder-hdr:hover { background:#252525; }
     .sf-chev { font-size:9px; color:var(--muted); transition:transform .15s; flex-shrink:0; }
     .song-folder.open > .song-folder-hdr .sf-chev { transform:rotate(90deg); }
@@ -166,7 +204,7 @@
     .sf-body { display:none; }
     .song-folder.open > .sf-body { display:block; }
 
-    /* ── SONGS — DETAIL ── */
+    /* SONGS — DETAIL */
     .song-detail { display:none; padding:14px 20px 14px 50px;
       background:var(--surface); border-top:1px solid var(--border); }
     .song-item.open .song-detail { display:block; }
@@ -176,7 +214,9 @@
       color:var(--muted); margin-bottom:8px; }
     .iblock { display:flex; flex-wrap:wrap; gap:4px; }
     .ichip { display:inline-flex; align-items:center; gap:5px; padding:3px 8px;
-      background:var(--surface2); border:1px solid var(--border); border-radius:4px; }
+      background:var(--surface2); border:1px solid var(--border); border-radius:4px;
+      cursor:pointer; transition:border-color .1s; }
+    .ichip:hover { border-color:var(--accent); }
     .ichip-slot { font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums; flex-shrink:0; }
     .ichip-name { font-size:11px; white-space:nowrap; max-width:100px; overflow:hidden; text-overflow:ellipsis; }
     .tb { font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; flex-shrink:0; letter-spacing:.3px; }
@@ -188,12 +228,19 @@
     .tb.NONE       { background:var(--surface2); color:var(--muted); }
     .spr { display:flex; align-items:flex-start; gap:8px; padding:2px 0; font-size:12px; }
     .spr-ic   { flex-shrink:0; width:14px; font-size:11px; }
-    .spr-path { flex:1; word-break:break-all; line-height:1.4; }
+    .spr-path { flex:1; word-break:break-all; line-height:1.4; cursor:pointer; }
+    .spr-path:hover { color:var(--accent); text-decoration:underline; }
     .spr.miss .spr-path { color:var(--c-miss); }
     .spr.ok   .spr-path { color:var(--muted); }
     .spr.unk  .spr-path { color:var(--muted); font-style:italic; }
+    .similar-section { margin-top:14px; }
+    .sim-item { display:inline-flex; align-items:center; gap:6px; padding:3px 8px;
+      background:var(--surface2); border:1px solid var(--border); border-radius:4px;
+      margin:0 4px 4px 0; cursor:pointer; font-size:11px; transition:border-color .1s; }
+    .sim-item:hover { border-color:var(--accent); }
+    .sim-pct { font-size:10px; color:var(--muted); }
 
-    /* ── SONGS — GRID VIEW ── */
+    /* SONGS — GRID */
     .song-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
       gap:10px; padding:14px 20px; align-content:start; }
     .song-card { background:var(--surface); border:1px solid var(--border); border-radius:8px;
@@ -206,21 +253,22 @@
     .sc-body { padding:11px 12px 12px; }
     .sc-name { font-size:13px; font-weight:700; letter-spacing:.3px; margin-bottom:3px;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .sc-file { font-size:10px; color:var(--muted); white-space:nowrap; overflow:hidden;
-      text-overflow:ellipsis; margin-bottom:9px; }
+    .sc-file { font-size:10px; color:var(--muted); margin-bottom:9px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .sc-foot { display:flex; align-items:center; gap:6px; }
     .sc-ic { font-size:11px; color:var(--muted); flex:1; }
+    .sc-ver { font-size:10px; color:var(--muted); }
     .sc-badge { font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; white-space:nowrap; }
     .sc-badge.bad  { background:#2d0f0f; color:var(--c-miss); border:1px solid #4a1a1a; }
     .sc-badge.good { background:#0e2a1a; color:var(--c-found); border:1px solid #1a4a2a; }
     .sc-badge.pend { color:var(--muted); font-size:10px; }
     .sc-bundle { font-size:11px; color:var(--accent); opacity:.8; }
 
-    /* ── SONG MODAL ── */
+    /* SONG MODAL */
     .song-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:100;
       display:flex; align-items:center; justify-content:center; padding:24px; }
     .song-modal-box { background:var(--surface); border:1px solid var(--border2);
-      border-radius:10px; width:min(720px,100%); max-height:82vh;
+      border-radius:10px; width:min(720px,100%); max-height:84vh;
       display:flex; flex-direction:column; overflow:hidden; }
     .song-modal-hdr { display:flex; align-items:center; gap:12px; padding:13px 16px;
       border-bottom:1px solid var(--border); flex-shrink:0; }
@@ -231,25 +279,25 @@
     .song-modal-body::-webkit-scrollbar { width:5px; }
     .song-modal-body::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
 
-    /* ── INSTRUMENTS ── */
+    /* INSTRUMENTS */
     .instr-item { border-bottom:1px solid var(--border); }
-    .instr-row {
-      display:grid;
+    .instr-row { display:grid;
       grid-template-columns:16px 105px minmax(120px,1fr) 170px 120px;
       align-items:center; gap:0 14px; padding:9px 20px;
-      cursor:pointer; user-select:none; transition:background .1s;
-    }
+      cursor:pointer; user-select:none; transition:background .1s; }
     .instr-row:hover { background:var(--surface); }
     .instr-item.open .instr-row { background:var(--surface); }
     .i-chev  { color:var(--muted); transition:transform .15s; font-size:9px; }
     .instr-item.open .i-chev { transform:rotate(90deg); }
     .i-lname { font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .samp-c { font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .samp-c { font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+    .samp-c:hover { color:var(--accent); text-decoration:underline; }
     .samp-c.miss { color:var(--c-miss); font-weight:500; }
     .samp-c.ok   { color:var(--muted); }
-    .samp-c.pend { color:var(--border2); }
+    .samp-c.pend { color:var(--border2); cursor:default; }
     .ubadge { font-size:11px; font-weight:500; padding:2px 9px; border-radius:20px; white-space:nowrap; justify-self:end; }
-    .ubadge.used   { background:#1c2f1c; color:var(--c-found); border:1px solid #2a4a2a; }
+    .ubadge.used   { background:#1c2f1c; color:var(--c-found); border:1px solid #2a4a2a; cursor:pointer; }
+    .ubadge.used:hover { background:#243f24; }
     .ubadge.unused { background:var(--surface2); color:var(--muted); border:1px solid var(--border); }
     .instr-det { display:none; padding:12px 20px 12px 135px;
       background:var(--surface); border-top:1px solid var(--border); flex-direction:column; gap:8px; }
@@ -262,14 +310,19 @@
     .dval.ok   { color:var(--c-found); }
     .dval.dim  { color:var(--muted); }
     .dval.pend { color:var(--muted); font-style:italic; }
+    .dval.link { color:var(--accent); cursor:pointer; }
+    .dval.link:hover { text-decoration:underline; }
     .schips { display:flex; flex-wrap:wrap; gap:5px; }
     .schip  { font-size:11px; padding:2px 8px; background:var(--surface2);
-      border:1px solid var(--border2); border-radius:4px; }
+      border:1px solid var(--border2); border-radius:4px; cursor:pointer; }
+    .schip:hover { border-color:var(--accent); color:var(--accent); }
+    .dupe-warn { font-size:11px; color:#f59e0b; padding:2px 8px;
+      background:#1f1200; border:1px solid #4a2e00; border-radius:4px; display:inline-flex; align-items:center; gap:5px; }
 
-    /* ── INSTRUMENT FOLDER TREE ── */
+    /* INSTRUMENT FOLDER TREE */
     .igroup-hdr { display:flex; align-items:center; gap:8px;
       background:var(--surface2); border-bottom:1px solid var(--border);
-      cursor:pointer; user-select:none; transition:background .1s; padding:7px 20px; }
+      cursor:pointer; user-select:none; padding:7px 20px; transition:background .1s; }
     .igroup-hdr:hover { background:#252525; }
     .igroup-chev { font-size:9px; color:var(--muted); transition:transform .15s; flex-shrink:0; }
     .igroup.open > .igroup-hdr .igroup-chev { transform:rotate(90deg); }
@@ -278,7 +331,7 @@
     .igroup-body { display:none; }
     .igroup.open > .igroup-body { display:block; }
 
-    /* ── INSTRUMENTS — GRID VIEW ── */
+    /* INSTRUMENTS — GRID */
     .instr-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
       gap:10px; padding:14px 20px; align-content:start; }
     .instr-card { background:var(--surface); border:1px solid var(--border); border-radius:8px;
@@ -303,21 +356,20 @@
     .ic-used.yes { color:var(--c-found); }
     .ic-used.no  { color:var(--border2); }
 
-    /* ── THEMES ── */
+    /* THEMES */
     .themes-scroll { flex:1; overflow-y:auto; padding:16px 20px; }
     .themes-scroll::-webkit-scrollbar { width:5px; }
     .themes-scroll::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
     .themes-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
     .theme-card { background:var(--surface); border:1px solid var(--border); border-radius:8px;
-      overflow:hidden; cursor:pointer; transition:border-color .15s; }
+      overflow:hidden; transition:border-color .15s; }
     .theme-card:hover { border-color:var(--border2); }
     .theme-card.expanded { border-color:var(--accent); }
     .theme-preview { height:110px; overflow:hidden; }
     .theme-info { padding:10px 12px 8px; display:flex; align-items:baseline; gap:8px; }
     .theme-name { font-size:13px; font-weight:600; flex:1; }
     .theme-meta { font-size:10px; color:var(--muted); }
-    .theme-swatches { display:none; grid-template-columns:repeat(4,1fr); gap:8px;
-      padding:0 12px 12px; }
+    .theme-swatches { display:none; grid-template-columns:repeat(4,1fr); gap:8px; padding:0 12px 12px; }
     .theme-card.expanded .theme-swatches { display:grid; }
     .swatch-box { height:20px; border-radius:3px; border:1px solid rgba(255,255,255,.08); }
     .swatch-lbl { font-size:9px; color:var(--muted); letter-spacing:.3px; margin-top:3px; }
@@ -325,7 +377,42 @@
     .no-preview { height:110px; background:var(--surface2); display:flex;
       align-items:center; justify-content:center; font-size:11px; color:var(--muted); }
 
-    /* ── BACKUP ── */
+    /* PROBLEMS TAB */
+    .prob-nav { display:flex; align-items:center; gap:6px; padding:10px 20px;
+      background:var(--surface); border-bottom:1px solid var(--border);
+      flex-shrink:0; flex-wrap:wrap; }
+    .prob-btn { background:var(--surface2); border:1px solid var(--border); color:var(--muted);
+      padding:5px 12px; font-family:inherit; font-size:11px; font-weight:600;
+      cursor:pointer; border-radius:20px; transition:all .15s; white-space:nowrap; }
+    .prob-btn:hover { border-color:var(--border2); color:var(--text); }
+    .prob-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .prob-count { font-weight:400; opacity:.75; margin-left:4px; }
+    .prob-group-hdr { padding:12px 20px 4px; font-size:10px; font-weight:700;
+      letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); }
+    .prob-row { display:flex; align-items:center; gap:12px; padding:9px 20px;
+      border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
+    .prob-row:hover { background:var(--surface); }
+    .prob-icon { width:22px; text-align:center; flex-shrink:0; font-size:14px; }
+    .prob-main { flex:1; min-width:0; }
+    .prob-name { font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .prob-sub  { font-size:11px; color:var(--muted); margin-top:1px; }
+    .prob-right { font-size:11px; color:var(--muted); white-space:nowrap; flex-shrink:0; }
+    .prob-empty { color:var(--muted); padding:40px; text-align:center; font-size:13px; }
+    .prob-empty b { color:var(--c-found); display:block; font-size:18px; margin-bottom:8px; }
+
+    /* GROOVES TAB */
+    .groove-row { display:flex; align-items:center; gap:14px; padding:10px 20px;
+      border-bottom:1px solid var(--border); }
+    .groove-name { font-size:13px; font-weight:500; flex:1; }
+    .groove-steps { display:flex; gap:2px; }
+    .g-step { width:19px; height:19px; border-radius:3px; background:var(--surface2);
+      border:1px solid var(--border); font-size:9px; color:var(--muted);
+      display:flex; align-items:center; justify-content:center; font-variant-numeric:tabular-nums; }
+    .g-step.accent { border-color:var(--accent); color:var(--accent); background:#1f0e00; }
+    .groove-meta { font-size:11px; color:var(--muted); flex-shrink:0; }
+    .groove-notice { color:var(--muted); padding:40px; text-align:center; font-size:13px; line-height:1.8; }
+
+    /* BACKUP */
     .backup-layout { flex:1; display:flex; overflow:hidden; }
     .backup-panel { padding:20px; background:var(--surface); border-right:1px solid var(--border);
       width:320px; flex-shrink:0; display:flex; flex-direction:column; gap:16px; overflow-y:auto; }
@@ -349,12 +436,85 @@
     .log-line.err  { color:var(--c-miss); }
     .log-line.head { color:var(--text); font-weight:500; }
 
-    /* ── MISC ── */
+    /* GLOBAL SEARCH OVERLAY */
+    #search-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:200;
+      display:none; align-items:flex-start; justify-content:center; padding-top:80px; }
+    #search-overlay.open { display:flex; }
+    .srch-box { background:var(--surface); border:1px solid var(--border2);
+      border-radius:10px; width:min(580px,90%); max-height:65vh; display:flex; flex-direction:column; overflow:hidden; }
+    .srch-input-row { display:flex; align-items:center; gap:10px; padding:12px 16px;
+      border-bottom:1px solid var(--border); flex-shrink:0; }
+    #srch-input { background:transparent; border:none; outline:none; color:var(--text);
+      font-family:inherit; font-size:16px; flex:1; min-width:0; }
+    #srch-input::placeholder { color:var(--muted); }
+    .srch-kbd { font-size:10px; color:var(--border2); background:var(--surface2);
+      border:1px solid var(--border); border-radius:3px; padding:1px 5px; cursor:pointer; }
+    .srch-results { overflow-y:auto; flex:1; }
+    .sr-group { padding:8px 16px 4px; font-size:10px; font-weight:700; letter-spacing:1.5px;
+      text-transform:uppercase; color:var(--muted); border-top:1px solid var(--border); }
+    .sr-group:first-child { border-top:none; }
+    .sr-item { display:flex; align-items:center; gap:10px; padding:8px 16px;
+      cursor:pointer; transition:background .1s; }
+    .sr-item:hover,.sr-item.sr-focus { background:var(--surface2); }
+    .sr-icon { width:26px; height:26px; border-radius:6px; display:flex; align-items:center;
+      justify-content:center; font-size:13px; flex-shrink:0; background:var(--surface2); }
+    .sr-text { flex:1; min-width:0; }
+    .sr-name { font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sr-meta { font-size:11px; color:var(--muted); }
+    .sr-empty { color:var(--muted); padding:24px; text-align:center; }
+
+    /* DIFF MODAL */
+    #diff-modal { position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:150;
+      display:none; align-items:center; justify-content:center; padding:20px; }
+    #diff-modal.open { display:flex; }
+    .diff-box { background:var(--surface); border:1px solid var(--border2); border-radius:10px;
+      width:min(900px,100%); max-height:85vh; display:flex; flex-direction:column; overflow:hidden; }
+    .diff-hdr { display:flex; align-items:center; gap:12px; padding:12px 16px;
+      border-bottom:1px solid var(--border); flex-shrink:0; }
+    .diff-title { font-size:14px; font-weight:700; flex:1; }
+    .diff-score { font-size:12px; padding:2px 8px; border-radius:4px; background:var(--surface2); color:var(--muted); }
+    .diff-cols { display:grid; grid-template-columns:1fr 1fr; flex:1; overflow:hidden; min-height:0; }
+    .diff-col { display:flex; flex-direction:column; overflow:hidden; border-right:1px solid var(--border); }
+    .diff-col:last-child { border-right:none; }
+    .diff-col-hdr { padding:9px 14px; background:var(--surface2); border-bottom:1px solid var(--border);
+      font-size:12px; font-weight:600; flex-shrink:0; }
+    .diff-col-hdr input { background:transparent; border:none; outline:none; color:var(--text);
+      font-family:inherit; font-size:12px; width:100%; }
+    .diff-col-hdr input::placeholder { color:var(--muted); }
+    .diff-col-body { overflow-y:auto; flex:1; }
+    .diff-row { display:flex; align-items:center; gap:8px; padding:6px 14px;
+      border-bottom:1px solid var(--border); font-size:12px; }
+    .diff-row.shared { background:#0d2213; }
+    .diff-row.unique { background:#1c0a0a; }
+    .diff-pick-item { padding:7px 14px; border-bottom:1px solid var(--border);
+      font-size:12px; cursor:pointer; transition:background .1s; }
+    .diff-pick-item:hover { background:var(--surface2); }
+
+    /* SAMPLE USAGE MODAL */
+    #samp-modal { position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:150;
+      display:none; align-items:center; justify-content:center; padding:20px; }
+    #samp-modal.open { display:flex; }
+    .samp-box { background:var(--surface); border:1px solid var(--border2); border-radius:10px;
+      width:min(540px,100%); max-height:70vh; display:flex; flex-direction:column; overflow:hidden; }
+    .samp-hdr { display:flex; align-items:flex-start; gap:10px; padding:12px 16px;
+      border-bottom:1px solid var(--border); flex-shrink:0; }
+    .samp-path-txt { font-size:11px; font-family:monospace; color:var(--accent); flex:1;
+      word-break:break-all; line-height:1.5; }
+    .samp-body { overflow-y:auto; flex:1; padding:8px 0; }
+    .samp-grp-hdr { padding:8px 16px 4px; font-size:10px; font-weight:700;
+      letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); }
+    .samp-item { padding:5px 16px; font-size:12px; display:flex; align-items:center; gap:6px; }
+    .samp-item-name { color:var(--text); font-weight:500; cursor:pointer; }
+    .samp-item-name:hover { color:var(--accent); }
+
+    /* MISC */
     .spinner-wrap { display:flex; align-items:center; gap:10px; color:var(--muted); padding:24px 20px; }
     .spinner { width:15px; height:15px; border:2px solid var(--border2); border-top-color:var(--accent);
       border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
     @keyframes spin { to { transform:rotate(360deg); } }
     .no-results { color:var(--muted); padding:36px; text-align:center; }
+    .kbd-hint { font-size:10px; color:var(--border2); padding:2px 5px; background:var(--surface2);
+      border:1px solid var(--border); border-radius:3px; }
   </style>
 </head>
 <body>
@@ -365,6 +525,7 @@
     <div class="hdr-right">
       <span id="sd-label">No SD card mounted</span>
       <span class="ro-badge" id="ro-badge">🔒 READ ONLY</span>
+      <button class="btn ghost icon" id="btn-search" title="Search  ⌘K" style="display:none">⌕</button>
       <button class="btn" id="btn-open">OPEN SD CARD</button>
     </div>
   </header>
@@ -373,7 +534,6 @@
     <div class="empty-icon">⬛</div>
     <div class="empty-title">M8 LIBRARIAN</div>
     <div class="empty-sub">Mount your M8's SD card to browse songs, instruments, themes, and back up your data.</div>
-    <!-- Reconnect card — shown if a previously used SD handle is saved -->
     <div id="reconnect-card" class="reconnect-card">
       <div class="reconnect-lbl">Last opened:</div>
       <div class="reconnect-name" id="reconnect-name"></div>
@@ -388,10 +548,12 @@
 
   <div id="main">
     <div class="tab-bar">
-      <button class="tab-btn active" data-tab="songs">SONGS</button>
-      <button class="tab-btn" data-tab="instruments">INSTRUMENTS</button>
-      <button class="tab-btn" data-tab="themes">THEMES</button>
-      <button class="tab-btn" data-tab="backup">BACKUP</button>
+      <button class="tab-btn active" data-tab="songs" title="1">SONGS</button>
+      <button class="tab-btn" data-tab="instruments" title="2">INSTRUMENTS</button>
+      <button class="tab-btn" data-tab="themes" title="3">THEMES</button>
+      <button class="tab-btn" data-tab="problems" title="4">PROBLEMS</button>
+      <button class="tab-btn" data-tab="grooves" title="5">GROOVES</button>
+      <button class="tab-btn" data-tab="backup" title="6">BACKUP</button>
     </div>
 
     <div id="cache-bar">
@@ -399,7 +561,16 @@
       <button class="btn sm dim" id="btn-rescan" style="display:none">Full Rescan</button>
     </div>
 
-    <!-- SONGS -->
+    <div id="health-bar">
+      <span class="hstat"><b id="h-songs">0</b> songs</span>
+      <span class="hstat"><b id="h-instrs">0</b> instruments</span>
+      <span class="hstat bad clickable" id="h-broken-stat"><b id="h-broken">0</b> broken</span>
+      <span class="hstat warn clickable" id="h-unbundled-stat"><b id="h-unbundled">0</b> unbundled</span>
+      <span class="hstat clickable" id="h-unused-stat"><b id="h-unused">0</b> unused instrs</span>
+      <span class="hstat clickable" id="h-dupes-stat"><b id="h-dupes">0</b> dupes</span>
+    </div>
+
+    <!-- ── SONGS ── -->
     <div class="tab-pane active" id="tab-songs">
       <div class="toolbar">
         <input class="search" id="song-q" type="text" placeholder="filter songs…">
@@ -410,12 +581,19 @@
           <option value="date-asc">Oldest first</option>
           <option value="missing">Most missing</option>
           <option value="instrs">Most instruments</option>
+          <option value="firm-desc">Firmware (newest)</option>
+          <option value="firm-asc">Firmware (oldest)</option>
         </select>
-        <button class="btn ghost sm" id="song-miss-btn">⚠ Missing only</button>
-        <span class="stat-chip" id="songs-stat"></span>
-        <div class="vtog-wrap" style="margin-left:auto">
-          <button class="vtog active" id="vtog-list" title="List view">☰</button>
-          <button class="vtog" id="vtog-grid" title="Grid view">⊞</button>
+        <select class="sorter" id="song-firm-filter" style="display:none">
+          <option value="all">All firmware</option>
+        </select>
+        <button class="btn ghost sm" id="song-miss-btn">⚠ Missing</button>
+        <button class="btn ghost sm" id="song-bundle-btn">📦 Unbundled</button>
+        <span class="stat-chip" id="songs-stat" style="margin-left:auto"></span>
+        <div class="vtog-wrap">
+          <button class="vtog" id="vtog-compact" title="Compact  C">⊟</button>
+          <button class="vtog active" id="vtog-list" title="List  L">☰</button>
+          <button class="vtog" id="vtog-grid" title="Grid  G">⊞</button>
         </div>
       </div>
       <div class="cat-notice" id="cat-notice">
@@ -426,7 +604,7 @@
       <div class="scroll-area"><div id="songs-list"></div></div>
     </div>
 
-    <!-- INSTRUMENTS -->
+    <!-- ── INSTRUMENTS ── -->
     <div class="tab-pane" id="tab-instruments">
       <div class="toolbar">
         <input class="search" id="instr-q" type="text" placeholder="filter instruments…">
@@ -438,25 +616,29 @@
           <option value="missing">Missing first</option>
         </select>
         <div id="type-filters"></div>
-        <button class="btn ghost sm" id="instr-miss-btn">⚠ Missing only</button>
+        <button class="btn ghost sm" id="instr-miss-btn">⚠ Missing</button>
         <button class="btn ghost sm on" id="btn-igroup">📁 Folders</button>
-        <span class="stat-chip" id="instrs-stat"></span>
-        <div class="vtog-wrap" style="margin-left:4px">
-          <button class="vtog active" id="ivtog-list" title="List view">☰</button>
-          <button class="vtog" id="ivtog-grid" title="Grid view">⊞</button>
+        <span class="stat-chip" id="instrs-stat" style="margin-left:auto"></span>
+        <div class="vtog-wrap">
+          <button class="vtog active" id="ivtog-list" title="List  L">☰</button>
+          <button class="vtog" id="ivtog-grid" title="Grid  G">⊞</button>
         </div>
+      </div>
+      <div class="type-strip-bar" id="type-strip-bar" style="display:none">
+        <div class="type-strip" id="type-strip"></div>
+        <div class="type-strip-labels" id="type-strip-labels"></div>
       </div>
       <div class="scroll-area"><div id="instrs-list"></div></div>
     </div>
 
-    <!-- THEMES -->
+    <!-- ── THEMES ── -->
     <div class="tab-pane" id="tab-themes">
       <div class="toolbar">
         <input class="search" id="theme-q" type="text" placeholder="filter themes…">
-        <span class="stat-chip" id="themes-stat"></span>
-        <div class="vtog-wrap" style="margin-left:auto">
-          <button class="vtog active" id="tvtog-compact" title="Compact view">⊟</button>
-          <button class="vtog" id="tvtog-expanded" title="Expanded view">⊞</button>
+        <span class="stat-chip" id="themes-stat" style="margin-left:auto"></span>
+        <div class="vtog-wrap">
+          <button class="vtog active" id="tvtog-compact" title="Compact">⊟</button>
+          <button class="vtog" id="tvtog-expanded" title="Expanded">⊞</button>
         </div>
       </div>
       <div class="themes-scroll">
@@ -464,7 +646,29 @@
       </div>
     </div>
 
-    <!-- BACKUP -->
+    <!-- ── PROBLEMS ── -->
+    <div class="tab-pane" id="tab-problems">
+      <div class="prob-nav">
+        <button class="prob-btn active" data-psec="broken">Broken<span class="prob-count" id="pc-broken"></span></button>
+        <button class="prob-btn" data-psec="unused">Unused Instrs<span class="prob-count" id="pc-unused"></span></button>
+        <button class="prob-btn" data-psec="unbundled">Unbundled<span class="prob-count" id="pc-unbundled"></span></button>
+        <button class="prob-btn" data-psec="dupes">Duplicates<span class="prob-count" id="pc-dupes"></span></button>
+        <button class="prob-btn" data-psec="backbone">Backbone<span class="prob-count" id="pc-backbone"></span></button>
+        <button class="prob-btn" data-psec="hotsamples">Hot Samples</button>
+        <button class="btn sm dim" id="btn-export-report" style="margin-left:auto">⬇ Export Report</button>
+      </div>
+      <div class="scroll-area" id="prob-content"></div>
+    </div>
+
+    <!-- ── GROOVES ── -->
+    <div class="tab-pane" id="tab-grooves">
+      <div class="toolbar">
+        <span class="stat-chip" id="grooves-stat"></span>
+      </div>
+      <div class="scroll-area"><div id="grooves-list"></div></div>
+    </div>
+
+    <!-- ── BACKUP ── -->
     <div class="tab-pane" id="tab-backup">
       <div class="backup-layout">
         <div class="backup-panel">
@@ -493,18 +697,66 @@
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- Song detail modal (grid view) -->
+  </div><!-- #main -->
+</div><!-- #app -->
+
+<!-- Song modal -->
 <div id="song-modal" class="song-modal-overlay" style="display:none">
   <div class="song-modal-box">
     <div class="song-modal-hdr">
       <span class="song-modal-title" id="modal-title"></span>
       <span class="song-modal-meta" id="modal-meta"></span>
+      <button class="btn ghost sm" id="btn-modal-diff" style="margin-right:4px">⇌ Compare</button>
       <button class="btn ghost sm" id="btn-modal-close">✕</button>
     </div>
     <div class="song-modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Diff modal -->
+<div id="diff-modal">
+  <div class="diff-box">
+    <div class="diff-hdr">
+      <span class="diff-title">Song Comparison</span>
+      <span class="diff-score" id="diff-score"></span>
+      <button class="btn ghost sm" id="btn-diff-close">✕</button>
+    </div>
+    <div class="diff-cols">
+      <div class="diff-col">
+        <div class="diff-col-hdr" id="diff-hdr-a">—</div>
+        <div class="diff-col-body" id="diff-body-a"></div>
+      </div>
+      <div class="diff-col">
+        <div class="diff-col-hdr">
+          <input id="diff-srch" placeholder="Pick a song to compare…" autocomplete="off">
+        </div>
+        <div class="diff-col-body" id="diff-body-b"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sample usage modal -->
+<div id="samp-modal">
+  <div class="samp-box">
+    <div class="samp-hdr">
+      <span class="samp-path-txt" id="samp-path"></span>
+      <button class="btn ghost sm" id="btn-samp-close">✕</button>
+    </div>
+    <div class="samp-body" id="samp-body"></div>
+  </div>
+</div>
+
+<!-- Global search overlay -->
+<div id="search-overlay">
+  <div class="srch-box">
+    <div class="srch-input-row">
+      <span style="font-size:16px;color:var(--muted)">⌕</span>
+      <input id="srch-input" placeholder="Search songs, instruments, themes…" autocomplete="off">
+      <span class="srch-kbd" id="srch-esc-kbd">Esc</span>
+    </div>
+    <div class="srch-results" id="srch-results"></div>
   </div>
 </div>
 
@@ -525,7 +777,6 @@ const M8 = (() => {
   };
   const THEME_COLORS = ['background','text','play','cursor','selection','deselect','view','marker'];
 
-  // UTF-8 first, Latin-1 fallback — M8 stores paths verbatim from FAT filesystem
   function readStr(b, off, len) {
     const bytes = [];
     for (let i = 0; i < len; i++) {
@@ -564,6 +815,7 @@ const M8 = (() => {
     const samplePaths = [...new Set(instruments.filter(x=>x.samplePath).map(x=>x.samplePath))];
     return { header:h, name, instruments, samplePaths };
   }
+
   function parseInstrFile(b) {
     const h = parseHeader(b);
     if (!h || h.fileType !== 0x10) return null;
@@ -573,6 +825,7 @@ const M8 = (() => {
       name:readStr(b,base+1,12).trim()||'UNNAMED',
       samplePath:kind===0x02?readStr(b,base+SAMP_OFF,127).trim():'' };
   }
+
   function parseTheme(b) {
     const h = parseHeader(b);
     if (!h || h.fileType !== 0x20) return null;
@@ -583,21 +836,31 @@ const M8 = (() => {
     });
     return { header:h, colors };
   }
+
+  // Grooves: 16 bytes of step values after the 14-byte header
+  // Default value 6 = straight timing; other values = swing/shuffle
+  function parseGroove(b) {
+    const h = parseHeader(b);
+    if (!h || h.fileType !== 0x30) return null;
+    const steps = [];
+    for (let i = 0; i < 16; i++) steps.push(b[14 + i] ?? 6);
+    return { header:h, steps };
+  }
+
   function rgbHex(c) {
     if (!c) return '#111';
     return '#'+[c.r,c.g,c.b].map(v=>v.toString(16).padStart(2,'0')).join('');
   }
-  return { parseSong, parseInstrFile, parseTheme, rgbHex, THEME_COLORS };
+
+  function fmtVer(v) { return `v${v.major}.${v.minor}.${v.patch}`; }
+  function verNum(v) { return v.major*10000 + v.minor*100 + v.patch; }
+
+  return { parseSong, parseInstrFile, parseTheme, parseGroove, rgbHex, fmtVer, verNum, THEME_COLORS };
 })();
 
 
 // ══════════════════════════════════════════════════════════
 // LIBRARY CACHE  (IndexedDB v2)
-//
-// v2 changes vs v1:
-//  - New 'handles' object store for persisting SD card directory handle
-//  - cacheVer:2 field on library entries (old entries are ignored → force rescan)
-//  - sampleRels are now root-relative paths (not Samples/-relative)
 // ══════════════════════════════════════════════════════════
 const Cache = (() => {
   const DB = 'm8librarian', LIB = 'libraries', HDL = 'handles', VER = 2;
@@ -629,7 +892,7 @@ const Cache = (() => {
   async function load(key) {
     try {
       const data = await tx(LIB, 'readonly', s => s.get(key));
-      if (!data || data.cacheVer !== 2) return null; // invalidate old format
+      if (!data || data.cacheVer !== 2) return null;
       return data;
     } catch { return null; }
   }
@@ -640,8 +903,6 @@ const Cache = (() => {
   async function remove(key) {
     try { await tx(LIB, 'readwrite', s => s.delete(key)); } catch {}
   }
-
-  // Persist the FileSystemDirectoryHandle for reconnect on next load
   async function saveHandle(handle) {
     try { await tx(HDL, 'readwrite', s => s.put({key:'last', handle, name:handle.name})); }
     catch(e) { console.warn('saveHandle:', e); }
@@ -650,15 +911,11 @@ const Cache = (() => {
     try { return await tx(HDL, 'readonly', s => s.get('last')); }
     catch { return null; }
   }
-
-  // Rebuild 2-variant lookup Set from root-relative bare paths
-  // (v2 format: paths are relative to SD root, e.g. "Samples/foo.wav", "Instruments/bar.wav")
   function rebuildKnown(rels) {
     const s = new Set();
     for (const r of rels) { s.add(r); s.add('/'+r); }
     return s;
   }
-
   function ageStr(ts) {
     const m = Math.round((Date.now()-ts)/60000);
     if (m < 2) return 'just now';
@@ -667,7 +924,6 @@ const Cache = (() => {
     if (h < 24) return `${h}h ago`;
     return `${Math.round(h/24)}d ago`;
   }
-
   return { load, save, remove, saveHandle, loadHandle, rebuildKnown, ageStr };
 })();
 
@@ -692,24 +948,17 @@ const Scanner = (() => {
     return n;
   }
 
-  // Recursively scan a songs directory.
-  // M8 firmware creates autosave bundle folders with the same base name as the song file
-  // (e.g. JUNGAMB.m8s → JUNGAMB/ containing timestamped autosaves).
-  // Those are detected and SKIPPED — we don't recurse into them but do mark hasBundle:true.
-  // All other subdirectories are treated as user-organised folders and recursed into.
   async function scanSongsDir(dir, prefix) {
     const songs = [], fileEntries = [], dirEntries = [];
     for await (const [name, handle] of dir) {
       if (handle.kind === 'file') fileEntries.push({name, handle});
       else dirEntries.push({name, handle});
     }
-    // Collect base names of song files at this level so we can identify their bundle dirs
     const songBases = new Set(
       fileEntries
         .filter(e => e.name.toLowerCase().endsWith('.m8s'))
         .map(e => e.name.toLowerCase().replace(/\.m8s$/, ''))
     );
-    // Parse song files
     for (const {name, handle} of fileEntries) {
       if (!name.toLowerCase().endsWith('.m8s')) continue;
       try {
@@ -725,17 +974,14 @@ const Scanner = (() => {
         }
       } catch(e) { console.warn('Song parse error:', e); }
     }
-    // Recurse into non-bundle subdirs
     for (const {name, handle} of dirEntries) {
-      if (songBases.has(name.toLowerCase())) continue; // autosave bundle — skip
+      if (songBases.has(name.toLowerCase())) continue;
       const sub = prefix ? `${prefix}/${name}` : name;
       songs.push(...await scanSongsDir(handle, sub));
     }
     return songs;
   }
 
-  // Build a nested tree from a flat songs array, using filePath to determine folder hierarchy.
-  // Root songs (no /): appear at top level. Songs in subfolders: nested under their folder nodes.
   function buildSongsTree(songs) {
     const root = { name:'', path:'', songs:[], children:[] };
     const map  = new Map([['', root]]);
@@ -760,7 +1006,6 @@ const Scanner = (() => {
     return root;
   }
 
-  // Build a nested tree from a flat instruments array
   function buildInstrTree(instrs) {
     const root = { name:'', path:'', instrs:[], children:[] };
     const map  = new Map([['', root]]);
@@ -790,9 +1035,10 @@ const Scanner = (() => {
   }
 
   async function scanFast(root, onProgress) {
-    const instrs=[], themes=[];
+    const instrs=[], themes=[], grooves=[];
     const [songsDir, instrDir, themesDir, groovesDir] = await Promise.all([
-      subDir(root,'Songs'), subDir(root,'Instruments'), subDir(root,'Themes'), subDir(root,'Grooves'),
+      subDir(root,'Songs'), subDir(root,'Instruments'),
+      subDir(root,'Themes'), subDir(root,'Grooves'),
     ]);
 
     onProgress?.('Scanning songs…');
@@ -832,24 +1078,28 @@ const Scanner = (() => {
       themes.sort((a,b) => a.fileName.localeCompare(b.fileName));
     }
 
-    const grooveCount = await countExt(groovesDir, '.m8g');
-    const dirCounts = { Songs:songs.length, Instruments:instrs.length,
-      Samples:null, Themes:themes.length, Grooves:grooveCount };
-    return { songs, instrs, themes, dirCounts };
+    onProgress?.('Scanning grooves…');
+    if (groovesDir) {
+      for await (const entry of walkFiles(groovesDir,'')) {
+        if (!entry.name.toLowerCase().endsWith('.m8g')) continue;
+        try {
+          const file = await entry.handle.getFile();
+          const buf  = await file.arrayBuffer();
+          const grv  = M8.parseGroove(new Uint8Array(buf));
+          if (grv) grooves.push({...grv, fileName:entry.name, filePath:entry.path,
+            fileSize:buf.byteLength, lastModified:file.lastModified});
+        } catch {}
+      }
+      grooves.sort((a,b) => a.fileName.localeCompare(b.fileName));
+    }
+
+    const dirCounts = {
+      Songs:songs.length, Instruments:instrs.length,
+      Samples:null, Themes:themes.length, Grooves:grooves.length,
+    };
+    return { songs, instrs, themes, grooves, dirCounts };
   }
 
-  // Catalogue ALL wav files from the SD card root.
-  //
-  // Previous versions only walked Samples/ — but M8 songs can reference samples from
-  // anywhere on the card (e.g. /Instruments/Fairlight/05Basses/Synbass3C2.wav).
-  // Walking from root means any path the M8 stores will be found.
-  //
-  // Paths are stored as root-relative bare strings, e.g.:
-  //   "Samples/Kicks/kick.wav"
-  //   "Instruments/Fairlight/05Basses/Synbass3C2.wav"
-  //
-  // rebuildKnown() adds two variants: bare and /bare, which matches M8's absolute
-  // path format ("/Samples/Kicks/kick.wav") via sampleFound().
   async function catalogueSamples(sdRoot, onCount) {
     const known = new Set(), rels = [];
     let total = 0;
@@ -867,8 +1117,6 @@ const Scanner = (() => {
       }
       if (subtasks.length) await Promise.all(subtasks);
     }
-    // Only walk directories where M8 samples actually live — skips Songs/, Themes/, Grooves/ etc.
-    // Walk Samples/ and Instruments/ in parallel for speed.
     await Promise.all(['Samples', 'Instruments'].map(async dirName => {
       let dir; try { dir = await sdRoot.getDirectoryHandle(dirName); } catch { return; }
       await walkAndIndex(dir, dirName);
@@ -876,7 +1124,6 @@ const Scanner = (() => {
     return { known, rels, count:total };
   }
 
-  // null = not yet catalogued; true = found; false = missing
   function sampleFound(path, known) {
     if (!path || !known.size) return null;
     const lp = path.toLowerCase().replace(/\\/g,'/');
@@ -884,6 +1131,7 @@ const Scanner = (() => {
     return known.has(lp) || known.has(ns) || known.has('/'+ns);
   }
 
+  // usageMap: lowercase instr name → [song names...]
   function buildUsageMap(songs) {
     const m = new Map();
     for (const s of songs)
@@ -897,7 +1145,53 @@ const Scanner = (() => {
     return out;
   }
 
-  return { scanFast, catalogueSamples, sampleFound, buildUsageMap, buildSongsTree, buildInstrTree };
+  // sampleUsageMap: lowercase sample path → {songs:[], instrFiles:[]}
+  function buildSampleUsageMap(songs, instrs) {
+    const m = new Map();
+    function touch(path) {
+      const k = path.toLowerCase().replace(/\\/g,'/').replace(/^\//, '');
+      if (!m.has(k)) m.set(k, {songs:new Set(), instrFiles:new Set()});
+      return m.get(k);
+    }
+    for (const s of songs)
+      for (const i of s.instruments)
+        if (i.samplePath) touch(i.samplePath).songs.add(s.name);
+    for (const i of instrs)
+      if (i.samplePath) touch(i.samplePath).instrFiles.add(`${i.name} (${i.filePath})`);
+    const out = new Map();
+    for (const [k,v] of m)
+      out.set(k, {songs:[...v.songs].sort(), instrFiles:[...v.instrFiles].sort()});
+    return out;
+  }
+
+  // instrDupeMap: lowercase instr name → [instr, ...] where length > 1
+  function buildInstrDupeMap(instrs) {
+    const m = new Map();
+    for (const i of instrs) {
+      const k = i.name.toLowerCase();
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(i);
+    }
+    const out = new Map();
+    for (const [k,v] of m) if (v.length > 1) out.set(k, v);
+    return out;
+  }
+
+  // Jaccard similarity between two songs based on shared instrument names
+  function jaccardSim(songA, songB) {
+    const a = new Set(songA.instruments.map(i => i.name.toLowerCase()));
+    const b = new Set(songB.instruments.map(i => i.name.toLowerCase()));
+    if (a.size === 0 && b.size === 0) return 0;
+    const inter = [...a].filter(x => b.has(x)).length;
+    const union = new Set([...a, ...b]).size;
+    return union === 0 ? 0 : inter / union;
+  }
+
+  return {
+    scanFast, catalogueSamples, sampleFound,
+    buildUsageMap, buildSampleUsageMap, buildInstrDupeMap,
+    buildSongsTree, buildInstrTree, jaccardSim,
+  };
 })();
 
 
@@ -936,50 +1230,97 @@ async function createBackup(sdHandle, dirs, onLog, onDone, onError) {
   } catch(e) { onError?.(e.message); }
 }
 
-
 // ══════════════════════════════════════════════════════════
 // UI
 // ══════════════════════════════════════════════════════════
 const UI = (() => {
   const $ = id => document.getElementById(id);
-  const fmtVer = v => `v${v.major}.${v.minor}.${v.patch}`;
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-  // ── State
+  // ── State ──────────────────────────────────────────────
   let sdHandle=null, cacheKey='';
-  let songs=[], instrs=[], themes=[], known=new Set(), usageMap=new Map();
+  let songs=[], instrs=[], themes=[], grooves=[];
+  let known=new Set(), usageMap=new Map();
+  let sampleUsageMap=new Map(), instrDupeMap=new Map();
   let dirCounts={};
   let sampIndexed=false;
-  let songFilter='', songSort='name-asc', songMissOnly=false, songView='list';
-  let instrFilter='', instrSort='name-asc', instrTypes=new Set(), instrMissOnly=false, instrGrouped=true, instrView='list';
+  // Songs
+  let songFilter='', songSort='name-asc', songMissOnly=false, songBundleFilter=false;
+  let songView='list', songFirmFilter='all';
+  // Instruments
+  let instrFilter='', instrSort='name-asc', instrTypes=new Set();
+  let instrMissOnly=false, instrGrouped=true, instrView='list';
+  // Themes
   let themeFilter='', themeExpanded=false;
+  // Problems
+  let problemsSection='broken';
+  // Diff
+  let diffSongA=null, diffSongB=null;
+  // Search
+  let srchItems=[], srchFocus=-1;
 
-  // ── Tabs
-  document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>{
-    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
-    btn.classList.add('active');
-    $('tab-'+btn.dataset.tab).classList.add('active');
-  }));
-
-  // ── View toggles
-  $('vtog-list').addEventListener('click',()=>{ songView='list'; $('vtog-list').classList.add('active'); $('vtog-grid').classList.remove('active'); renderSongs(); });
-  $('vtog-grid').addEventListener('click',()=>{ songView='grid'; $('vtog-grid').classList.add('active'); $('vtog-list').classList.remove('active'); renderSongs(); });
-  $('btn-igroup').addEventListener('click',()=>{ instrGrouped=!instrGrouped; $('btn-igroup').classList.toggle('on',instrGrouped); renderInstrs(); });
-
-  // ── Song modal
-  function openSongModal(song) {
-    $('modal-title').textContent = song.name;
-    $('modal-meta').textContent  = `${song.filePath} · ${fmtVer(song.header.version)}${song.hasBundle?' · 📦':''}`;
-    $('modal-body').innerHTML    = buildSongDetail(song);
-    $('song-modal').style.display = 'flex';
+  // ── LocalStorage UI state ──────────────────────────────
+  function saveUiState() {
+    try {
+      localStorage.setItem('m8lib', JSON.stringify({
+        songView, songSort, songFirmFilter,
+        instrView, instrSort, instrGrouped,
+        themeExpanded, problemsSection,
+        activeTab: document.querySelector('.tab-btn.active')?.dataset.tab || 'songs',
+      }));
+    } catch {}
   }
-  function closeSongModal() { $('song-modal').style.display='none'; }
-  $('btn-modal-close').addEventListener('click', closeSongModal);
-  $('song-modal').addEventListener('click', e=>{ if(e.target===$('song-modal'))closeSongModal(); });
-  document.addEventListener('keydown', e=>{ if(e.key==='Escape')closeSongModal(); });
+  function loadUiState() {
+    try {
+      const s = JSON.parse(localStorage.getItem('m8lib') || '{}');
+      if (s.songView) songView = s.songView;
+      if (s.songSort) songSort = s.songSort;
+      if (s.songFirmFilter) songFirmFilter = s.songFirmFilter;
+      if (s.instrView) instrView = s.instrView;
+      if (s.instrSort) instrSort = s.instrSort;
+      if (s.instrGrouped !== undefined) instrGrouped = s.instrGrouped;
+      if (s.themeExpanded !== undefined) themeExpanded = s.themeExpanded;
+      if (s.problemsSection) problemsSection = s.problemsSection;
+      // restore song view toggles
+      ['compact','list','grid'].forEach(v => $('vtog-'+v).classList.toggle('active', v===songView));
+      ['list','grid'].forEach(v => $('ivtog-'+v).classList.toggle('active', v===instrView));
+      $('tvtog-compact').classList.toggle('active', !themeExpanded);
+      $('tvtog-expanded').classList.toggle('active', themeExpanded);
+      $('btn-igroup').classList.toggle('on', instrGrouped);
+      $('song-sort').value = songSort;
+      $('instr-sort').value = instrSort;
+      if (s.activeTab) switchTab(s.activeTab, true);
+    } catch {}
+  }
 
-  // ── Cache bar
+  // ── Tab switching ───────────────────────────────────────
+  function switchTab(name, skipSave) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab===name));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id==='tab-'+name));
+    if (!skipSave) saveUiState();
+  }
+  document.querySelectorAll('.tab-btn').forEach(btn =>
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab))
+  );
+
+  // ── Helpers ────────────────────────────────────────────
+  function songMissCount(s) { return s.samplePaths.filter(p=>Scanner.sampleFound(p,known)===false).length; }
+  function instrMiss(i)     { return i.kind===0x02&&i.samplePath&&Scanner.sampleFound(i.samplePath,known)===false; }
+  function instrUsage(i)    { return (usageMap.get(i.name.toLowerCase())||[]).length; }
+
+  function missInfo(song) {
+    const has = song.samplePaths.length > 0;
+    if (!has)          return {cls:'none', bar:'pend', lbl:'—'};
+    if (!sampIndexed)  return {cls:'pend', bar:'pend', lbl:`${song.samplePaths.length} samp`};
+    const m = songMissCount(song);
+    if (m > 0)         return {cls:'bad',  bar:'bad',  lbl:`⚠ ${m} missing`};
+    return                    {cls:'good', bar:'good', lbl:`✓ ${song.samplePaths.length} ok`};
+  }
+
+  function firmStr(song) { return M8.fmtVer(song.header.version); }
+  function firmNum(song) { return M8.verNum(song.header.version); }
+
+  // ── Cache bar ──────────────────────────────────────────
   function setCacheBar(state, ts) {
     const bar=$('cache-bar'), msg=$('cache-msg'), rscan=$('btn-rescan');
     bar.style.display='flex'; bar.className='';
@@ -994,11 +1335,82 @@ const UI = (() => {
     }
   }
 
-  // ── Load SD handle (shared by openSD and reconnect paths)
+  // ── Catalogue notice ────────────────────────────────────
+  function setCatNotice(state, n) {
+    const notice=$('cat-notice'), msg=$('cat-msg'), prog=$('cat-prog'), btn=$('btn-catalogue');
+    if (state==='idle') {
+      notice.className='cat-notice'; msg.textContent='Sample dependencies not checked.';
+      prog.textContent=''; btn.textContent='Catalogue Samples'; btn.disabled=false;
+    } else if (state==='running') {
+      notice.className='cat-notice'; msg.textContent='Indexing wav files on card…';
+      prog.textContent=n||''; btn.textContent='Running…'; btn.disabled=true;
+    } else if (state==='cached') {
+      notice.className='cat-notice done'; msg.textContent=`✓ ${n} wav files indexed · from cache.`;
+      prog.textContent=''; btn.textContent='Re-index'; btn.disabled=false;
+    } else {
+      notice.className='cat-notice done'; msg.textContent=`✓ ${n} wav files indexed.`;
+      prog.textContent=''; btn.textContent='Re-index'; btn.disabled=false;
+    }
+  }
+
+  // ── Health bar ─────────────────────────────────────────
+  function renderHealthBar() {
+    if (!songs.length && !instrs.length) return;
+    $('health-bar').classList.add('visible');
+    $('h-songs').textContent = songs.length;
+    $('h-instrs').textContent = instrs.length;
+
+    const brokenSongs = sampIndexed ? songs.filter(s=>songMissCount(s)>0) : [];
+    const brokenInstrs = sampIndexed ? instrs.filter(i=>instrMiss(i)) : [];
+    const brokenCount = brokenSongs.length + brokenInstrs.length;
+    $('h-broken').textContent = brokenCount;
+    $('h-broken-stat').className = 'hstat clickable' + (brokenCount>0?' bad':'');
+
+    const unbundled = songs.filter(s=>!s.hasBundle).length;
+    $('h-unbundled').textContent = unbundled;
+    $('h-unbundled-stat').className = 'hstat clickable' + (unbundled>0?' warn':'');
+
+    const unused = instrs.filter(i=>instrUsage(i)===0).length;
+    $('h-unused').textContent = unused;
+
+    const dupes = instrDupeMap.size;
+    $('h-dupes').textContent = dupes;
+
+    [$('h-broken-stat'),$('h-unbundled-stat'),$('h-unused-stat'),$('h-dupes-stat')]
+      .forEach(el => el.onclick = () => switchToProblems(el));
+  }
+  function switchToProblems(el) {
+    const map = {
+      'h-broken-stat':'broken','h-unbundled-stat':'unbundled',
+      'h-unused-stat':'unused','h-dupes-stat':'dupes',
+    };
+    const sec = map[el.id];
+    if (sec) { problemsSection=sec; renderProblems(); }
+    switchTab('problems');
+  }
+
+  // ── Firmware filter dropdown ────────────────────────────
+  function updateFirmwareFilter() {
+    const sel = $('song-firm-filter');
+    const versions = [...new Set(songs.map(s=>firmStr(s)))].sort().reverse();
+    sel.innerHTML = '<option value="all">All firmware</option>' +
+      versions.map(v=>`<option value="${v}"${v===songFirmFilter?'selected':''}>${v}</option>`).join('');
+    sel.style.display = versions.length > 1 ? '' : 'none';
+  }
+
+  // ── Rebuild derived maps ────────────────────────────────
+  function rebuildMaps() {
+    usageMap = Scanner.buildUsageMap(songs);
+    sampleUsageMap = Scanner.buildSampleUsageMap(songs, instrs);
+    instrDupeMap = Scanner.buildInstrDupeMap(instrs);
+  }
+
+  // ── Load SD handle ─────────────────────────────────────
   async function loadSDHandle(h) {
     sdHandle=h; cacheKey=h.name;
     $('sd-label').textContent=h.name;
     $('ro-badge').style.display='inline-flex';
+    $('btn-search').style.display='';
     $('empty-state').style.display='none';
     $('main').classList.add('visible');
     sampIndexed=false; known=new Set(); dirCounts={};
@@ -1006,47 +1418,51 @@ const UI = (() => {
 
     const cached = await Cache.load(cacheKey);
     if (cached) {
-      songs=cached.songs||[]; instrs=cached.instrs||[]; themes=cached.themes||[];
+      songs=cached.songs||[]; instrs=cached.instrs||[];
+      themes=cached.themes||[]; grooves=cached.grooves||[];
       dirCounts=cached.dirCounts||{};
-      usageMap=Scanner.buildUsageMap(songs);
+      rebuildMaps();
       if (cached.sampIndexed && cached.sampleRels?.length) {
         known=Cache.rebuildKnown(cached.sampleRels);
         sampIndexed=true;
         setCatNotice('cached', dirCounts.Samples||cached.sampleRels.length);
       }
-      renderSongs(); renderInstrs(); renderThemes(); renderBackupCounts();
-      setCacheBar('cached', cached.ts);
+      renderAll(); setCacheBar('cached', cached.ts);
     } else {
       setCacheBar('scanning');
       $('songs-list').innerHTML='<div class="spinner-wrap"><div class="spinner"></div>Scanning…</div>';
       $('instrs-list').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
       $('themes-grid').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
-      const r=await Scanner.scanFast(h, msg=>{
-        $('songs-list').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>${msg}</div>`;
+      const r = await Scanner.scanFast(h, msg => {
+        $('songs-list').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>${esc(msg)}</div>`;
       });
-      songs=r.songs; instrs=r.instrs; themes=r.themes; dirCounts=r.dirCounts;
-      usageMap=Scanner.buildUsageMap(songs);
+      songs=r.songs; instrs=r.instrs; themes=r.themes; grooves=r.grooves; dirCounts=r.dirCounts;
+      rebuildMaps();
       const ts=Date.now();
-      await Cache.save({key:cacheKey, ts, songs, instrs, themes,
+      await Cache.save({key:cacheKey, ts, songs, instrs, themes, grooves,
         sampleRels:[], sampIndexed:false, dirCounts});
-      renderSongs(); renderInstrs(); renderThemes(); renderBackupCounts();
-      setCacheBar('fresh', ts);
+      renderAll(); setCacheBar('fresh', ts);
     }
   }
 
-  // ── Open SD card (fresh picker)
+  function renderAll() {
+    updateFirmwareFilter();
+    renderSongs(); renderInstrs(); renderThemes();
+    renderProblems(); renderGrooves(); renderBackupCounts();
+    renderHealthBar();
+  }
+
+  // ── Open / reconnect ───────────────────────────────────
   async function openSD() {
     if (!window.showDirectoryPicker) { alert('Requires Chrome or Edge.'); return; }
     let h; try { h=await window.showDirectoryPicker({mode:'read'}); }
     catch(e) { if(e.name!=='AbortError') console.error(e); return; }
-    await Cache.saveHandle(h); // persist for reconnect
+    await Cache.saveHandle(h);
     await loadSDHandle(h);
   }
   $('btn-open').addEventListener('click', openSD);
   $('btn-open-empty').addEventListener('click', openSD);
 
-  // ── Reconnect to last SD card
-  // FileSystemDirectoryHandle is persisted in IndexedDB; requestPermission() re-grants access
   async function initReconnect() {
     if (!window.showDirectoryPicker) { $('browser-warn').style.display='block'; return; }
     const entry = await Cache.loadHandle();
@@ -1059,7 +1475,7 @@ const UI = (() => {
       try {
         const perm = await entry.handle.requestPermission({mode:'read'});
         if (perm === 'granted') {
-          await Cache.saveHandle(entry.handle); // refresh saved handle
+          await Cache.saveHandle(entry.handle);
           await loadSDHandle(entry.handle);
         }
       } catch(e) { console.error('Reconnect failed:', e); }
@@ -1067,108 +1483,81 @@ const UI = (() => {
   }
   initReconnect();
 
-  // ── Full rescan (library only — preserves sample index if already catalogued)
-  $('btn-rescan').addEventListener('click', async ()=>{
+  // ── Full rescan ────────────────────────────────────────
+  $('btn-rescan').addEventListener('click', async () => {
     if (!sdHandle) return;
-    // Preserve sample data — WAV files don't change just because songs/instruments changed
     const prevCache = await Cache.load(cacheKey);
-    const prevRels     = (prevCache?.sampIndexed && prevCache?.sampleRels?.length) ? prevCache.sampleRels : [];
-    const prevIndexed  = prevRels.length > 0;
+    const prevRels    = (prevCache?.sampIndexed && prevCache?.sampleRels?.length) ? prevCache.sampleRels : [];
+    const prevIndexed = prevRels.length > 0;
     await Cache.remove(cacheKey);
-    songs=[]; instrs=[]; themes=[];
+    songs=[]; instrs=[]; themes=[]; grooves=[];
     if (!prevIndexed) { known=new Set(); sampIndexed=false; setCatNotice('idle'); }
     setCacheBar('scanning');
     $('songs-list').innerHTML='<div class="spinner-wrap"><div class="spinner"></div>Scanning…</div>';
     $('instrs-list').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
     $('themes-grid').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
-    const r=await Scanner.scanFast(sdHandle, msg=>{
-      $('songs-list').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>${msg}</div>`;
+    const r = await Scanner.scanFast(sdHandle, msg => {
+      $('songs-list').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>${esc(msg)}</div>`;
     });
-    songs=r.songs; instrs=r.instrs; themes=r.themes; dirCounts=r.dirCounts;
-    usageMap=Scanner.buildUsageMap(songs);
+    songs=r.songs; instrs=r.instrs; themes=r.themes; grooves=r.grooves; dirCounts=r.dirCounts;
+    rebuildMaps();
     const ts=Date.now();
-    await Cache.save({key:cacheKey, ts, songs, instrs, themes,
+    await Cache.save({key:cacheKey, ts, songs, instrs, themes, grooves,
       sampleRels:prevRels, sampIndexed:prevIndexed, dirCounts});
     if (prevIndexed) { known=Cache.rebuildKnown(prevRels); sampIndexed=true; setCatNotice('cached', dirCounts.Samples||prevRels.length); }
-    renderSongs(); renderInstrs(); renderThemes(); renderBackupCounts();
-    setCacheBar('fresh', ts);
+    renderAll(); setCacheBar('fresh', ts);
   });
 
-  // ── Sample catalogue notice
-  function setCatNotice(state, n) {
-    const notice=$('cat-notice'), msg=$('cat-msg'), prog=$('cat-prog'), btn=$('btn-catalogue');
-    if (state==='idle') {
-      notice.className='cat-notice'; msg.textContent='Sample dependencies not checked.';
-      prog.textContent=''; btn.textContent='Catalogue Samples'; btn.disabled=false;
-    } else if (state==='running') {
-      notice.className='cat-notice'; msg.textContent='Indexing wav files on card…';
-      prog.textContent=n||''; btn.textContent='Running…'; btn.disabled=true;
-    } else if (state==='cached') {
-      notice.className='cat-notice done'; msg.textContent=`✓ ${n} wav files indexed · loaded from cache.`;
-      prog.textContent=''; btn.textContent='Re-index'; btn.disabled=false;
-    } else {
-      notice.className='cat-notice done'; msg.textContent=`✓ ${n} wav files indexed.`;
-      prog.textContent=''; btn.textContent='Re-index'; btn.disabled=false;
-    }
-  }
-  $('btn-catalogue').addEventListener('click', async ()=>{
+  // ── Catalogue samples ──────────────────────────────────
+  $('btn-catalogue').addEventListener('click', async () => {
     if (!sdHandle) return;
     setCatNotice('running');
-    // Walk the entire SD card root — M8 can reference samples from any folder
     const r = await Scanner.catalogueSamples(sdHandle, n=>setCatNotice('running',`${n} found…`));
     known=r.known; sampIndexed=true;
+    sampleUsageMap = Scanner.buildSampleUsageMap(songs, instrs);
     setCatNotice('done', r.count);
     dirCounts={...dirCounts, Samples:r.count};
     const cached=await Cache.load(cacheKey)||{};
     await Cache.save({...cached, key:cacheKey, sampleRels:r.rels, sampIndexed:true, dirCounts});
-    renderSongs(); renderInstrs(); renderBackupCounts();
+    renderAll();
   });
 
-  // ── Helpers
-  function songMissCount(s) { return s.samplePaths.filter(p=>Scanner.sampleFound(p,known)===false).length; }
-  function instrMiss(i)     { return i.kind===0x02&&i.samplePath&&Scanner.sampleFound(i.samplePath,known)===false; }
-  function instrUsage(i)    { return (usageMap.get(i.name.toLowerCase())||[]).length; }
+  // ══════════════════════════════════════════════════════
+  // SONGS
+  // ══════════════════════════════════════════════════════
+  $('song-q').addEventListener('input', e=>{ songFilter=e.target.value.toLowerCase(); renderSongs(); });
+  $('song-sort').addEventListener('change', e=>{ songSort=e.target.value; renderSongs(); saveUiState(); });
+  $('song-firm-filter').addEventListener('change', e=>{ songFirmFilter=e.target.value; renderSongs(); saveUiState(); });
+  $('song-miss-btn').addEventListener('click', ()=>{ songMissOnly=!songMissOnly; $('song-miss-btn').classList.toggle('on',songMissOnly); renderSongs(); });
+  $('song-bundle-btn').addEventListener('click', ()=>{ songBundleFilter=!songBundleFilter; $('song-bundle-btn').classList.toggle('on',songBundleFilter); renderSongs(); });
 
-  function missInfo(song) {
-    const has = song.samplePaths.length > 0;
-    if (!has)          return {cls:'none', bar:'pend', lbl:'—'};
-    if (!sampIndexed)  return {cls:'pend', bar:'pend', lbl:`${song.samplePaths.length} samp`};
-    const m = songMissCount(song);
-    if (m > 0)         return {cls:'bad',  bar:'bad',  lbl:`⚠ ${m} missing`};
-    return                    {cls:'good', bar:'good', lbl:`✓ ${song.samplePaths.length} ok`};
-  }
+  ['compact','list','grid'].forEach(v => $('vtog-'+v).addEventListener('click', () => {
+    songView=v;
+    ['compact','list','grid'].forEach(x=>$('vtog-'+x).classList.toggle('active',x===v));
+    renderSongs(); saveUiState();
+  }));
 
   function matchesSong(s) {
+    if (songFirmFilter !== 'all' && firmStr(s) !== songFirmFilter) return false;
+    if (songBundleFilter && s.hasBundle) return false;
+    if (songMissOnly && songMissCount(s) === 0) return false;
     const q = songFilter;
     if (q && !s.name.toLowerCase().includes(q) && !s.filePath.toLowerCase().includes(q)) return false;
-    if (songMissOnly && songMissCount(s) === 0) return false;
     return true;
   }
 
   function sortSongsArr(arr) {
-    return [...arr].sort((a,b)=>{
+    return [...arr].sort((a,b) => {
       if (songSort==='name-desc')  return b.name.localeCompare(a.name);
       if (songSort==='date-desc')  return (b.lastModified||0)-(a.lastModified||0);
       if (songSort==='date-asc')   return (a.lastModified||0)-(b.lastModified||0);
       if (songSort==='missing')    return (songMissCount(b)-songMissCount(a))||a.name.localeCompare(b.name);
       if (songSort==='instrs')     return (b.instruments.length-a.instruments.length)||a.name.localeCompare(b.name);
+      if (songSort==='firm-desc')  return (firmNum(b)-firmNum(a))||a.name.localeCompare(b.name);
+      if (songSort==='firm-asc')   return (firmNum(a)-firmNum(b))||a.name.localeCompare(b.name);
       return a.name.localeCompare(b.name);
     });
   }
-  function sortInstrsArr(arr) {
-    return [...arr].sort((a,b)=>{
-      if (instrSort==='name-desc') return b.name.localeCompare(a.name);
-      if (instrSort==='type')      return a.typeName.localeCompare(b.typeName)||a.name.localeCompare(b.name);
-      if (instrSort==='usage')     return (instrUsage(b)-instrUsage(a))||a.name.localeCompare(b.name);
-      if (instrSort==='missing')   return ((instrMiss(b)?1:0)-(instrMiss(a)?1:0))||a.name.localeCompare(b.name);
-      return a.name.localeCompare(b.name);
-    });
-  }
-
-  // ── SONGS
-  $('song-q').addEventListener('input', e=>{ songFilter=e.target.value.toLowerCase(); renderSongs(); });
-  $('song-sort').addEventListener('change', e=>{ songSort=e.target.value; renderSongs(); });
-  $('song-miss-btn').addEventListener('click', ()=>{ songMissOnly=!songMissOnly; $('song-miss-btn').classList.toggle('on',songMissOnly); renderSongs(); });
 
   function countMatchingSongs(node) {
     let n = node.songs.filter(matchesSong).length;
@@ -1185,10 +1574,15 @@ const UI = (() => {
     const el = $('songs-list');
     if (!songs.length) {
       el.className=''; el.innerHTML='<div class="no-results">No .m8s files found.</div>';
-      $('songs-stat').textContent='0 songs';
-      return;
+      $('songs-stat').textContent='0 songs'; return;
     }
-    if (songView === 'grid') {
+    if (songView === 'compact') {
+      const visible = sortSongsArr(songs.filter(matchesSong));
+      $('songs-stat').textContent = `${visible.length} / ${songs.length} songs`;
+      el.className=''; el.innerHTML='';
+      if (!visible.length) { el.innerHTML='<div class="no-results">No matches.</div>'; return; }
+      visible.forEach(s => el.appendChild(buildSongCompact(s)));
+    } else if (songView === 'grid') {
       const visible = sortSongsArr(songs.filter(matchesSong));
       $('songs-stat').textContent = `${visible.length} / ${songs.length} songs`;
       renderSongsGrid(visible, el);
@@ -1196,15 +1590,28 @@ const UI = (() => {
       const tree = Scanner.buildSongsTree(songs);
       const matchCount = countMatchingSongs(tree);
       $('songs-stat').textContent = `${matchCount} / ${songs.length} songs`;
-      el.className = ''; el.innerHTML = '';
-      if (matchCount === 0) { el.innerHTML='<div class="no-results">No matches.</div>'; return; }
+      el.className=''; el.innerHTML='';
+      if (matchCount===0) { el.innerHTML='<div class="no-results">No matches.</div>'; return; }
       renderSongsTreeNode(tree, el, 0);
     }
   }
 
+  function buildSongCompact(song) {
+    const mi = missInfo(song);
+    const item = document.createElement('div');
+    item.className = 'song-compact-item';
+    item.innerHTML = `<div class="s-crow">
+      <span class="s-cname">${esc(song.name)}${song.hasBundle?'<span class="bundle-dot" title="Bundle">📦</span>':''}</span>
+      <span class="s-cfile">${esc(song.fileName)}</span>
+      <span class="s-cver">${firmStr(song)}</span>
+      <span class="s-cmiss ${mi.cls}">${mi.lbl}</span>
+    </div>`;
+    item.querySelector('.s-crow').addEventListener('click', () => openSongModal(song));
+    return item;
+  }
+
   function renderSongsTreeNode(node, container, depth) {
     const indent = 20 + depth * 16;
-    // Subfolders first
     for (const child of node.children) {
       if (countMatchingSongs(child) === 0) continue;
       const total = countAllSongs(child);
@@ -1215,12 +1622,11 @@ const UI = (() => {
         <span class="sf-name">📁 ${esc(child.name)}</span>
         <span class="sf-cnt">${total}</span>
       </div><div class="sf-body"></div>`;
-      groupEl.querySelector('.song-folder-hdr').addEventListener('click',()=>groupEl.classList.toggle('open'));
+      groupEl.querySelector('.song-folder-hdr').addEventListener('click', () => groupEl.classList.toggle('open'));
       renderSongsTreeNode(child, groupEl.querySelector('.sf-body'), depth+1);
       container.appendChild(groupEl);
     }
-    // Songs in this node
-    sortSongsArr(node.songs.filter(matchesSong)).forEach(song=>{
+    sortSongsArr(node.songs.filter(matchesSong)).forEach(song => {
       const item = buildSongListItem(song);
       item.querySelector('.song-row').style.paddingLeft = `${indent}px`;
       container.appendChild(item);
@@ -1236,17 +1642,17 @@ const UI = (() => {
       <span class="s-chev">▶</span>
       <span class="s-name">${esc(song.name)}</span>
       <span class="s-file">${esc(song.fileName)}${bundleTip}</span>
-      <span class="s-ver">${fmtVer(song.header.version)}</span>
+      <span class="s-ver">${firmStr(song)}</span>
       <span class="s-ic">${song.instruments.length} instr</span>
       <span class="s-miss ${mi.cls}">${mi.lbl}</span></div>
       <div class="song-detail">${buildSongDetail(song)}</div>`;
-    item.querySelector('.song-row').addEventListener('click',()=>item.classList.toggle('open'));
+    item.querySelector('.song-row').addEventListener('click', () => item.classList.toggle('open'));
     return item;
   }
 
   function renderSongsGrid(sorted, el) {
-    el.className = 'song-grid'; el.innerHTML = '';
-    sorted.forEach(song=>{
+    el.className='song-grid'; el.innerHTML='';
+    sorted.forEach(song => {
       const mi = missInfo(song);
       const card = document.createElement('div');
       card.className = 'song-card';
@@ -1256,11 +1662,12 @@ const UI = (() => {
           <div class="sc-file">${esc(song.filePath)}</div>
           <div class="sc-foot">
             <span class="sc-ic">${song.instruments.length} instr</span>
+            <span class="sc-ver">${firmStr(song)}</span>
             ${song.hasBundle?'<span class="sc-bundle" title="Bundle">📦</span>':''}
             <span class="sc-badge ${mi.cls}">${mi.lbl}</span>
           </div>
         </div>`;
-      card.addEventListener('click', ()=>openSongModal(song));
+      card.addEventListener('click', () => openSongModal(song));
       el.appendChild(card);
     });
   }
@@ -1269,61 +1676,172 @@ const UI = (() => {
     const hasI = song.instruments.length > 0;
     const hasS = song.samplePaths.length > 0;
     if (!hasI && !hasS) return '<div style="color:var(--muted);font-size:12px">Empty song — no instruments.</div>';
-    let instrHtml='', sampHtml='';
+    let instrHtml='', sampHtml='', simHtml='';
+
     if (hasI) {
-      const chips = song.instruments.map(i=>`<span class="ichip">
-        <span class="ichip-slot">${i.slot.toString().padStart(2,'0')}</span>
-        <span class="tb ${i.typeName}">${i.kindShort||i.typeName.substring(0,3)}</span>
-        <span class="ichip-name">${esc(i.name)}</span>
-      </span>`).join('');
-      instrHtml=`<div><div class="det-title">Instruments (${song.instruments.length})</div><div class="iblock">${chips}</div></div>`;
+      const chips = song.instruments.map(i => {
+        const dupes = instrDupeMap.get(i.name.toLowerCase());
+        const dupeTip = dupes ? ` title="⚠ Duplicate: ${dupes.length} files with this name"` : '';
+        return `<span class="ichip" data-iname="${esc(i.name)}"${dupeTip}>
+          <span class="ichip-slot">${i.slot.toString().padStart(2,'0')}</span>
+          <span class="tb ${i.typeName}">${i.kindShort||i.typeName.substring(0,3)}</span>
+          <span class="ichip-name">${esc(i.name)}</span>
+        </span>`;
+      }).join('');
+      instrHtml = `<div><div class="det-title">Instruments (${song.instruments.length})</div><div class="iblock">${chips}</div></div>`;
     }
+
     if (hasS) {
-      const rows = song.samplePaths.map(p=>{
+      const rows = song.samplePaths.map(p => {
         const f=Scanner.sampleFound(p,known);
         const cls=f===null?'unk':f?'ok':'miss';
         const icon=f===null?'?':f?'✓':'✗';
         const col=`var(${f===null?'--muted':f?'--c-found':'--c-miss'})`;
-        return `<div class="spr ${cls}"><span class="spr-ic" style="color:${col}">${icon}</span><span class="spr-path">${esc(p)}</span></div>`;
+        return `<div class="spr ${cls}"><span class="spr-ic" style="color:${col}">${icon}</span><span class="spr-path" data-spath="${esc(p)}">${esc(p)}</span></div>`;
       }).join('');
-      sampHtml=`<div><div class="det-title">Sample dependencies (${song.samplePaths.length})</div>${rows}</div>`;
+      sampHtml = `<div><div class="det-title">Sample dependencies (${song.samplePaths.length})</div>${rows}</div>`;
     }
-    if (hasI && hasS) return `<div class="sd-cols"><div class="sd-col">${instrHtml}</div><div class="sd-col">${sampHtml}</div></div>`;
-    return instrHtml || sampHtml;
+
+    // Similar songs (Jaccard > 0.15, top 4)
+    if (song.instruments.length > 0) {
+      const sims = songs
+        .filter(s => s !== song && s.instruments.length > 0)
+        .map(s => ({s, j:Scanner.jaccardSim(song, s)}))
+        .filter(x => x.j > 0.15)
+        .sort((a,b) => b.j - a.j)
+        .slice(0, 4);
+      if (sims.length) {
+        const chips = sims.map(({s,j}) =>
+          `<span class="sim-item" data-simname="${esc(s.name)}">
+            ${esc(s.name)}<span class="sim-pct">${Math.round(j*100)}%</span>
+          </span>`).join('');
+        simHtml = `<div class="similar-section"><div class="det-title">Similar songs</div><div>${chips}</div></div>`;
+      }
+    }
+
+    const body = hasI && hasS
+      ? `<div class="sd-cols"><div class="sd-col">${instrHtml}</div><div class="sd-col">${sampHtml}</div></div>${simHtml}`
+      : `${instrHtml||sampHtml}${simHtml}`;
+    return body;
   }
 
-  // ── INSTRUMENTS
-  $('instr-q').addEventListener('input', e=>{ instrFilter=e.target.value.toLowerCase(); renderInstrs(); });
-  $('instr-sort').addEventListener('change', e=>{ instrSort=e.target.value; renderInstrs(); });
-  $('instr-miss-btn').addEventListener('click', ()=>{ instrMissOnly=!instrMissOnly; $('instr-miss-btn').classList.toggle('on',instrMissOnly); renderInstrs(); });
-  ['list','grid'].forEach(v=>$('ivtog-'+v).addEventListener('click',()=>{
+  // ── Song modal ─────────────────────────────────────────
+  let _modalSong = null;
+  function openSongModal(song) {
+    _modalSong = song;
+    $('modal-title').textContent = song.name;
+    $('modal-meta').textContent  = `${song.filePath} · ${firmStr(song)}${song.hasBundle?' · 📦':''}`;
+    const body = $('modal-body');
+    body.innerHTML = buildSongDetail(song);
+    // Instrument chip clicks → jump to instrument
+    body.querySelectorAll('.ichip[data-iname]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const name = chip.dataset.iname;
+        closeSongModal();
+        instrFilter = name.toLowerCase();
+        $('instr-q').value = instrFilter;
+        switchTab('instruments');
+        renderInstrs();
+      });
+    });
+    // Sample path clicks → usage modal
+    body.querySelectorAll('.spr-path[data-spath]').forEach(el => {
+      el.addEventListener('click', () => openSampModal(el.dataset.spath));
+    });
+    // Similar song clicks → open that song's modal
+    body.querySelectorAll('.sim-item[data-simname]').forEach(el => {
+      el.addEventListener('click', () => {
+        const target = songs.find(s => s.name === el.dataset.simname);
+        if (target) openSongModal(target);
+      });
+    });
+    $('song-modal').style.display='flex';
+  }
+  function closeSongModal() { $('song-modal').style.display='none'; _modalSong=null; }
+  $('btn-modal-close').addEventListener('click', closeSongModal);
+  $('song-modal').addEventListener('click', e => { if (e.target===$('song-modal')) closeSongModal(); });
+  $('btn-modal-diff').addEventListener('click', () => {
+    if (_modalSong) { closeSongModal(); openDiffModal(_modalSong); }
+  });
+
+  // ══════════════════════════════════════════════════════
+  // INSTRUMENTS
+  // ══════════════════════════════════════════════════════
+  $('instr-q').addEventListener('input', e => { instrFilter=e.target.value.toLowerCase(); renderInstrs(); });
+  $('instr-sort').addEventListener('change', e => { instrSort=e.target.value; renderInstrs(); saveUiState(); });
+  $('instr-miss-btn').addEventListener('click', () => { instrMissOnly=!instrMissOnly; $('instr-miss-btn').classList.toggle('on',instrMissOnly); renderInstrs(); });
+  $('btn-igroup').addEventListener('click', () => { instrGrouped=!instrGrouped; $('btn-igroup').classList.toggle('on',instrGrouped); renderInstrs(); saveUiState(); });
+  ['list','grid'].forEach(v => $('ivtog-'+v).addEventListener('click', () => {
     instrView=v;
-    $('ivtog-list').classList.toggle('active', v==='list');
-    $('ivtog-grid').classList.toggle('active', v==='grid');
+    $('ivtog-list').classList.toggle('active',v==='list');
+    $('ivtog-grid').classList.toggle('active',v==='grid');
     $('btn-igroup').style.display = v==='grid' ? 'none' : '';
-    renderInstrs();
+    renderInstrs(); saveUiState();
   }));
 
-  const TYPE_ORDER=['WAVSYNTH','MACROSYNTH','SAMPLER','MIDIOUT','FMSYNTH'];
+  const TYPE_ORDER = ['WAVSYNTH','MACROSYNTH','SAMPLER','MIDIOUT','FMSYNTH'];
+  const TYPE_COLORS = {
+    WAVSYNTH:'var(--c-wav)', MACROSYNTH:'var(--c-mac)', SAMPLER:'var(--c-sam)',
+    MIDIOUT:'var(--c-mid)', FMSYNTH:'var(--c-fm)',
+  };
+
   function buildTypePills() {
-    const present=new Set(instrs.map(i=>i.typeName));
-    const wrap=$('type-filters'); wrap.innerHTML='';
-    TYPE_ORDER.forEach(t=>{
+    const present = new Set(instrs.map(i => i.typeName));
+    const wrap = $('type-filters'); wrap.innerHTML='';
+    TYPE_ORDER.forEach(t => {
       if (!present.has(t)) return;
-      const btn=document.createElement('button');
+      const btn = document.createElement('button');
       btn.className='type-pill'; btn.dataset.t=t; btn.textContent=t;
       if (instrTypes.has(t)) btn.classList.add('on');
-      btn.addEventListener('click',()=>{ instrTypes.has(t)?instrTypes.delete(t):instrTypes.add(t); btn.classList.toggle('on',instrTypes.has(t)); renderInstrs(); });
+      btn.addEventListener('click', () => {
+        instrTypes.has(t) ? instrTypes.delete(t) : instrTypes.add(t);
+        btn.classList.toggle('on', instrTypes.has(t));
+        renderInstrs();
+      });
       wrap.appendChild(btn);
     });
   }
 
+  function renderTypeStrip() {
+    const bar = $('type-strip-bar');
+    const visible = instrs.filter(matchesInstr);
+    if (!visible.length) { bar.style.display='none'; return; }
+    bar.style.display='block';
+    const counts = {};
+    for (const i of visible) counts[i.typeName] = (counts[i.typeName]||0)+1;
+    const total = visible.length;
+    const strip = $('type-strip'), labels = $('type-strip-labels');
+    strip.innerHTML=''; labels.innerHTML='';
+    TYPE_ORDER.forEach(t => {
+      if (!counts[t]) return;
+      const seg = document.createElement('div');
+      seg.className='ts-seg';
+      seg.style.cssText=`width:${(counts[t]/total*100).toFixed(1)}%;background:${TYPE_COLORS[t]||'var(--border2)'}`;
+      seg.title=`${t}: ${counts[t]}`;
+      strip.appendChild(seg);
+      const lbl = document.createElement('span');
+      lbl.className='ts-lbl';
+      lbl.innerHTML=`<span class="ts-dot" style="background:${TYPE_COLORS[t]}"></span>${t.substring(0,3)} ${counts[t]}`;
+      labels.appendChild(lbl);
+    });
+  }
+
   function matchesInstr(i) {
-    const q=instrFilter;
+    const q = instrFilter;
     if (q && !i.name.toLowerCase().includes(q) && !i.filePath.toLowerCase().includes(q) && !(i.samplePath||'').toLowerCase().includes(q)) return false;
     if (instrTypes.size && !instrTypes.has(i.typeName)) return false;
     if (instrMissOnly && !instrMiss(i)) return false;
     return true;
+  }
+
+  function sortInstrsArr(arr) {
+    return [...arr].sort((a,b) => {
+      if (instrSort==='name-desc') return b.name.localeCompare(a.name);
+      if (instrSort==='type')      return a.typeName.localeCompare(b.typeName)||a.name.localeCompare(b.name);
+      if (instrSort==='usage')     return (instrUsage(b)-instrUsage(a))||a.name.localeCompare(b.name);
+      if (instrSort==='missing')   return ((instrMiss(b)?1:0)-(instrMiss(a)?1:0))||a.name.localeCompare(b.name);
+      return a.name.localeCompare(b.name);
+    });
   }
 
   function buildInstrCard(instr) {
@@ -1336,7 +1854,6 @@ const UI = (() => {
       else if (miss)          { sampLine='✗ '+(instr.samplePath.split('/').pop()||instr.samplePath); sampCls='miss'; }
       else                    { sampLine='✓ '+(instr.samplePath.split('/').pop()||instr.samplePath); }
     }
-    const usedCls = usedIn.length ? 'yes' : 'no';
     const usedLbl = usedIn.length ? `Used in ${usedIn.length} song${usedIn.length!==1?'s':''}` : 'Unused';
     const card = document.createElement('div');
     card.className = 'instr-card';
@@ -1347,42 +1864,76 @@ const UI = (() => {
           <span class="ic-name">${esc(instr.name)}</span>
         </div>
         <div class="ic-samp ${sampCls}">${sampLine ? esc(sampLine) : ''}</div>
-        <div class="ic-foot"><span class="ic-used ${usedCls}">${usedLbl}</span></div>
+        <div class="ic-foot">
+          <span class="ic-used ${usedIn.length?'yes':'no'}">${usedLbl}</span>
+        </div>
       </div>`;
     return card;
   }
 
   function buildInstrItem(instr) {
-    const usedIn=usageMap.get(instr.name.toLowerCase())||[];
-    const miss=instrMiss(instr);
-    const found=instr.kind===0x02&&instr.samplePath?Scanner.sampleFound(instr.samplePath,known):null;
+    const usedIn = usageMap.get(instr.name.toLowerCase()) || [];
+    const miss = instrMiss(instr);
+    const found = instr.kind===0x02 && instr.samplePath ? Scanner.sampleFound(instr.samplePath, known) : null;
+    const dupes = instrDupeMap.get(instr.name.toLowerCase());
+
     let sc;
-    if (instr.kind!==0x02)      sc=`<span class="samp-c pend"></span>`;
-    else if (!instr.samplePath) sc=`<span class="samp-c pend">— no sample</span>`;
-    else if (!sampIndexed)      sc=`<span class="samp-c pend">? unchecked</span>`;
-    else if (miss)              sc=`<span class="samp-c miss">✗ missing</span>`;
-    else                        sc=`<span class="samp-c ok">✓ sample ok</span>`;
-    const ub=usedIn.length?`<span class="ubadge used">Used in ${usedIn.length}</span>`
-                           :`<span class="ubadge unused">Unused</span>`;
-    let dh='';
-    if (instr.kind===0x02) {
-      if (!instr.samplePath)   dh+=`<div class="drow"><span class="dlabel">Sample</span><span class="dval dim">No sample assigned</span></div>`;
-      else if (!sampIndexed)   dh+=`<div class="drow"><span class="dlabel">Sample</span><span class="dval pend">${esc(instr.samplePath)}</span></div>`;
-      else dh+=`<div class="drow"><span class="dlabel">Sample</span><span class="dval ${found?'ok':'miss'}">${found?'✓':'✗'} ${esc(instr.samplePath)}</span></div>`;
+    if (instr.kind!==0x02)       sc = `<span class="samp-c pend"></span>`;
+    else if (!instr.samplePath)  sc = `<span class="samp-c pend">— no sample</span>`;
+    else if (!sampIndexed)       sc = `<span class="samp-c pend" data-spath="${esc(instr.samplePath)}">${esc(instr.samplePath.split('/').pop()||instr.samplePath)}</span>`;
+    else if (miss)               sc = `<span class="samp-c miss" data-spath="${esc(instr.samplePath)}">✗ ${esc(instr.samplePath.split('/').pop()||instr.samplePath)}</span>`;
+    else                         sc = `<span class="samp-c ok" data-spath="${esc(instr.samplePath)}">✓ ${esc(instr.samplePath.split('/').pop()||instr.samplePath)}</span>`;
+
+    const ub = usedIn.length
+      ? `<span class="ubadge used" data-iname="${esc(instr.name)}">Used in ${usedIn.length}</span>`
+      : `<span class="ubadge unused">Unused</span>`;
+
+    let dh = '';
+    if (dupes) {
+      dh += `<div class="drow"><span class="dlabel">Dupes</span><span class="dupe-warn">⚠ ${dupes.length} files named "${esc(instr.name)}"</span></div>`;
     }
-    dh+=usedIn.length
-      ?`<div class="drow"><span class="dlabel">Used in</span><div class="schips">${usedIn.map(s=>`<span class="schip">${esc(s)}</span>`).join('')}</div></div>`
-      :`<div class="drow"><span class="dlabel">Used in</span><span class="dval dim">Not in any scanned song</span></div>`;
-    dh+=`<div class="drow"><span class="dlabel">File</span><span class="dval dim">${esc(instr.filePath)} · ${fmtVer(instr.header.version)}</span></div>`;
-    const item=document.createElement('div');
-    item.className='instr-item';
-    item.innerHTML=`<div class="instr-row">
+    if (instr.kind===0x02) {
+      if (!instr.samplePath)   dh += `<div class="drow"><span class="dlabel">Sample</span><span class="dval dim">No sample assigned</span></div>`;
+      else if (!sampIndexed)   dh += `<div class="drow"><span class="dlabel">Sample</span><span class="dval pend">${esc(instr.samplePath)}</span></div>`;
+      else dh += `<div class="drow"><span class="dlabel">Sample</span><span class="dval link ${found?'ok':'miss'}" data-spath="${esc(instr.samplePath)}">${found?'✓':'✗'} ${esc(instr.samplePath)}</span></div>`;
+    }
+    if (usedIn.length) {
+      dh += `<div class="drow"><span class="dlabel">Used in</span><div class="schips">${usedIn.map(s=>`<span class="schip" data-songname="${esc(s)}">${esc(s)}</span>`).join('')}</div></div>`;
+    } else {
+      dh += `<div class="drow"><span class="dlabel">Used in</span><span class="dval dim">Not in any scanned song</span></div>`;
+    }
+    dh += `<div class="drow"><span class="dlabel">File</span><span class="dval dim">${esc(instr.filePath)} · ${M8.fmtVer(instr.header.version)}</span></div>`;
+
+    const item = document.createElement('div');
+    item.className = 'instr-item';
+    item.innerHTML = `<div class="instr-row">
       <span class="i-chev">▶</span>
       <span class="tb ${instr.typeName}">${instr.typeName}</span>
       <span class="i-lname">${esc(instr.name)}</span>
       ${sc}${ub}</div>
       <div class="instr-det">${dh}</div>`;
-    item.querySelector('.instr-row').addEventListener('click',()=>item.classList.toggle('open'));
+    item.querySelector('.instr-row').addEventListener('click', () => item.classList.toggle('open'));
+
+    // Sample path click → usage modal
+    item.querySelectorAll('[data-spath]').forEach(el => {
+      el.addEventListener('click', e => { e.stopPropagation(); openSampModal(el.dataset.spath); });
+    });
+    // "Used in N" badge click → show songs
+    const ubEl = item.querySelector('.ubadge.used');
+    if (ubEl) ubEl.addEventListener('click', e => {
+      e.stopPropagation();
+      const iname = ubEl.dataset.iname;
+      songFilter = iname.toLowerCase(); $('song-q').value = songFilter;
+      switchTab('songs'); renderSongs();
+    });
+    // Song chip clicks → open that song
+    item.querySelectorAll('.schip[data-songname]').forEach(chip => {
+      chip.addEventListener('click', e => {
+        e.stopPropagation();
+        const s = songs.find(x => x.name===chip.dataset.songname);
+        if (s) openSongModal(s);
+      });
+    });
     return item;
   }
 
@@ -1399,22 +1950,20 @@ const UI = (() => {
 
   function renderInstrTreeNode(node, container, depth, useGrid) {
     const indent = 20 + depth * 16;
-    // Subfolders
     for (const child of node.children) {
       if (countMatchingInstrs(child) === 0) continue;
       const total = countAllInstrs(child);
       const groupEl = document.createElement('div');
-      groupEl.className = 'igroup'; // collapsed by default
+      groupEl.className = 'igroup';
       groupEl.innerHTML = `<div class="igroup-hdr" style="padding-left:${indent}px">
         <span class="igroup-chev">▶</span>
         <span class="igroup-name">📁 ${esc(child.name)}</span>
         <span class="igroup-cnt">${total}</span>
       </div><div class="igroup-body"></div>`;
-      groupEl.querySelector('.igroup-hdr').addEventListener('click',()=>groupEl.classList.toggle('open'));
+      groupEl.querySelector('.igroup-hdr').addEventListener('click', () => groupEl.classList.toggle('open'));
       renderInstrTreeNode(child, groupEl.querySelector('.igroup-body'), depth+1, useGrid);
       container.appendChild(groupEl);
     }
-    // Instruments in this node
     const matched = sortInstrsArr(node.instrs.filter(matchesInstr));
     if (!matched.length) return;
     if (useGrid) {
@@ -1433,29 +1982,30 @@ const UI = (() => {
 
   function renderInstrs() {
     buildTypePills();
+    renderTypeStrip();
     const el = $('instrs-list'); el.innerHTML='';
     const totalMatch = instrs.filter(matchesInstr).length;
-    $('instrs-stat').textContent=`${totalMatch} / ${instrs.length} instruments`;
+    $('instrs-stat').textContent = `${totalMatch} / ${instrs.length} instruments`;
     if (!instrs.length) { el.className=''; el.innerHTML='<div class="no-results">No .m8i files in Instruments/</div>'; return; }
-    if (totalMatch === 0) { el.className=''; el.innerHTML='<div class="no-results">No matches.</div>'; return; }
-
-    el.className = '';
-    if (instrView === 'grid') {
-      // Grid always shows folder tree — cards rendered per-folder
+    if (totalMatch===0) { el.className=''; el.innerHTML='<div class="no-results">No matches.</div>'; return; }
+    el.className='';
+    if (instrView==='grid') {
       const tree = Scanner.buildInstrTree(instrs);
       renderInstrTreeNode(tree, el, 0, true);
     } else if (instrGrouped) {
       const tree = Scanner.buildInstrTree(instrs);
       renderInstrTreeNode(tree, el, 0, false);
     } else {
-      sortInstrsArr(instrs.filter(matchesInstr)).forEach(i=>el.appendChild(buildInstrItem(i)));
+      sortInstrsArr(instrs.filter(matchesInstr)).forEach(i => el.appendChild(buildInstrItem(i)));
     }
   }
 
-  // ── THEMES
-  $('theme-q').addEventListener('input', e=>{ themeFilter=e.target.value.toLowerCase(); renderThemes(); });
-  $('tvtog-compact').addEventListener('click', ()=>{ themeExpanded=false; $('tvtog-compact').classList.add('active'); $('tvtog-expanded').classList.remove('active'); renderThemes(); });
-  $('tvtog-expanded').addEventListener('click', ()=>{ themeExpanded=true; $('tvtog-expanded').classList.add('active'); $('tvtog-compact').classList.remove('active'); renderThemes(); });
+  // ══════════════════════════════════════════════════════
+  // THEMES
+  // ══════════════════════════════════════════════════════
+  $('theme-q').addEventListener('input', e => { themeFilter=e.target.value.toLowerCase(); renderThemes(); });
+  $('tvtog-compact').addEventListener('click', () => { themeExpanded=false; $('tvtog-compact').classList.add('active'); $('tvtog-expanded').classList.remove('active'); renderThemes(); saveUiState(); });
+  $('tvtog-expanded').addEventListener('click', () => { themeExpanded=true; $('tvtog-expanded').classList.add('active'); $('tvtog-compact').classList.remove('active'); renderThemes(); saveUiState(); });
 
   function buildThemePreview(colors) {
     const c=colors;
@@ -1475,7 +2025,7 @@ const UI = (() => {
   }
 
   function buildThemeSwatches(colors) {
-    return ['background','text','play','cursor','selection','deselect','view','marker'].map(name=>{
+    return M8.THEME_COLORS.map(name => {
       const hex=M8.rgbHex(colors[name]);
       const short={'background':'BG','text':'TEXT','play':'PLAY','cursor':'CUR',
                    'selection':'SEL','deselect':'DSEL','view':'VIEW','marker':'MRK'}[name]||name;
@@ -1485,48 +2035,557 @@ const UI = (() => {
   }
 
   function renderThemes() {
-    const filtered=themes.filter(t=>t.fileName.toLowerCase().includes(themeFilter));
-    $('themes-stat').textContent=`${filtered.length} / ${themes.length} themes`;
-    const grid=$('themes-grid'); grid.innerHTML='';
+    const filtered = themes.filter(t => t.fileName.toLowerCase().includes(themeFilter));
+    $('themes-stat').textContent = `${filtered.length} / ${themes.length} themes`;
+    const grid = $('themes-grid'); grid.innerHTML='';
     if (!filtered.length) {
       grid.innerHTML=`<div style="grid-column:1/-1;color:var(--muted);padding:36px;text-align:center">${!themes.length?'No .m8t files in Themes/':'No matches.'}</div>`;
       return;
     }
-    filtered.forEach(theme=>{
-      const name=theme.fileName.replace(/\.m8t$/i,'');
-      const card=document.createElement('div');
+    filtered.forEach(theme => {
+      const name = theme.fileName.replace(/\.m8t$/i,'');
+      const card = document.createElement('div');
       card.className = themeExpanded ? 'theme-card expanded' : 'theme-card';
-      card.innerHTML=`${buildThemePreview(theme.colors)}
-        <div class="theme-info"><span class="theme-name">${esc(name)}</span><span class="theme-meta">${fmtVer(theme.header.version)}</span></div>
+      card.innerHTML = `${buildThemePreview(theme.colors)}
+        <div class="theme-info"><span class="theme-name">${esc(name)}</span><span class="theme-meta">${M8.fmtVer(theme.header.version)}</span></div>
         <div class="theme-swatches">${buildThemeSwatches(theme.colors)}</div>`;
       grid.appendChild(card);
     });
   }
 
-  // ── BACKUP
-  function renderBackupCounts() {
-    const fmt=n=>n!=null?`${n} file${n!==1?'s':''}`:'—';
-    ['Songs','Instruments','Themes','Grooves'].forEach(d=>$('cnt-'+d).textContent=fmt(dirCounts[d]));
-    const sc=dirCounts.Samples;
-    $('cnt-Samples').textContent=sc!=null?fmt(sc):'—';
-    const w=$('warn-Samples');
-    if (w) w.textContent=sc!=null&&sc>200?'⚠ may be large':'';
+  // ══════════════════════════════════════════════════════
+  // GROOVES
+  // ══════════════════════════════════════════════════════
+  function renderGrooves() {
+    const el = $('grooves-list');
+    $('grooves-stat').textContent = grooves.length ? `${grooves.length} grooves` : '';
+    if (!grooves.length) {
+      el.innerHTML = `<div class="groove-notice">
+        ${!sdHandle
+          ? 'Open an SD card to view grooves.'
+          : 'No .m8g files found in Grooves/ — or rescan to pick them up.'}
+      </div>`;
+      return;
+    }
+    el.innerHTML='';
+    grooves.forEach(g => {
+      const row = document.createElement('div');
+      row.className = 'groove-row';
+      const defaultStep = 6;
+      const isVaried = g.steps.some(v => v !== defaultStep);
+      const stepsHtml = g.steps.map(v =>
+        `<div class="g-step ${v !== defaultStep ? 'accent' : ''}">${v}</div>`
+      ).join('');
+      const name = g.fileName.replace(/\.m8g$/i,'');
+      row.innerHTML = `<span class="groove-name">${esc(name)}</span>
+        <div class="groove-steps">${stepsHtml}</div>
+        <span class="groove-meta">${isVaried?'varied':'straight'} · ${M8.fmtVer(g.header.version)}</span>`;
+      el.appendChild(row);
+    });
   }
-  function appendLog(t,m) {
+
+  // ══════════════════════════════════════════════════════
+  // PROBLEMS
+  // ══════════════════════════════════════════════════════
+  document.querySelectorAll('.prob-btn[data-psec]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      problemsSection = btn.dataset.psec;
+      document.querySelectorAll('.prob-btn').forEach(b => b.classList.toggle('active', b===btn));
+      renderProblems(); saveUiState();
+    });
+  });
+
+  function renderProblems() {
+    // Update counts in nav
+    const brokenInstrs = sampIndexed ? instrs.filter(i=>instrMiss(i)) : [];
+    const brokenSongInstrs = sampIndexed
+      ? songs.flatMap(s => s.instruments.filter(i => i.samplePath && Scanner.sampleFound(i.samplePath, known)===false)
+          .map(i => ({song:s, instr:i})))
+      : [];
+    const unusedInstrs = instrs.filter(i => instrUsage(i)===0);
+    const unbundledSongs = songs.filter(s => !s.hasBundle);
+    const dupeKeys = [...instrDupeMap.keys()];
+    const backboneInstrs = [...usageMap.entries()]
+      .filter(([,songs])=>songs.length>1)
+      .sort((a,b)=>b[1].length-a[1].length)
+      .slice(0, 20);
+
+    $('pc-broken').textContent = brokenInstrs.length + brokenSongInstrs.length || '';
+    $('pc-unused').textContent = unusedInstrs.length || '';
+    $('pc-unbundled').textContent = unbundledSongs.length || '';
+    $('pc-dupes').textContent = dupeKeys.length || '';
+    $('pc-backbone').textContent = backboneInstrs.length || '';
+
+    // Activate the current section button
+    document.querySelectorAll('.prob-btn[data-psec]').forEach(b =>
+      b.classList.toggle('active', b.dataset.psec===problemsSection)
+    );
+
+    const el = $('prob-content'); el.innerHTML='';
+
+    if (problemsSection==='broken') {
+      if (!sampIndexed) {
+        el.innerHTML='<div class="prob-empty">Run <b>Catalogue Samples</b> on the Songs tab first to detect broken references.</div>';
+        return;
+      }
+      if (!brokenInstrs.length && !brokenSongInstrs.length) {
+        el.innerHTML='<div class="prob-empty"><b>✓</b>No broken sample references found.</div>';
+        return;
+      }
+      if (brokenInstrs.length) {
+        const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
+        hdr.textContent=`Standalone instruments (${brokenInstrs.length})`;
+        el.appendChild(hdr);
+        brokenInstrs.forEach(i => {
+          const row = document.createElement('div'); row.className='prob-row';
+          row.innerHTML=`<span class="prob-icon" style="color:var(--c-miss)">✗</span>
+            <div class="prob-main">
+              <div class="prob-name">${esc(i.name)}</div>
+              <div class="prob-sub">${esc(i.samplePath)}</div>
+            </div>
+            <span class="prob-right">${esc(i.filePath)}</span>`;
+          row.addEventListener('click', () => {
+            instrFilter=i.name.toLowerCase(); $('instr-q').value=instrFilter;
+            switchTab('instruments'); renderInstrs();
+          });
+          el.appendChild(row);
+        });
+      }
+      if (brokenSongInstrs.length) {
+        const uniqueSongs = [...new Set(brokenSongInstrs.map(x=>x.song.name))];
+        const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
+        hdr.textContent=`Song instruments (${brokenSongInstrs.length} refs in ${uniqueSongs.length} songs)`;
+        el.appendChild(hdr);
+        // Group by song
+        const bySong = new Map();
+        for (const {song,instr} of brokenSongInstrs) {
+          if (!bySong.has(song.name)) bySong.set(song.name, {song, instrs:[]});
+          bySong.get(song.name).instrs.push(instr);
+        }
+        for (const {song, instrs:bi} of bySong.values()) {
+          const row = document.createElement('div'); row.className='prob-row';
+          row.innerHTML=`<span class="prob-icon" style="color:var(--c-miss)">⚠</span>
+            <div class="prob-main">
+              <div class="prob-name">${esc(song.name)}</div>
+              <div class="prob-sub">${bi.map(i=>esc(i.name)).join(', ')}</div>
+            </div>
+            <span class="prob-right">${bi.length} missing</span>`;
+          row.addEventListener('click', () => openSongModal(song));
+          el.appendChild(row);
+        }
+      }
+    }
+
+    else if (problemsSection==='unused') {
+      if (!unusedInstrs.length) {
+        el.innerHTML='<div class="prob-empty"><b>✓</b>All instruments are referenced by at least one song.</div>';
+        return;
+      }
+      const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
+      hdr.textContent=`Unused instruments — not referenced by any scanned song (${unusedInstrs.length})`;
+      el.appendChild(hdr);
+      unusedInstrs.forEach(i => {
+        const row = document.createElement('div'); row.className='prob-row';
+        row.innerHTML=`<span class="prob-icon" style="color:var(--muted)">🔇</span>
+          <div class="prob-main">
+            <div class="prob-name">${esc(i.name)}</div>
+            <div class="prob-sub">${esc(i.filePath)}</div>
+          </div>
+          <span class="prob-right"><span class="tb ${i.typeName}">${i.typeName}</span></span>`;
+        row.addEventListener('click', () => {
+          instrFilter=i.name.toLowerCase(); $('instr-q').value=instrFilter;
+          switchTab('instruments'); renderInstrs();
+        });
+        el.appendChild(row);
+      });
+    }
+
+    else if (problemsSection==='unbundled') {
+      if (!unbundledSongs.length) {
+        el.innerHTML='<div class="prob-empty"><b>✓</b>All songs have an autosave bundle folder.</div>';
+        return;
+      }
+      const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
+      hdr.textContent=`Songs without a bundle folder (${unbundledSongs.length})`;
+      el.appendChild(hdr);
+      unbundledSongs.forEach(s => {
+        const row = document.createElement('div'); row.className='prob-row';
+        row.innerHTML=`<span class="prob-icon">📄</span>
+          <div class="prob-main">
+            <div class="prob-name">${esc(s.name)}</div>
+            <div class="prob-sub">${esc(s.filePath)}</div>
+          </div>
+          <span class="prob-right">${firmStr(s)}</span>`;
+        row.addEventListener('click', () => openSongModal(s));
+        el.appendChild(row);
+      });
+    }
+
+    else if (problemsSection==='dupes') {
+      if (!dupeKeys.length) {
+        el.innerHTML='<div class="prob-empty"><b>✓</b>No duplicate instrument names found.</div>';
+        return;
+      }
+      const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
+      hdr.textContent=`Instruments sharing the same name across different files (${dupeKeys.length} names)`;
+      el.appendChild(hdr);
+      dupeKeys.forEach(k => {
+        const group = instrDupeMap.get(k);
+        const nameRow = document.createElement('div');
+        nameRow.style.cssText='padding:8px 20px 2px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border)';
+        nameRow.textContent=`"${group[0].name}" — ${group.length} files`;
+        el.appendChild(nameRow);
+        group.forEach(i => {
+          const row = document.createElement('div'); row.className='prob-row';
+          row.innerHTML=`<span class="prob-icon"><span class="tb ${i.typeName}">${i.typeName.substring(0,3)}</span></span>
+            <div class="prob-main">
+              <div class="prob-sub">${esc(i.filePath)}</div>
+            </div>
+            <span class="prob-right">${instrUsage(i)} song${instrUsage(i)!==1?'s':''}</span>`;
+          row.addEventListener('click', () => {
+            instrFilter=i.name.toLowerCase(); $('instr-q').value=instrFilter;
+            switchTab('instruments'); renderInstrs();
+          });
+          el.appendChild(row);
+        });
+      });
+    }
+
+    else if (problemsSection==='backbone') {
+      if (!backboneInstrs.length) {
+        el.innerHTML='<div class="prob-empty">No cross-song instruments found yet.<br>Backbone shows instruments shared across multiple songs.</div>';
+        return;
+      }
+      const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
+      hdr.textContent=`Instruments used across the most songs — your backbone sounds`;
+      el.appendChild(hdr);
+      backboneInstrs.forEach(([name, songNames]) => {
+        const instr = instrs.find(i=>i.name.toLowerCase()===name) || {typeName:'NONE'};
+        const row = document.createElement('div'); row.className='prob-row';
+        row.innerHTML=`<span class="prob-icon"><span class="tb ${instr.typeName}">${instr.typeName.substring(0,3)}</span></span>
+          <div class="prob-main">
+            <div class="prob-name">${esc(instr.name||name)}</div>
+            <div class="prob-sub">${songNames.slice(0,4).map(s=>esc(s)).join(', ')}${songNames.length>4?' …':''}</div>
+          </div>
+          <span class="prob-right" style="color:var(--c-found)">${songNames.length} songs</span>`;
+        row.addEventListener('click', () => {
+          instrFilter=name; $('instr-q').value=name;
+          switchTab('instruments'); renderInstrs();
+        });
+        el.appendChild(row);
+      });
+    }
+
+    else if (problemsSection==='hotsamples') {
+      if (!sampleUsageMap.size) {
+        el.innerHTML='<div class="prob-empty">Run Catalogue Samples first to see sample usage data.</div>';
+        return;
+      }
+      const sorted = [...sampleUsageMap.entries()]
+        .map(([k,v])=>({path:k, total:v.songs.length+v.instrFiles.length, ...v}))
+        .sort((a,b)=>b.total-a.total)
+        .slice(0,30);
+      const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
+      hdr.textContent=`Most referenced samples (top ${sorted.length})`;
+      el.appendChild(hdr);
+      sorted.forEach(({path, songs:sgs, instrFiles:ifs}) => {
+        const row = document.createElement('div'); row.className='prob-row';
+        const found = Scanner.sampleFound(path, known);
+        const statusIcon = found===false?'✗':found===true?'✓':'?';
+        const statusColor = found===false?'var(--c-miss)':found===true?'var(--c-found)':'var(--muted)';
+        row.innerHTML=`<span class="prob-icon" style="color:${statusColor}">${statusIcon}</span>
+          <div class="prob-main">
+            <div class="prob-name" style="font-size:11px;font-family:monospace">${esc(path)}</div>
+            <div class="prob-sub">${sgs.length?`${sgs.length} song${sgs.length!==1?'s':''}`:''} ${ifs.length?`${ifs.length} instr${ifs.length!==1?'s':''}`:''}</div>
+          </div>
+          <span class="prob-right" style="color:var(--accent)">${sgs.length+ifs.length} refs</span>`;
+        row.addEventListener('click', () => openSampModal(path));
+        el.appendChild(row);
+      });
+    }
+  }
+
+  // Export report
+  $('btn-export-report').addEventListener('click', () => {
+    if (!songs.length && !instrs.length) { alert('No library loaded.'); return; }
+    const lines = ['M8 Librarian Report', `Generated: ${new Date().toLocaleString()}`, `SD Card: ${cacheKey}`, ''];
+    const brokenInstrs = sampIndexed ? instrs.filter(i=>instrMiss(i)) : [];
+    lines.push(`=== BROKEN INSTRUMENTS (${brokenInstrs.length}) ===`);
+    if (!sampIndexed) lines.push('(Run Catalogue Samples first)');
+    else brokenInstrs.forEach(i => lines.push(`  ${i.name} — missing: ${i.samplePath} — file: ${i.filePath}`));
+    lines.push('');
+    const unusedInstrs = instrs.filter(i=>instrUsage(i)===0);
+    lines.push(`=== UNUSED INSTRUMENTS (${unusedInstrs.length}) ===`);
+    unusedInstrs.forEach(i => lines.push(`  ${i.name} [${i.typeName}] — ${i.filePath}`));
+    lines.push('');
+    const unbundled = songs.filter(s=>!s.hasBundle);
+    lines.push(`=== UNBUNDLED SONGS (${unbundled.length}) ===`);
+    unbundled.forEach(s => lines.push(`  ${s.name} — ${s.filePath} — ${firmStr(s)}`));
+    lines.push('');
+    const dupeKeys = [...instrDupeMap.keys()];
+    lines.push(`=== DUPLICATE INSTRUMENT NAMES (${dupeKeys.length}) ===`);
+    dupeKeys.forEach(k => {
+      const g = instrDupeMap.get(k);
+      lines.push(`  "${g[0].name}":`);
+      g.forEach(i => lines.push(`    ${i.filePath}`));
+    });
+    const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `m8-report-${cacheKey||'sd'}-${new Date().toISOString().slice(0,10)}.txt`;
+    a.click(); URL.revokeObjectURL(a.href);
+  });
+
+  // ══════════════════════════════════════════════════════
+  // SAMPLE USAGE MODAL
+  // ══════════════════════════════════════════════════════
+  function openSampModal(path) {
+    const lc = path.toLowerCase().replace(/\\/g,'/').replace(/^\//, '');
+    const entry = sampleUsageMap.get(lc) || {songs:[], instrFiles:[]};
+    $('samp-path').textContent = path;
+    const body = $('samp-body'); body.innerHTML='';
+    if (!entry.songs.length && !entry.instrFiles.length) {
+      body.innerHTML='<div class="samp-item" style="color:var(--muted)">No references found in scanned data.</div>';
+    } else {
+      if (entry.songs.length) {
+        const hdr = document.createElement('div'); hdr.className='samp-grp-hdr';
+        hdr.textContent=`Songs (${entry.songs.length})`; body.appendChild(hdr);
+        entry.songs.forEach(sname => {
+          const div=document.createElement('div'); div.className='samp-item';
+          const span=document.createElement('span'); span.className='samp-item-name';
+          span.textContent=sname;
+          span.addEventListener('click', () => {
+            const s=songs.find(x=>x.name===sname);
+            if (s) { closeSampModal(); openSongModal(s); }
+          });
+          div.appendChild(span); body.appendChild(div);
+        });
+      }
+      if (entry.instrFiles.length) {
+        const hdr = document.createElement('div'); hdr.className='samp-grp-hdr';
+        hdr.textContent=`Instruments (${entry.instrFiles.length})`; body.appendChild(hdr);
+        entry.instrFiles.forEach(name => {
+          const div=document.createElement('div'); div.className='samp-item';
+          div.textContent=name; body.appendChild(div);
+        });
+      }
+    }
+    $('samp-modal').classList.add('open');
+  }
+  function closeSampModal() { $('samp-modal').classList.remove('open'); }
+  $('btn-samp-close').addEventListener('click', closeSampModal);
+  $('samp-modal').addEventListener('click', e => { if (e.target===$('samp-modal')) closeSampModal(); });
+
+  // ══════════════════════════════════════════════════════
+  // DIFF MODAL
+  // ══════════════════════════════════════════════════════
+  function openDiffModal(song) {
+    diffSongA = song; diffSongB = null;
+    $('diff-hdr-a').textContent = song.name;
+    $('diff-score').textContent = '';
+    renderDiffCol($('diff-body-a'), song, null);
+    $('diff-body-b').innerHTML = '<div style="color:var(--muted);padding:16px;font-size:12px">Type to search for a song to compare…</div>';
+    $('diff-srch').value='';
+    $('diff-modal').classList.add('open');
+    $('diff-srch').focus();
+  }
+  function closeDiffModal() { $('diff-modal').classList.remove('open'); diffSongA=null; diffSongB=null; }
+  $('btn-diff-close').addEventListener('click', closeDiffModal);
+  $('diff-modal').addEventListener('click', e => { if (e.target===$('diff-modal')) closeDiffModal(); });
+
+  $('diff-srch').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase().trim();
+    const body = $('diff-body-b'); body.innerHTML='';
+    if (!q) {
+      body.innerHTML='<div style="color:var(--muted);padding:16px;font-size:12px">Type to search…</div>';
+      return;
+    }
+    const matches = songs.filter(s => s!==diffSongA && (s.name.toLowerCase().includes(q)||s.filePath.toLowerCase().includes(q))).slice(0,20);
+    if (!matches.length) {
+      body.innerHTML='<div style="color:var(--muted);padding:16px;font-size:12px">No matches.</div>'; return;
+    }
+    matches.forEach(s => {
+      const item = document.createElement('div'); item.className='diff-pick-item';
+      item.textContent=s.name+' — '+s.filePath;
+      item.addEventListener('click', () => {
+        diffSongB = s;
+        $('diff-srch').value=s.name;
+        const j = Scanner.jaccardSim(diffSongA, diffSongB);
+        $('diff-score').textContent = `${Math.round(j*100)}% similar`;
+        renderDiffCol($('diff-body-a'), diffSongA, diffSongB);
+        const bHdr = $('diff-body-b'); bHdr.innerHTML='';
+        renderDiffCol(bHdr, diffSongB, diffSongA);
+      });
+      body.appendChild(item);
+    });
+  });
+
+  function renderDiffCol(container, song, other) {
+    container.innerHTML='';
+    const otherNames = other ? new Set(other.instruments.map(i=>i.name.toLowerCase())) : null;
+    if (!song.instruments.length) {
+      container.innerHTML='<div style="color:var(--muted);padding:12px;font-size:12px">No instruments.</div>';
+      return;
+    }
+    song.instruments.forEach(i => {
+      const shared = otherNames && otherNames.has(i.name.toLowerCase());
+      const row = document.createElement('div');
+      row.className = 'diff-row' + (otherNames ? (shared?' shared':' unique') : '');
+      row.innerHTML=`<span class="tb ${i.typeName}">${i.typeName.substring(0,3)}</span> ${esc(i.name)}`;
+      container.appendChild(row);
+    });
+  }
+
+  // ══════════════════════════════════════════════════════
+  // GLOBAL SEARCH OVERLAY
+  // ══════════════════════════════════════════════════════
+  function openSearch() {
+    $('search-overlay').classList.add('open');
+    $('srch-input').value=''; $('srch-input').focus();
+    $('srch-results').innerHTML='<div class="sr-empty">Start typing to search…</div>';
+    srchFocus=-1;
+  }
+  function closeSearch() { $('search-overlay').classList.remove('open'); }
+  $('btn-search').addEventListener('click', openSearch);
+  $('search-overlay').addEventListener('click', e => { if (e.target===$('search-overlay')) closeSearch(); });
+
+  $('srch-input').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase().trim();
+    const res = $('srch-results'); res.innerHTML=''; srchFocus=-1; srchItems=[];
+    if (!q) { res.innerHTML='<div class="sr-empty">Start typing to search…</div>'; return; }
+
+    const songHits   = songs.filter(s=>s.name.toLowerCase().includes(q)||s.filePath.toLowerCase().includes(q)).slice(0,5);
+    const instrHits  = instrs.filter(i=>i.name.toLowerCase().includes(q)||i.filePath.toLowerCase().includes(q)).slice(0,5);
+    const themeHits  = themes.filter(t=>t.fileName.toLowerCase().includes(q)).slice(0,4);
+
+    if (!songHits.length && !instrHits.length && !themeHits.length) {
+      res.innerHTML='<div class="sr-empty">No results for "'+esc(q)+'"</div>'; return;
+    }
+
+    function addGroup(label, items, buildFn) {
+      if (!items.length) return;
+      const grp=document.createElement('div'); grp.className='sr-group'; grp.textContent=label;
+      res.appendChild(grp);
+      items.forEach(item => { const el=buildFn(item); res.appendChild(el); srchItems.push(el); });
+    }
+    addGroup('Songs', songHits, s => {
+      const el=document.createElement('div'); el.className='sr-item';
+      const mi=missInfo(s);
+      el.innerHTML=`<div class="sr-icon">🎵</div><div class="sr-text"><div class="sr-name">${esc(s.name)}</div><div class="sr-meta">${esc(s.filePath)} · ${firmStr(s)} · ${mi.lbl}</div></div>`;
+      el.addEventListener('click', ()=>{ closeSearch(); openSongModal(s); });
+      return el;
+    });
+    addGroup('Instruments', instrHits, i => {
+      const el=document.createElement('div'); el.className='sr-item';
+      el.innerHTML=`<div class="sr-icon"><span class="tb ${i.typeName}" style="font-size:9px">${i.typeName.substring(0,3)}</span></div><div class="sr-text"><div class="sr-name">${esc(i.name)}</div><div class="sr-meta">${esc(i.filePath)}</div></div>`;
+      el.addEventListener('click', ()=>{
+        closeSearch();
+        instrFilter=i.name.toLowerCase(); $('instr-q').value=instrFilter;
+        switchTab('instruments'); renderInstrs();
+      });
+      return el;
+    });
+    addGroup('Themes', themeHits, t => {
+      const el=document.createElement('div'); el.className='sr-item';
+      el.innerHTML=`<div class="sr-icon">🎨</div><div class="sr-text"><div class="sr-name">${esc(t.fileName.replace(/\.m8t$/i,''))}</div><div class="sr-meta">${M8.fmtVer(t.header.version)}</div></div>`;
+      el.addEventListener('click', ()=>{
+        closeSearch();
+        themeFilter=t.fileName.toLowerCase().replace(/\.m8t$/,'');
+        $('theme-q').value=themeFilter;
+        switchTab('themes'); renderThemes();
+      });
+      return el;
+    });
+  });
+
+  $('srch-input').addEventListener('keydown', e => {
+    if (e.key==='Escape') { closeSearch(); return; }
+    if (e.key==='ArrowDown') {
+      srchFocus=Math.min(srchFocus+1, srchItems.length-1);
+      srchItems.forEach((el,i)=>el.classList.toggle('sr-focus',i===srchFocus));
+      e.preventDefault();
+    } else if (e.key==='ArrowUp') {
+      srchFocus=Math.max(srchFocus-1, 0);
+      srchItems.forEach((el,i)=>el.classList.toggle('sr-focus',i===srchFocus));
+      e.preventDefault();
+    } else if (e.key==='Enter' && srchFocus>=0) {
+      srchItems[srchFocus]?.click();
+    }
+  });
+
+  // ══════════════════════════════════════════════════════
+  // KEYBOARD SHORTCUTS
+  // ══════════════════════════════════════════════════════
+  document.addEventListener('keydown', e => {
+    const tag = e.target.tagName;
+    const inInput = tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT';
+
+    // Escape — close any open overlay/modal
+    if (e.key==='Escape') {
+      if ($('search-overlay').classList.contains('open')) { closeSearch(); return; }
+      if ($('diff-modal').classList.contains('open')) { closeDiffModal(); return; }
+      if ($('samp-modal').classList.contains('open')) { closeSampModal(); return; }
+      if ($('song-modal').style.display==='flex') { closeSongModal(); return; }
+    }
+
+    if (inInput) return;
+
+    // Cmd/Ctrl+K or / → open search
+    if ((e.key==='/' || (e.key==='k' && (e.metaKey||e.ctrlKey))) && !$('search-overlay').classList.contains('open')) {
+      e.preventDefault();
+      if (sdHandle) openSearch();
+      return;
+    }
+
+    // Tab switching: 1-6
+    const tabMap = {'1':'songs','2':'instruments','3':'themes','4':'problems','5':'grooves','6':'backup'};
+    if (tabMap[e.key] && !e.metaKey && !e.ctrlKey) { switchTab(tabMap[e.key]); return; }
+
+    // View toggles on active tab
+    const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+    if (activeTab==='songs') {
+      if (e.key==='c'||e.key==='C') { songView='compact'; ['compact','list','grid'].forEach(v=>$('vtog-'+v).classList.toggle('active',v==='compact')); renderSongs(); saveUiState(); }
+      if (e.key==='l'||e.key==='L') { songView='list';    ['compact','list','grid'].forEach(v=>$('vtog-'+v).classList.toggle('active',v==='list'));    renderSongs(); saveUiState(); }
+      if (e.key==='g'||e.key==='G') { songView='grid';    ['compact','list','grid'].forEach(v=>$('vtog-'+v).classList.toggle('active',v==='grid'));    renderSongs(); saveUiState(); }
+    }
+    if (activeTab==='instruments') {
+      if (e.key==='l'||e.key==='L') { instrView='list'; $('ivtog-list').classList.add('active'); $('ivtog-grid').classList.remove('active'); renderInstrs(); saveUiState(); }
+      if (e.key==='g'||e.key==='G') { instrView='grid'; $('ivtog-grid').classList.add('active'); $('ivtog-list').classList.remove('active'); renderInstrs(); saveUiState(); }
+    }
+  });
+
+  // ══════════════════════════════════════════════════════
+  // BACKUP
+  // ══════════════════════════════════════════════════════
+  function renderBackupCounts() {
+    const fmt = n => n!=null ? `${n} file${n!==1?'s':''}` : '—';
+    ['Songs','Instruments','Themes','Grooves'].forEach(d => $('cnt-'+d).textContent=fmt(dirCounts[d]));
+    const sc = dirCounts.Samples;
+    $('cnt-Samples').textContent = sc!=null ? fmt(sc) : '—';
+    const w = $('warn-Samples');
+    if (w) w.textContent = sc!=null&&sc>200 ? '⚠ may be large' : '';
+  }
+  function appendLog(t, m) {
     const log=$('backup-log'), d=document.createElement('div');
     d.className='log-line '+t; d.textContent=m;
     log.appendChild(d); log.scrollTop=log.scrollHeight;
   }
-  $('btn-backup').addEventListener('click', async ()=>{
+  $('btn-backup').addEventListener('click', async () => {
     if (!sdHandle) return;
     const dirs=['Songs','Instruments','Samples','Themes','Grooves'].filter(d=>$('inc-'+d)?.checked);
     if (!dirs.length) { appendLog('err','✗ Nothing selected.'); return; }
     $('backup-log').innerHTML=''; $('btn-backup').disabled=true;
-    await createBackup(sdHandle,dirs,(t,m)=>appendLog(t,m),
+    await createBackup(sdHandle, dirs, (t,m)=>appendLog(t,m),
       (n,name)=>{ appendLog('ok',`✓ Done — ${n} files → ${name}`); $('btn-backup').disabled=false; },
       err=>{ appendLog('err',`✗ ${err}`); $('btn-backup').disabled=false; });
   });
-})();
+
+  // ══════════════════════════════════════════════════════
+  // INIT
+  // ══════════════════════════════════════════════════════
+  loadUiState();
+
+})(); // end UI IIFE
 </script>
 </body>
 </html>

@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>M8 Librarian</title>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#0d0d0d; --surface:#171717; --surface2:#222222;
+      --border:#2e2e2e; --border2:#3d3d3d;
+      --text:#f0f0f0; --muted:#737373;
+      --accent:#f97316;
+      --c-wav:#60a5fa; --c-mac:#a78bfa; --c-sam:#34d399;
+      --c-mid:#fcd34d; --c-fm:#f472b6;
+      --c-miss:#f87171; --c-found:#34d399;
+    }
+    html,body { height:100%; background:var(--bg); color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; font-size:13px; }
+    #app { display:flex; flex-direction:column; height:100vh; }
+
+    /* ── HEADER ── */
+    header { display:flex; align-items:center; justify-content:space-between;
+      padding:0 20px; height:52px; background:var(--surface);
+      border-bottom:1px solid var(--border); flex-shrink:0; }
+    .logo { font-size:15px; font-weight:700; letter-spacing:3px; color:var(--accent); }
+    .hdr-right { display:flex; align-items:center; gap:10px; }
+    #sd-label { color:var(--muted); font-size:12px; }
+    .ro-badge { display:none; font-size:10px; font-weight:700; letter-spacing:.8px;
+      padding:2px 7px; border-radius:4px; background:#0e2a1a;
+      color:var(--c-found); border:1px solid #1a4a2a; }
+
+    /* ── BUTTONS ── */
+    .btn { background:var(--accent); border:none; color:#fff; padding:6px 14px;
+      font-family:inherit; font-size:12px; font-weight:600; cursor:pointer;
+      border-radius:6px; transition:background .15s,opacity .15s; white-space:nowrap; }
+    .btn:hover { background:#ea6c10; }
+    .btn:disabled { opacity:.35; cursor:default; }
+    .btn.ghost { background:transparent; border:1px solid var(--border2); color:var(--muted); }
+    .btn.ghost:hover { border-color:var(--text); color:var(--text); }
+    .btn.ghost.on { border-color:#f59e0b; color:#f59e0b; background:#1f1200; }
+    .btn.sm  { padding:4px 10px; font-size:11px; }
+    .btn.dim { background:var(--surface2); border:1px solid var(--border2); color:var(--muted); }
+    .btn.dim:hover { color:var(--text); border-color:var(--text); background:var(--surface2); }
+    .btn.secondary { background:var(--surface2); border:1px solid var(--border2); color:var(--text); }
+    .btn.secondary:hover { border-color:var(--accent); color:var(--accent); background:var(--surface2); }
+
+    /* ── VIEW TOGGLE ── */
+    .vtog-wrap { display:flex; flex-shrink:0; }
+    .vtog { background:var(--surface2); border:1px solid var(--border2); color:var(--muted);
+      padding:4px 9px; font-size:14px; line-height:1; cursor:pointer; transition:all .15s; }
+    .vtog:first-child { border-radius:6px 0 0 6px; border-right:none; }
+    .vtog:last-child  { border-radius:0 6px 6px 0; }
+    .vtog.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .vtog:not(.active):hover { color:var(--text); border-color:var(--border2); }
+
+    /* ── TABS ── */
+    .tab-bar { display:flex; background:var(--surface); border-bottom:1px solid var(--border);
+      flex-shrink:0; padding:0 20px; }
+    .tab-btn { background:transparent; border:none; border-bottom:2px solid transparent;
+      color:var(--muted); padding:12px 16px; font-family:inherit; font-size:12px;
+      font-weight:600; letter-spacing:.5px; cursor:pointer; transition:color .15s,border-color .15s; }
+    .tab-btn:hover { color:var(--text); }
+    .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+    /* ── CACHE BAR ── */
+    #cache-bar { display:none; align-items:center; gap:10px; padding:7px 20px;
+      background:var(--surface2); border-bottom:1px solid var(--border);
+      flex-shrink:0; font-size:11px; color:var(--muted); }
+    #cache-msg { flex:1; }
+    #cache-bar.stale #cache-msg { color:#f59e0b; }
+
+    /* ── EMPTY STATE ── */
+    #empty-state { flex:1; display:flex; flex-direction:column; align-items:center;
+      justify-content:center; gap:14px; }
+    .empty-icon { font-size:40px; opacity:.2; }
+    .empty-title { font-size:18px; font-weight:700; color:var(--text); letter-spacing:2px; }
+    .empty-sub { font-size:13px; max-width:380px; text-align:center; line-height:1.7; color:var(--muted); }
+    .browser-warn { background:#1f1200; border:1px solid #4a2e00; color:#f59e0b;
+      padding:8px 12px; font-size:12px; border-radius:6px; }
+    .reconnect-card { display:none; flex-direction:column; align-items:center; gap:8px;
+      padding:14px 24px; background:var(--surface); border:1px solid var(--border2);
+      border-radius:8px; }
+    .reconnect-lbl { font-size:11px; color:var(--muted); }
+    .reconnect-name { font-weight:600; color:var(--text); }
+    .empty-divider { font-size:11px; color:var(--border2); letter-spacing:1px; }
+
+    /* ── MAIN ── */
+    #main { display:none; flex:1; flex-direction:column; overflow:hidden; }
+    #main.visible { display:flex; }
+    .tab-pane { display:none; flex:1; overflow:hidden; flex-direction:column; }
+    .tab-pane.active { display:flex; }
+
+    /* ── TOOLBAR ── */
+    .toolbar { display:flex; align-items:center; gap:8px; padding:10px 20px;
+      background:var(--surface); border-bottom:1px solid var(--border);
+      flex-shrink:0; flex-wrap:wrap; }
+    .search { background:var(--surface2); border:1px solid var(--border); color:var(--text);
+      padding:6px 11px; font-family:inherit; font-size:12px; width:190px;
+      border-radius:6px; outline:none; }
+    .search:focus { border-color:var(--accent); }
+    .search::placeholder { color:var(--muted); }
+    .sorter { background:var(--surface2); border:1px solid var(--border); color:var(--text);
+      padding:5px 9px; font-family:inherit; font-size:12px; border-radius:6px;
+      outline:none; cursor:pointer; }
+    .sorter:focus { border-color:var(--accent); }
+    .type-pill { background:transparent; border:1px solid var(--border); color:var(--muted);
+      padding:4px 10px; font-family:inherit; font-size:11px; font-weight:500;
+      cursor:pointer; transition:all .15s; border-radius:20px; }
+    .type-pill:hover { border-color:var(--border2); color:var(--text); }
+    .type-pill.on { border-color:transparent; color:#000; }
+    .type-pill[data-t="WAVSYNTH"].on   { background:var(--c-wav); }
+    .type-pill[data-t="MACROSYNTH"].on { background:var(--c-mac); }
+    .type-pill[data-t="SAMPLER"].on    { background:var(--c-sam); }
+    .type-pill[data-t="MIDIOUT"].on    { background:var(--c-mid); }
+    .type-pill[data-t="FMSYNTH"].on    { background:var(--c-fm); color:#fff; }
+    .stat-chip { font-size:11px; color:var(--muted); margin-left:auto; white-space:nowrap; }
+
+    /* ── SAMPLE CATALOGUE NOTICE ── */
+    .cat-notice { display:flex; align-items:center; gap:10px; padding:8px 20px;
+      background:#1a1000; border-bottom:1px solid #3a2800; flex-shrink:0; font-size:12px; }
+    .cat-notice.done { background:var(--surface2); border-color:var(--border); }
+    .cat-msg  { color:#f59e0b; flex:1; }
+    .cat-notice.done .cat-msg { color:var(--muted); }
+    .cat-prog { font-size:11px; color:var(--muted); }
+
+    /* ── SCROLL ── */
+    .scroll-area { flex:1; overflow-y:auto; }
+    .scroll-area::-webkit-scrollbar { width:5px; }
+    .scroll-area::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+    /* ── SONGS — LIST ROWS ── */
+    .song-item { border-bottom:1px solid var(--border); }
+    .song-row {
+      display:grid;
+      grid-template-columns:16px minmax(140px,1fr) minmax(80px,170px) 58px 70px 120px;
+      align-items:center; gap:0 14px; padding:9px 20px;
+      cursor:pointer; user-select:none; transition:background .1s;
+    }
+    .song-row:hover { background:var(--surface); }
+    .song-item.open .song-row { background:var(--surface); }
+    .s-chev { color:var(--muted); transition:transform .15s; font-size:9px; }
+    .song-item.open .s-chev { transform:rotate(90deg); }
+    .s-name { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-file { font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .s-ver  { font-size:11px; color:var(--muted); }
+    .s-ic   { font-size:11px; color:var(--muted); text-align:right; }
+    .s-miss { font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px;
+      white-space:nowrap; text-align:center; justify-self:end; }
+    .s-miss.bad  { background:#2d0f0f; color:var(--c-miss); border:1px solid #4a1a1a; }
+    .s-miss.good { background:#0e2a1a; color:var(--c-found); border:1px solid #1a4a2a; }
+    .s-miss.pend { color:var(--muted); font-weight:400; }
+    .s-miss.none { color:var(--border2); font-weight:400; }
+    .bundle-dot { font-size:9px; color:var(--accent); opacity:.7; margin-left:4px; vertical-align:middle; }
+
+    /* ── SONGS — FOLDER TREE NODES ── */
+    .song-folder-hdr { display:flex; align-items:center; gap:8px;
+      background:var(--surface2); border-bottom:1px solid var(--border);
+      cursor:pointer; user-select:none; transition:background .1s;
+      padding:8px 20px; }
+    .song-folder-hdr:hover { background:#252525; }
+    .sf-chev { font-size:9px; color:var(--muted); transition:transform .15s; flex-shrink:0; }
+    .song-folder.open > .song-folder-hdr .sf-chev { transform:rotate(90deg); }
+    .sf-name { font-size:11px; font-weight:600; letter-spacing:.3px; color:var(--muted); flex:1; }
+    .sf-cnt  { font-size:11px; color:var(--border2); }
+    .sf-body { display:none; }
+    .song-folder.open > .sf-body { display:block; }
+
+    /* ── SONGS — DETAIL ── */
+    .song-detail { display:none; padding:14px 20px 14px 50px;
+      background:var(--surface); border-top:1px solid var(--border); }
+    .song-item.open .song-detail { display:block; }
+    .sd-cols { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .sd-col { min-width:0; }
+    .det-title { font-size:10px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase;
+      color:var(--muted); margin-bottom:8px; }
+    .iblock { display:flex; flex-wrap:wrap; gap:4px; }
+    .ichip { display:inline-flex; align-items:center; gap:5px; padding:3px 8px;
+      background:var(--surface2); border:1px solid var(--border); border-radius:4px; }
+    .ichip-slot { font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums; flex-shrink:0; }
+    .ichip-name { font-size:11px; white-space:nowrap; max-width:100px; overflow:hidden; text-overflow:ellipsis; }
+    .tb { font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; flex-shrink:0; letter-spacing:.3px; }
+    .tb.WAVSYNTH   { background:#1c3254; color:var(--c-wav); }
+    .tb.MACROSYNTH { background:#2d2054; color:var(--c-mac); }
+    .tb.SAMPLER    { background:#0e3325; color:var(--c-sam); }
+    .tb.MIDIOUT    { background:#3a300e; color:var(--c-mid); }
+    .tb.FMSYNTH    { background:#3a1428; color:var(--c-fm); }
+    .tb.NONE       { background:var(--surface2); color:var(--muted); }
+    .spr { display:flex; align-items:flex-start; gap:8px; padding:2px 0; font-size:12px; }
+    .spr-ic   { flex-shrink:0; width:14px; font-size:11px; }
+    .spr-path { flex:1; word-break:break-all; line-height:1.4; }
+    .spr.miss .spr-path { color:var(--c-miss); }
+    .spr.ok   .spr-path { color:var(--muted); }
+    .spr.unk  .spr-path { color:var(--muted); font-style:italic; }
+
+    /* ── SONGS — GRID VIEW ── */
+    .song-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+      gap:10px; padding:14px 20px; align-content:start; }
+    .song-card { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+      overflow:hidden; cursor:pointer; transition:border-color .15s,transform .1s; }
+    .song-card:hover { border-color:var(--border2); transform:translateY(-1px); }
+    .sc-bar { height:3px; }
+    .sc-bar.bad  { background:var(--c-miss); }
+    .sc-bar.good { background:var(--c-found); }
+    .sc-bar.pend { background:var(--border2); }
+    .sc-body { padding:11px 12px 12px; }
+    .sc-name { font-size:13px; font-weight:700; letter-spacing:.3px; margin-bottom:3px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sc-file { font-size:10px; color:var(--muted); white-space:nowrap; overflow:hidden;
+      text-overflow:ellipsis; margin-bottom:9px; }
+    .sc-foot { display:flex; align-items:center; gap:6px; }
+    .sc-ic { font-size:11px; color:var(--muted); flex:1; }
+    .sc-badge { font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; white-space:nowrap; }
+    .sc-badge.bad  { background:#2d0f0f; color:var(--c-miss); border:1px solid #4a1a1a; }
+    .sc-badge.good { background:#0e2a1a; color:var(--c-found); border:1px solid #1a4a2a; }
+    .sc-badge.pend { color:var(--muted); font-size:10px; }
+    .sc-bundle { font-size:11px; color:var(--accent); opacity:.8; }
+
+    /* ── SONG MODAL ── */
+    .song-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:100;
+      display:flex; align-items:center; justify-content:center; padding:24px; }
+    .song-modal-box { background:var(--surface); border:1px solid var(--border2);
+      border-radius:10px; width:min(720px,100%); max-height:82vh;
+      display:flex; flex-direction:column; overflow:hidden; }
+    .song-modal-hdr { display:flex; align-items:center; gap:12px; padding:13px 16px;
+      border-bottom:1px solid var(--border); flex-shrink:0; }
+    .song-modal-title { font-size:14px; font-weight:700; flex:1; min-width:0;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .song-modal-meta  { font-size:11px; color:var(--muted); flex-shrink:0; }
+    .song-modal-body  { overflow-y:auto; padding:16px; flex:1; }
+    .song-modal-body::-webkit-scrollbar { width:5px; }
+    .song-modal-body::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+    /* ── INSTRUMENTS ── */
+    .instr-item { border-bottom:1px solid var(--border); }
+    .instr-row {
+      display:grid;
+      grid-template-columns:16px 105px minmax(120px,1fr) 170px 120px;
+      align-items:center; gap:0 14px; padding:9px 20px;
+      cursor:pointer; user-select:none; transition:background .1s;
+    }
+    .instr-row:hover { background:var(--surface); }
+    .instr-item.open .instr-row { background:var(--surface); }
+    .i-chev  { color:var(--muted); transition:transform .15s; font-size:9px; }
+    .instr-item.open .i-chev { transform:rotate(90deg); }
+    .i-lname { font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .samp-c { font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .samp-c.miss { color:var(--c-miss); font-weight:500; }
+    .samp-c.ok   { color:var(--muted); }
+    .samp-c.pend { color:var(--border2); }
+    .ubadge { font-size:11px; font-weight:500; padding:2px 9px; border-radius:20px; white-space:nowrap; justify-self:end; }
+    .ubadge.used   { background:#1c2f1c; color:var(--c-found); border:1px solid #2a4a2a; }
+    .ubadge.unused { background:var(--surface2); color:var(--muted); border:1px solid var(--border); }
+    .instr-det { display:none; padding:12px 20px 12px 135px;
+      background:var(--surface); border-top:1px solid var(--border); flex-direction:column; gap:8px; }
+    .instr-item.open .instr-det { display:flex; }
+    .drow   { display:flex; align-items:flex-start; gap:8px; font-size:12px; }
+    .dlabel { font-size:10px; font-weight:600; letter-spacing:1px; text-transform:uppercase;
+      color:var(--muted); width:65px; flex-shrink:0; padding-top:1px; }
+    .dval { flex:1; word-break:break-all; }
+    .dval.miss { color:var(--c-miss); }
+    .dval.ok   { color:var(--c-found); }
+    .dval.dim  { color:var(--muted); }
+    .dval.pend { color:var(--muted); font-style:italic; }
+    .schips { display:flex; flex-wrap:wrap; gap:5px; }
+    .schip  { font-size:11px; padding:2px 8px; background:var(--surface2);
+      border:1px solid var(--border2); border-radius:4px; }
+
+    /* ── INSTRUMENT FOLDER TREE ── */
+    .igroup-hdr { display:flex; align-items:center; gap:8px;
+      background:var(--surface2); border-bottom:1px solid var(--border);
+      cursor:pointer; user-select:none; transition:background .1s; padding:7px 20px; }
+    .igroup-hdr:hover { background:#252525; }
+    .igroup-chev { font-size:9px; color:var(--muted); transition:transform .15s; flex-shrink:0; }
+    .igroup.open > .igroup-hdr .igroup-chev { transform:rotate(90deg); }
+    .igroup-name { font-size:11px; font-weight:600; letter-spacing:.3px; color:var(--muted); flex:1; }
+    .igroup-cnt  { font-size:11px; color:var(--border2); }
+    .igroup-body { display:none; }
+    .igroup.open > .igroup-body { display:block; }
+
+    /* ── INSTRUMENTS — GRID VIEW ── */
+    .instr-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+      gap:10px; padding:14px 20px; align-content:start; }
+    .instr-card { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+      overflow:hidden; transition:border-color .15s,transform .1s; }
+    .instr-card:hover { border-color:var(--border2); transform:translateY(-1px); }
+    .ic-bar { height:3px; }
+    .ic-bar.WAVSYNTH   { background:var(--c-wav); }
+    .ic-bar.MACROSYNTH { background:var(--c-mac); }
+    .ic-bar.SAMPLER    { background:var(--c-sam); }
+    .ic-bar.MIDIOUT    { background:var(--c-mid); }
+    .ic-bar.FMSYNTH    { background:var(--c-fm); }
+    .ic-bar.NONE       { background:var(--border2); }
+    .ic-body { padding:10px 12px 11px; }
+    .ic-hdr  { display:flex; align-items:center; gap:7px; margin-bottom:5px; overflow:hidden; }
+    .ic-name { font-size:13px; font-weight:700; flex:1;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ic-samp { font-size:10px; color:var(--muted); white-space:nowrap; overflow:hidden;
+      text-overflow:ellipsis; margin-bottom:8px; min-height:13px; }
+    .ic-samp.miss { color:var(--c-miss); }
+    .ic-foot { display:flex; align-items:center; }
+    .ic-used { font-size:11px; }
+    .ic-used.yes { color:var(--c-found); }
+    .ic-used.no  { color:var(--border2); }
+
+    /* ── THEMES ── */
+    .themes-scroll { flex:1; overflow-y:auto; padding:16px 20px; }
+    .themes-scroll::-webkit-scrollbar { width:5px; }
+    .themes-scroll::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+    .themes-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+    .theme-card { background:var(--surface); border:1px solid var(--border); border-radius:8px;
+      overflow:hidden; cursor:pointer; transition:border-color .15s; }
+    .theme-card:hover { border-color:var(--border2); }
+    .theme-card.expanded { border-color:var(--accent); }
+    .theme-preview { height:110px; overflow:hidden; }
+    .theme-info { padding:10px 12px 8px; display:flex; align-items:baseline; gap:8px; }
+    .theme-name { font-size:13px; font-weight:600; flex:1; }
+    .theme-meta { font-size:10px; color:var(--muted); }
+    .theme-swatches { display:none; grid-template-columns:repeat(4,1fr); gap:8px;
+      padding:0 12px 12px; }
+    .theme-card.expanded .theme-swatches { display:grid; }
+    .swatch-box { height:20px; border-radius:3px; border:1px solid rgba(255,255,255,.08); }
+    .swatch-lbl { font-size:9px; color:var(--muted); letter-spacing:.3px; margin-top:3px; }
+    .swatch-hex { font-size:9px; color:var(--border2); font-family:monospace; }
+    .no-preview { height:110px; background:var(--surface2); display:flex;
+      align-items:center; justify-content:center; font-size:11px; color:var(--muted); }
+
+    /* ── BACKUP ── */
+    .backup-layout { flex:1; display:flex; overflow:hidden; }
+    .backup-panel { padding:20px; background:var(--surface); border-right:1px solid var(--border);
+      width:320px; flex-shrink:0; display:flex; flex-direction:column; gap:16px; overflow-y:auto; }
+    .backup-log { flex:1; padding:18px 20px; overflow-y:auto;
+      font-size:12px; line-height:1.9; color:var(--muted); }
+    .backup-log::-webkit-scrollbar { width:5px; }
+    .backup-log::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+    .sblock { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px; }
+    .sblock-title { font-size:10px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase;
+      color:var(--muted); margin-bottom:10px; }
+    .inc-row { display:flex; align-items:center; gap:10px; padding:7px 0;
+      border-bottom:1px solid var(--border); cursor:pointer; }
+    .inc-row:last-child { border-bottom:none; }
+    .inc-row input[type=checkbox] { width:14px; height:14px; accent-color:var(--accent); cursor:pointer; flex-shrink:0; }
+    .inc-label { flex:1; font-size:13px; }
+    .inc-warn  { font-size:10px; color:#f59e0b; }
+    .inc-count { font-size:11px; color:var(--muted); }
+    .backup-info { font-size:12px; color:var(--muted); line-height:1.6; }
+    .log-line      { color:var(--muted); }
+    .log-line.ok   { color:var(--c-found); }
+    .log-line.err  { color:var(--c-miss); }
+    .log-line.head { color:var(--text); font-weight:500; }
+
+    /* ── MISC ── */
+    .spinner-wrap { display:flex; align-items:center; gap:10px; color:var(--muted); padding:24px 20px; }
+    .spinner { width:15px; height:15px; border:2px solid var(--border2); border-top-color:var(--accent);
+      border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .no-results { color:var(--muted); padding:36px; text-align:center; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="logo">M8 LIBRARIAN</div>
+    <div class="hdr-right">
+      <span id="sd-label">No SD card mounted</span>
+      <span class="ro-badge" id="ro-badge">🔒 READ ONLY</span>
+      <button class="btn" id="btn-open">OPEN SD CARD</button>
+    </div>
+  </header>
+
+  <div id="empty-state">
+    <div class="empty-icon">⬛</div>
+    <div class="empty-title">M8 LIBRARIAN</div>
+    <div class="empty-sub">Mount your M8's SD card to browse songs, instruments, themes, and back up your data.</div>
+    <!-- Reconnect card — shown if a previously used SD handle is saved -->
+    <div id="reconnect-card" class="reconnect-card">
+      <div class="reconnect-lbl">Last opened:</div>
+      <div class="reconnect-name" id="reconnect-name"></div>
+      <button class="btn" id="btn-reconnect">REOPEN</button>
+    </div>
+    <div class="empty-divider" id="empty-divider" style="display:none">— or —</div>
+    <button class="btn secondary" id="btn-open-empty">OPEN SD CARD</button>
+    <div id="browser-warn" class="browser-warn" style="display:none">
+      ⚠ Requires Chrome or Edge — Firefox and Safari do not support the File System Access API.
+    </div>
+  </div>
+
+  <div id="main">
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="songs">SONGS</button>
+      <button class="tab-btn" data-tab="instruments">INSTRUMENTS</button>
+      <button class="tab-btn" data-tab="themes">THEMES</button>
+      <button class="tab-btn" data-tab="backup">BACKUP</button>
+    </div>
+
+    <div id="cache-bar">
+      <span id="cache-msg"></span>
+      <button class="btn sm dim" id="btn-rescan" style="display:none">Full Rescan</button>
+    </div>
+
+    <!-- SONGS -->
+    <div class="tab-pane active" id="tab-songs">
+      <div class="toolbar">
+        <input class="search" id="song-q" type="text" placeholder="filter songs…">
+        <select class="sorter" id="song-sort">
+          <option value="name-asc">Name A→Z</option>
+          <option value="name-desc">Name Z→A</option>
+          <option value="date-desc">Newest first</option>
+          <option value="date-asc">Oldest first</option>
+          <option value="missing">Most missing</option>
+          <option value="instrs">Most instruments</option>
+        </select>
+        <button class="btn ghost sm" id="song-miss-btn">⚠ Missing only</button>
+        <span class="stat-chip" id="songs-stat"></span>
+        <div class="vtog-wrap" style="margin-left:auto">
+          <button class="vtog active" id="vtog-list" title="List view">☰</button>
+          <button class="vtog" id="vtog-grid" title="Grid view">⊞</button>
+        </div>
+      </div>
+      <div class="cat-notice" id="cat-notice">
+        <span class="cat-msg" id="cat-msg">Sample dependencies not checked.</span>
+        <span class="cat-prog" id="cat-prog"></span>
+        <button class="btn sm" id="btn-catalogue">Catalogue Samples</button>
+      </div>
+      <div class="scroll-area"><div id="songs-list"></div></div>
+    </div>
+
+    <!-- INSTRUMENTS -->
+    <div class="tab-pane" id="tab-instruments">
+      <div class="toolbar">
+        <input class="search" id="instr-q" type="text" placeholder="filter instruments…">
+        <select class="sorter" id="instr-sort">
+          <option value="name-asc">Name A→Z</option>
+          <option value="name-desc">Name Z→A</option>
+          <option value="type">By type</option>
+          <option value="usage">Most used</option>
+          <option value="missing">Missing first</option>
+        </select>
+        <div id="type-filters"></div>
+        <button class="btn ghost sm" id="instr-miss-btn">⚠ Missing only</button>
+        <button class="btn ghost sm on" id="btn-igroup">📁 Folders</button>
+        <span class="stat-chip" id="instrs-stat"></span>
+        <div class="vtog-wrap" style="margin-left:4px">
+          <button class="vtog active" id="ivtog-list" title="List view">☰</button>
+          <button class="vtog" id="ivtog-grid" title="Grid view">⊞</button>
+        </div>
+      </div>
+      <div class="scroll-area"><div id="instrs-list"></div></div>
+    </div>
+
+    <!-- THEMES -->
+    <div class="tab-pane" id="tab-themes">
+      <div class="toolbar">
+        <input class="search" id="theme-q" type="text" placeholder="filter themes…">
+        <span class="stat-chip" id="themes-stat"></span>
+        <div class="vtog-wrap" style="margin-left:auto">
+          <button class="vtog active" id="tvtog-compact" title="Compact view">⊟</button>
+          <button class="vtog" id="tvtog-expanded" title="Expanded view">⊞</button>
+        </div>
+      </div>
+      <div class="themes-scroll">
+        <div class="themes-grid" id="themes-grid"></div>
+      </div>
+    </div>
+
+    <!-- BACKUP -->
+    <div class="tab-pane" id="tab-backup">
+      <div class="backup-layout">
+        <div class="backup-panel">
+          <div class="sblock">
+            <div class="sblock-title">Include in Backup</div>
+            <label class="inc-row"><input type="checkbox" id="inc-Songs" checked>
+              <span class="inc-label">Songs</span><span class="inc-count" id="cnt-Songs">—</span></label>
+            <label class="inc-row"><input type="checkbox" id="inc-Instruments" checked>
+              <span class="inc-label">Instruments</span><span class="inc-count" id="cnt-Instruments">—</span></label>
+            <label class="inc-row"><input type="checkbox" id="inc-Samples" checked>
+              <div style="flex:1"><div class="inc-label">Samples</div><div class="inc-warn" id="warn-Samples"></div></div>
+              <span class="inc-count" id="cnt-Samples">—</span></label>
+            <label class="inc-row"><input type="checkbox" id="inc-Themes" checked>
+              <span class="inc-label">Themes</span><span class="inc-count" id="cnt-Themes">—</span></label>
+            <label class="inc-row"><input type="checkbox" id="inc-Grooves" checked>
+              <span class="inc-label">Grooves</span><span class="inc-count" id="cnt-Grooves">—</span></label>
+          </div>
+          <div class="backup-info">
+            Creates <span style="color:var(--accent)">M8_BACKUP_YYYYMMDD_HHMM</span> in a folder you choose.<br>
+            <span style="color:var(--muted);font-size:11px">SD card opened read-only — this app cannot alter or delete your data.</span>
+          </div>
+          <button class="btn" id="btn-backup">CREATE BACKUP</button>
+        </div>
+        <div class="backup-log" id="backup-log">
+          <div class="log-line">Ready. Select what to include, then press CREATE BACKUP.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Song detail modal (grid view) -->
+<div id="song-modal" class="song-modal-overlay" style="display:none">
+  <div class="song-modal-box">
+    <div class="song-modal-hdr">
+      <span class="song-modal-title" id="modal-title"></span>
+      <span class="song-modal-meta" id="modal-meta"></span>
+      <button class="btn ghost sm" id="btn-modal-close">✕</button>
+    </div>
+    <div class="song-modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════
+// M8 BINARY PARSER  (based on whitlockjc/m8-js, Apache 2.0)
+// ══════════════════════════════════════════════════════════
+const M8 = (() => {
+  const KIND = {
+    0x00:'WAVSYNTH', 0x01:'MACROSYNTH', 0x02:'SAMPLER',
+    0x03:'MIDIOUT',  0x04:'FMSYNTH',   0xFF:'NONE',
+  };
+  const KIND_SHORT = {
+    'WAVSYNTH':'WAV','MACROSYNTH':'MAC','SAMPLER':'SAM',
+    'MIDIOUT':'MID','FMSYNTH':'FM','NONE':'—',
+  };
+  const THEME_COLORS = ['background','text','play','cursor','selection','deselect','view','marker'];
+
+  // UTF-8 first, Latin-1 fallback — M8 stores paths verbatim from FAT filesystem
+  function readStr(b, off, len) {
+    const bytes = [];
+    for (let i = 0; i < len; i++) {
+      const c = b[off + i];
+      if (c === 0 || c === 0xFF) break;
+      bytes.push(c);
+    }
+    if (!bytes.length) return '';
+    const u8 = new Uint8Array(bytes);
+    try { return new TextDecoder('utf-8', {fatal:true}).decode(u8); }
+    catch { return new TextDecoder('latin1').decode(u8); }
+  }
+
+  function parseHeader(b) {
+    if (b.length < 14 || readStr(b, 0, 9) !== 'M8VERSION') return null;
+    const vr = b[10] | (b[11] << 8);
+    return { version:{ major:(vr>>8)&0xF, minor:(vr>>4)&0xF, patch:vr&0xF }, fileType:b[13] };
+  }
+
+  const SONG_NAME_OFF = 148, INSTR_TABLE = 80446, ISIZE = 215, SAMP_OFF = 0x57;
+
+  function parseSong(b) {
+    const h = parseHeader(b);
+    if (!h || h.fileType !== 0x00 || b.length < INSTR_TABLE + 128 * ISIZE) return null;
+    const name = readStr(b, SONG_NAME_OFF, 12).trim() || 'UNTITLED';
+    const instruments = [];
+    for (let i = 0; i < 128; i++) {
+      const base = INSTR_TABLE + i * ISIZE, kind = b[base];
+      if (kind === 0xFF) continue;
+      const iname = readStr(b, base+1, 12).trim();
+      if (!iname) continue;
+      const typeName = KIND[kind] || `0x${kind.toString(16)}`;
+      instruments.push({ slot:i, kind, typeName, kindShort:KIND_SHORT[typeName]||typeName,
+        name:iname, samplePath:kind===0x02?readStr(b,base+SAMP_OFF,127).trim():'' });
+    }
+    const samplePaths = [...new Set(instruments.filter(x=>x.samplePath).map(x=>x.samplePath))];
+    return { header:h, name, instruments, samplePaths };
+  }
+  function parseInstrFile(b) {
+    const h = parseHeader(b);
+    if (!h || h.fileType !== 0x10) return null;
+    const base=14, kind=b[base];
+    const typeName = KIND[kind]||`0x${kind.toString(16)}`;
+    return { header:h, kind, typeName, kindShort:KIND_SHORT[typeName]||typeName,
+      name:readStr(b,base+1,12).trim()||'UNNAMED',
+      samplePath:kind===0x02?readStr(b,base+SAMP_OFF,127).trim():'' };
+  }
+  function parseTheme(b) {
+    const h = parseHeader(b);
+    if (!h || h.fileType !== 0x20) return null;
+    const colors = {};
+    THEME_COLORS.forEach((name,i) => {
+      const off = 14 + i*3;
+      if (off+2 < b.length) colors[name] = { r:b[off], g:b[off+1], b:b[off+2] };
+    });
+    return { header:h, colors };
+  }
+  function rgbHex(c) {
+    if (!c) return '#111';
+    return '#'+[c.r,c.g,c.b].map(v=>v.toString(16).padStart(2,'0')).join('');
+  }
+  return { parseSong, parseInstrFile, parseTheme, rgbHex, THEME_COLORS };
+})();
+
+
+// ══════════════════════════════════════════════════════════
+// LIBRARY CACHE  (IndexedDB v2)
+//
+// v2 changes vs v1:
+//  - New 'handles' object store for persisting SD card directory handle
+//  - cacheVer:2 field on library entries (old entries are ignored → force rescan)
+//  - sampleRels are now root-relative paths (not Samples/-relative)
+// ══════════════════════════════════════════════════════════
+const Cache = (() => {
+  const DB = 'm8librarian', LIB = 'libraries', HDL = 'handles', VER = 2;
+
+  function openDB() {
+    return new Promise((res, rej) => {
+      const req = indexedDB.open(DB, VER);
+      req.onupgradeneeded = e => {
+        const db = e.target.result, old = e.oldVersion;
+        if (old < 1) db.createObjectStore(LIB, {keyPath:'key'});
+        if (old < 2 && !db.objectStoreNames.contains(HDL))
+          db.createObjectStore(HDL, {keyPath:'key'});
+      };
+      req.onsuccess = e => res(e.target.result);
+      req.onerror   = e => rej(e.target.error);
+    });
+  }
+
+  async function tx(store, mode, fn) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const t = db.transaction(store, mode);
+      const req = fn(t.objectStore(store));
+      t.oncomplete = () => res(req?.result ?? undefined);
+      t.onerror    = () => rej(t.error);
+    });
+  }
+
+  async function load(key) {
+    try {
+      const data = await tx(LIB, 'readonly', s => s.get(key));
+      if (!data || data.cacheVer !== 2) return null; // invalidate old format
+      return data;
+    } catch { return null; }
+  }
+  async function save(data) {
+    try { await tx(LIB, 'readwrite', s => s.put({...data, cacheVer:2})); }
+    catch(e) { console.warn('Cache.save:', e); }
+  }
+  async function remove(key) {
+    try { await tx(LIB, 'readwrite', s => s.delete(key)); } catch {}
+  }
+
+  // Persist the FileSystemDirectoryHandle for reconnect on next load
+  async function saveHandle(handle) {
+    try { await tx(HDL, 'readwrite', s => s.put({key:'last', handle, name:handle.name})); }
+    catch(e) { console.warn('saveHandle:', e); }
+  }
+  async function loadHandle() {
+    try { return await tx(HDL, 'readonly', s => s.get('last')); }
+    catch { return null; }
+  }
+
+  // Rebuild 2-variant lookup Set from root-relative bare paths
+  // (v2 format: paths are relative to SD root, e.g. "Samples/foo.wav", "Instruments/bar.wav")
+  function rebuildKnown(rels) {
+    const s = new Set();
+    for (const r of rels) { s.add(r); s.add('/'+r); }
+    return s;
+  }
+
+  function ageStr(ts) {
+    const m = Math.round((Date.now()-ts)/60000);
+    if (m < 2) return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.round(m/60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.round(h/24)}d ago`;
+  }
+
+  return { load, save, remove, saveHandle, loadHandle, rebuildKnown, ageStr };
+})();
+
+
+// ══════════════════════════════════════════════════════════
+// SCANNER
+// ══════════════════════════════════════════════════════════
+const Scanner = (() => {
+  async function* walkFiles(dir, pfx) {
+    for await (const [name, h] of dir) {
+      const fp = pfx ? `${pfx}/${name}` : name;
+      if (h.kind === 'file') yield {name, path:fp, handle:h};
+      else yield* walkFiles(h, fp);
+    }
+  }
+  async function subDir(root, name) {
+    try { return await root.getDirectoryHandle(name); } catch { return null; }
+  }
+  async function countExt(dir, ext) {
+    if (!dir) return 0; let n=0;
+    for await (const e of walkFiles(dir,'')) if (e.name.toLowerCase().endsWith(ext)) n++;
+    return n;
+  }
+
+  // Recursively scan a songs directory.
+  // M8 firmware creates autosave bundle folders with the same base name as the song file
+  // (e.g. JUNGAMB.m8s → JUNGAMB/ containing timestamped autosaves).
+  // Those are detected and SKIPPED — we don't recurse into them but do mark hasBundle:true.
+  // All other subdirectories are treated as user-organised folders and recursed into.
+  async function scanSongsDir(dir, prefix) {
+    const songs = [], fileEntries = [], dirEntries = [];
+    for await (const [name, handle] of dir) {
+      if (handle.kind === 'file') fileEntries.push({name, handle});
+      else dirEntries.push({name, handle});
+    }
+    // Collect base names of song files at this level so we can identify their bundle dirs
+    const songBases = new Set(
+      fileEntries
+        .filter(e => e.name.toLowerCase().endsWith('.m8s'))
+        .map(e => e.name.toLowerCase().replace(/\.m8s$/, ''))
+    );
+    // Parse song files
+    for (const {name, handle} of fileEntries) {
+      if (!name.toLowerCase().endsWith('.m8s')) continue;
+      try {
+        const file = await handle.getFile();
+        const buf  = await file.arrayBuffer();
+        const song = M8.parseSong(new Uint8Array(buf));
+        if (song) {
+          const base = name.toLowerCase().replace(/\.m8s$/, '');
+          const filePath = prefix ? `${prefix}/${name}` : name;
+          const hasBundle = dirEntries.some(d => d.name.toLowerCase() === base);
+          songs.push({...song, fileName:name, filePath,
+            fileSize:buf.byteLength, lastModified:file.lastModified, hasBundle});
+        }
+      } catch(e) { console.warn('Song parse error:', e); }
+    }
+    // Recurse into non-bundle subdirs
+    for (const {name, handle} of dirEntries) {
+      if (songBases.has(name.toLowerCase())) continue; // autosave bundle — skip
+      const sub = prefix ? `${prefix}/${name}` : name;
+      songs.push(...await scanSongsDir(handle, sub));
+    }
+    return songs;
+  }
+
+  // Build a nested tree from a flat songs array, using filePath to determine folder hierarchy.
+  // Root songs (no /): appear at top level. Songs in subfolders: nested under their folder nodes.
+  function buildSongsTree(songs) {
+    const root = { name:'', path:'', songs:[], children:[] };
+    const map  = new Map([['', root]]);
+    function getNode(path) {
+      if (map.has(path)) return map.get(path);
+      const slash = path.lastIndexOf('/');
+      const name  = path.substring(slash+1);
+      const pPath = slash >= 0 ? path.substring(0, slash) : '';
+      const parent = getNode(pPath);
+      const node = { name, path, songs:[], children:[] };
+      map.set(path, node);
+      parent.children.push(node);
+      return node;
+    }
+    songs.forEach(s => {
+      const slash = s.filePath.lastIndexOf('/');
+      const folder = slash >= 0 ? s.filePath.substring(0, slash) : '';
+      getNode(folder).songs.push(s);
+    });
+    function sort(n) { n.children.sort((a,b)=>a.name.localeCompare(b.name)); n.children.forEach(sort); }
+    sort(root);
+    return root;
+  }
+
+  // Build a nested tree from a flat instruments array
+  function buildInstrTree(instrs) {
+    const root = { name:'', path:'', instrs:[], children:[] };
+    const map  = new Map([['', root]]);
+    function getNode(path) {
+      if (map.has(path)) return map.get(path);
+      const slash = path.lastIndexOf('/');
+      const name  = path.substring(slash+1);
+      const pPath = slash >= 0 ? path.substring(0, slash) : '';
+      const parent = getNode(pPath);
+      const node = { name, path, instrs:[], children:[] };
+      map.set(path, node);
+      parent.children.push(node);
+      return node;
+    }
+    instrs.forEach(i => {
+      const slash = i.filePath.lastIndexOf('/');
+      const folder = slash >= 0 ? i.filePath.substring(0, slash) : '';
+      getNode(folder).instrs.push(i);
+    });
+    function sort(n) {
+      n.children.sort((a,b)=>a.name.localeCompare(b.name));
+      n.instrs.sort((a,b)=>a.name.localeCompare(b.name));
+      n.children.forEach(sort);
+    }
+    sort(root);
+    return root;
+  }
+
+  async function scanFast(root, onProgress) {
+    const instrs=[], themes=[];
+    const [songsDir, instrDir, themesDir, groovesDir] = await Promise.all([
+      subDir(root,'Songs'), subDir(root,'Instruments'), subDir(root,'Themes'), subDir(root,'Grooves'),
+    ]);
+
+    onProgress?.('Scanning songs…');
+    let songs = [];
+    if (songsDir) {
+      songs = await scanSongsDir(songsDir, '');
+      songs.sort((a,b) => a.filePath.localeCompare(b.filePath));
+    }
+
+    onProgress?.('Scanning instruments…');
+    if (instrDir) {
+      for await (const entry of walkFiles(instrDir,'')) {
+        if (!entry.name.toLowerCase().endsWith('.m8i')) continue;
+        try {
+          const file = await entry.handle.getFile();
+          const buf  = await file.arrayBuffer();
+          const inst = M8.parseInstrFile(new Uint8Array(buf));
+          if (inst) instrs.push({...inst, fileName:entry.name, filePath:entry.path,
+            fileSize:buf.byteLength, lastModified:file.lastModified});
+        } catch {}
+      }
+      instrs.sort((a,b) => a.filePath.localeCompare(b.filePath));
+    }
+
+    onProgress?.('Scanning themes…');
+    if (themesDir) {
+      for await (const entry of walkFiles(themesDir,'')) {
+        if (!entry.name.toLowerCase().endsWith('.m8t')) continue;
+        try {
+          const file = await entry.handle.getFile();
+          const buf  = await file.arrayBuffer();
+          const thm  = M8.parseTheme(new Uint8Array(buf));
+          if (thm) themes.push({...thm, fileName:entry.name, filePath:entry.path,
+            fileSize:buf.byteLength, lastModified:file.lastModified});
+        } catch {}
+      }
+      themes.sort((a,b) => a.fileName.localeCompare(b.fileName));
+    }
+
+    const grooveCount = await countExt(groovesDir, '.m8g');
+    const dirCounts = { Songs:songs.length, Instruments:instrs.length,
+      Samples:null, Themes:themes.length, Grooves:grooveCount };
+    return { songs, instrs, themes, dirCounts };
+  }
+
+  // Catalogue ALL wav files from the SD card root.
+  //
+  // Previous versions only walked Samples/ — but M8 songs can reference samples from
+  // anywhere on the card (e.g. /Instruments/Fairlight/05Basses/Synbass3C2.wav).
+  // Walking from root means any path the M8 stores will be found.
+  //
+  // Paths are stored as root-relative bare strings, e.g.:
+  //   "Samples/Kicks/kick.wav"
+  //   "Instruments/Fairlight/05Basses/Synbass3C2.wav"
+  //
+  // rebuildKnown() adds two variants: bare and /bare, which matches M8's absolute
+  // path format ("/Samples/Kicks/kick.wav") via sampleFound().
+  async function catalogueSamples(sdRoot, onCount) {
+    const known = new Set(), rels = [];
+    let total = 0;
+    async function walkAndIndex(dir, prefix) {
+      const subtasks = [];
+      for await (const [name, handle] of dir) {
+        const rel = prefix ? `${prefix}/${name}` : name;
+        if (handle.kind === 'directory') subtasks.push(walkAndIndex(handle, rel));
+        else if (name.toLowerCase().endsWith('.wav')) {
+          total++;
+          const lc = rel.toLowerCase();
+          rels.push(lc); known.add(lc); known.add('/'+lc);
+          if (total % 25 === 0) onCount?.(total);
+        }
+      }
+      if (subtasks.length) await Promise.all(subtasks);
+    }
+    // Only walk directories where M8 samples actually live — skips Songs/, Themes/, Grooves/ etc.
+    // Walk Samples/ and Instruments/ in parallel for speed.
+    await Promise.all(['Samples', 'Instruments'].map(async dirName => {
+      let dir; try { dir = await sdRoot.getDirectoryHandle(dirName); } catch { return; }
+      await walkAndIndex(dir, dirName);
+    }));
+    return { known, rels, count:total };
+  }
+
+  // null = not yet catalogued; true = found; false = missing
+  function sampleFound(path, known) {
+    if (!path || !known.size) return null;
+    const lp = path.toLowerCase().replace(/\\/g,'/');
+    const ns = lp.replace(/^\//, '');
+    return known.has(lp) || known.has(ns) || known.has('/'+ns);
+  }
+
+  function buildUsageMap(songs) {
+    const m = new Map();
+    for (const s of songs)
+      for (const i of s.instruments) {
+        const k = i.name.toLowerCase();
+        if (!m.has(k)) m.set(k, new Set());
+        m.get(k).add(s.name);
+      }
+    const out = new Map();
+    for (const [k,v] of m) out.set(k, [...v].sort());
+    return out;
+  }
+
+  return { scanFast, catalogueSamples, sampleFound, buildUsageMap, buildSongsTree, buildInstrTree };
+})();
+
+
+// ══════════════════════════════════════════════════════════
+// BACKUP
+// ══════════════════════════════════════════════════════════
+async function copyDir(src, dest, onFile) {
+  for await (const [name, h] of src) {
+    if (h.kind==='directory') {
+      await copyDir(h, await dest.getDirectoryHandle(name,{create:true}), onFile);
+    } else {
+      const file=await h.getFile();
+      const w=await (await dest.getFileHandle(name,{create:true})).createWritable();
+      await w.write(await file.arrayBuffer()); await w.close();
+      onFile?.(name);
+    }
+  }
+}
+async function createBackup(sdHandle, dirs, onLog, onDone, onError) {
+  let dest;
+  try { dest=await window.showDirectoryPicker({mode:'readwrite'}); }
+  catch(e) { if (e.name!=='AbortError') onError?.(e.message); return; }
+  const now=new Date(), p=n=>String(n).padStart(2,'0');
+  const bname=`M8_BACKUP_${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}_${p(now.getHours())}${p(now.getMinutes())}`;
+  try {
+    onLog?.('head',`Creating ${bname}…`);
+    const bd=await dest.getDirectoryHandle(bname,{create:true});
+    let count=0;
+    for (const dir of dirs) {
+      let s; try { s=await sdHandle.getDirectoryHandle(dir); } catch { continue; }
+      onLog?.('ok',`Copying ${dir}/…`);
+      await copyDir(s, await bd.getDirectoryHandle(dir,{create:true}),
+        n=>{ count++; onLog?.('log',`  ${n}`); });
+    }
+    onDone?.(count, bname);
+  } catch(e) { onError?.(e.message); }
+}
+
+
+// ══════════════════════════════════════════════════════════
+// UI
+// ══════════════════════════════════════════════════════════
+const UI = (() => {
+  const $ = id => document.getElementById(id);
+  const fmtVer = v => `v${v.major}.${v.minor}.${v.patch}`;
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // ── State
+  let sdHandle=null, cacheKey='';
+  let songs=[], instrs=[], themes=[], known=new Set(), usageMap=new Map();
+  let dirCounts={};
+  let sampIndexed=false;
+  let songFilter='', songSort='name-asc', songMissOnly=false, songView='list';
+  let instrFilter='', instrSort='name-asc', instrTypes=new Set(), instrMissOnly=false, instrGrouped=true, instrView='list';
+  let themeFilter='', themeExpanded=false;
+
+  // ── Tabs
+  document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    $('tab-'+btn.dataset.tab).classList.add('active');
+  }));
+
+  // ── View toggles
+  $('vtog-list').addEventListener('click',()=>{ songView='list'; $('vtog-list').classList.add('active'); $('vtog-grid').classList.remove('active'); renderSongs(); });
+  $('vtog-grid').addEventListener('click',()=>{ songView='grid'; $('vtog-grid').classList.add('active'); $('vtog-list').classList.remove('active'); renderSongs(); });
+  $('btn-igroup').addEventListener('click',()=>{ instrGrouped=!instrGrouped; $('btn-igroup').classList.toggle('on',instrGrouped); renderInstrs(); });
+
+  // ── Song modal
+  function openSongModal(song) {
+    $('modal-title').textContent = song.name;
+    $('modal-meta').textContent  = `${song.filePath} · ${fmtVer(song.header.version)}${song.hasBundle?' · 📦':''}`;
+    $('modal-body').innerHTML    = buildSongDetail(song);
+    $('song-modal').style.display = 'flex';
+  }
+  function closeSongModal() { $('song-modal').style.display='none'; }
+  $('btn-modal-close').addEventListener('click', closeSongModal);
+  $('song-modal').addEventListener('click', e=>{ if(e.target===$('song-modal'))closeSongModal(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape')closeSongModal(); });
+
+  // ── Cache bar
+  function setCacheBar(state, ts) {
+    const bar=$('cache-bar'), msg=$('cache-msg'), rscan=$('btn-rescan');
+    bar.style.display='flex'; bar.className='';
+    if (state==='scanning') { msg.textContent='Scanning SD card…'; rscan.style.display='none'; }
+    else if (state==='cached') {
+      msg.textContent=`Library loaded from cache · indexed ${Cache.ageStr(ts)}`;
+      rscan.style.display='inline-block';
+      if (Date.now()-ts > 7*24*60*60*1000) bar.className='stale';
+    } else {
+      msg.textContent=`Library indexed · ${new Date(ts).toLocaleDateString()}`;
+      rscan.style.display='inline-block';
+    }
+  }
+
+  // ── Load SD handle (shared by openSD and reconnect paths)
+  async function loadSDHandle(h) {
+    sdHandle=h; cacheKey=h.name;
+    $('sd-label').textContent=h.name;
+    $('ro-badge').style.display='inline-flex';
+    $('empty-state').style.display='none';
+    $('main').classList.add('visible');
+    sampIndexed=false; known=new Set(); dirCounts={};
+    setCatNotice('idle');
+
+    const cached = await Cache.load(cacheKey);
+    if (cached) {
+      songs=cached.songs||[]; instrs=cached.instrs||[]; themes=cached.themes||[];
+      dirCounts=cached.dirCounts||{};
+      usageMap=Scanner.buildUsageMap(songs);
+      if (cached.sampIndexed && cached.sampleRels?.length) {
+        known=Cache.rebuildKnown(cached.sampleRels);
+        sampIndexed=true;
+        setCatNotice('cached', dirCounts.Samples||cached.sampleRels.length);
+      }
+      renderSongs(); renderInstrs(); renderThemes(); renderBackupCounts();
+      setCacheBar('cached', cached.ts);
+    } else {
+      setCacheBar('scanning');
+      $('songs-list').innerHTML='<div class="spinner-wrap"><div class="spinner"></div>Scanning…</div>';
+      $('instrs-list').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
+      $('themes-grid').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
+      const r=await Scanner.scanFast(h, msg=>{
+        $('songs-list').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>${msg}</div>`;
+      });
+      songs=r.songs; instrs=r.instrs; themes=r.themes; dirCounts=r.dirCounts;
+      usageMap=Scanner.buildUsageMap(songs);
+      const ts=Date.now();
+      await Cache.save({key:cacheKey, ts, songs, instrs, themes,
+        sampleRels:[], sampIndexed:false, dirCounts});
+      renderSongs(); renderInstrs(); renderThemes(); renderBackupCounts();
+      setCacheBar('fresh', ts);
+    }
+  }
+
+  // ── Open SD card (fresh picker)
+  async function openSD() {
+    if (!window.showDirectoryPicker) { alert('Requires Chrome or Edge.'); return; }
+    let h; try { h=await window.showDirectoryPicker({mode:'read'}); }
+    catch(e) { if(e.name!=='AbortError') console.error(e); return; }
+    await Cache.saveHandle(h); // persist for reconnect
+    await loadSDHandle(h);
+  }
+  $('btn-open').addEventListener('click', openSD);
+  $('btn-open-empty').addEventListener('click', openSD);
+
+  // ── Reconnect to last SD card
+  // FileSystemDirectoryHandle is persisted in IndexedDB; requestPermission() re-grants access
+  async function initReconnect() {
+    if (!window.showDirectoryPicker) { $('browser-warn').style.display='block'; return; }
+    const entry = await Cache.loadHandle();
+    if (!entry?.handle) return;
+    $('reconnect-name').textContent = entry.name || entry.handle.name || '—';
+    $('reconnect-card').style.display = 'flex';
+    $('empty-divider').style.display = 'block';
+    $('btn-open-empty').className = 'btn secondary';
+    $('btn-reconnect').addEventListener('click', async () => {
+      try {
+        const perm = await entry.handle.requestPermission({mode:'read'});
+        if (perm === 'granted') {
+          await Cache.saveHandle(entry.handle); // refresh saved handle
+          await loadSDHandle(entry.handle);
+        }
+      } catch(e) { console.error('Reconnect failed:', e); }
+    });
+  }
+  initReconnect();
+
+  // ── Full rescan (library only — preserves sample index if already catalogued)
+  $('btn-rescan').addEventListener('click', async ()=>{
+    if (!sdHandle) return;
+    // Preserve sample data — WAV files don't change just because songs/instruments changed
+    const prevCache = await Cache.load(cacheKey);
+    const prevRels     = (prevCache?.sampIndexed && prevCache?.sampleRels?.length) ? prevCache.sampleRels : [];
+    const prevIndexed  = prevRels.length > 0;
+    await Cache.remove(cacheKey);
+    songs=[]; instrs=[]; themes=[];
+    if (!prevIndexed) { known=new Set(); sampIndexed=false; setCatNotice('idle'); }
+    setCacheBar('scanning');
+    $('songs-list').innerHTML='<div class="spinner-wrap"><div class="spinner"></div>Scanning…</div>';
+    $('instrs-list').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
+    $('themes-grid').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
+    const r=await Scanner.scanFast(sdHandle, msg=>{
+      $('songs-list').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>${msg}</div>`;
+    });
+    songs=r.songs; instrs=r.instrs; themes=r.themes; dirCounts=r.dirCounts;
+    usageMap=Scanner.buildUsageMap(songs);
+    const ts=Date.now();
+    await Cache.save({key:cacheKey, ts, songs, instrs, themes,
+      sampleRels:prevRels, sampIndexed:prevIndexed, dirCounts});
+    if (prevIndexed) { known=Cache.rebuildKnown(prevRels); sampIndexed=true; setCatNotice('cached', dirCounts.Samples||prevRels.length); }
+    renderSongs(); renderInstrs(); renderThemes(); renderBackupCounts();
+    setCacheBar('fresh', ts);
+  });
+
+  // ── Sample catalogue notice
+  function setCatNotice(state, n) {
+    const notice=$('cat-notice'), msg=$('cat-msg'), prog=$('cat-prog'), btn=$('btn-catalogue');
+    if (state==='idle') {
+      notice.className='cat-notice'; msg.textContent='Sample dependencies not checked.';
+      prog.textContent=''; btn.textContent='Catalogue Samples'; btn.disabled=false;
+    } else if (state==='running') {
+      notice.className='cat-notice'; msg.textContent='Indexing wav files on card…';
+      prog.textContent=n||''; btn.textContent='Running…'; btn.disabled=true;
+    } else if (state==='cached') {
+      notice.className='cat-notice done'; msg.textContent=`✓ ${n} wav files indexed · loaded from cache.`;
+      prog.textContent=''; btn.textContent='Re-index'; btn.disabled=false;
+    } else {
+      notice.className='cat-notice done'; msg.textContent=`✓ ${n} wav files indexed.`;
+      prog.textContent=''; btn.textContent='Re-index'; btn.disabled=false;
+    }
+  }
+  $('btn-catalogue').addEventListener('click', async ()=>{
+    if (!sdHandle) return;
+    setCatNotice('running');
+    // Walk the entire SD card root — M8 can reference samples from any folder
+    const r = await Scanner.catalogueSamples(sdHandle, n=>setCatNotice('running',`${n} found…`));
+    known=r.known; sampIndexed=true;
+    setCatNotice('done', r.count);
+    dirCounts={...dirCounts, Samples:r.count};
+    const cached=await Cache.load(cacheKey)||{};
+    await Cache.save({...cached, key:cacheKey, sampleRels:r.rels, sampIndexed:true, dirCounts});
+    renderSongs(); renderInstrs(); renderBackupCounts();
+  });
+
+  // ── Helpers
+  function songMissCount(s) { return s.samplePaths.filter(p=>Scanner.sampleFound(p,known)===false).length; }
+  function instrMiss(i)     { return i.kind===0x02&&i.samplePath&&Scanner.sampleFound(i.samplePath,known)===false; }
+  function instrUsage(i)    { return (usageMap.get(i.name.toLowerCase())||[]).length; }
+
+  function missInfo(song) {
+    const has = song.samplePaths.length > 0;
+    if (!has)          return {cls:'none', bar:'pend', lbl:'—'};
+    if (!sampIndexed)  return {cls:'pend', bar:'pend', lbl:`${song.samplePaths.length} samp`};
+    const m = songMissCount(song);
+    if (m > 0)         return {cls:'bad',  bar:'bad',  lbl:`⚠ ${m} missing`};
+    return                    {cls:'good', bar:'good', lbl:`✓ ${song.samplePaths.length} ok`};
+  }
+
+  function matchesSong(s) {
+    const q = songFilter;
+    if (q && !s.name.toLowerCase().includes(q) && !s.filePath.toLowerCase().includes(q)) return false;
+    if (songMissOnly && songMissCount(s) === 0) return false;
+    return true;
+  }
+
+  function sortSongsArr(arr) {
+    return [...arr].sort((a,b)=>{
+      if (songSort==='name-desc')  return b.name.localeCompare(a.name);
+      if (songSort==='date-desc')  return (b.lastModified||0)-(a.lastModified||0);
+      if (songSort==='date-asc')   return (a.lastModified||0)-(b.lastModified||0);
+      if (songSort==='missing')    return (songMissCount(b)-songMissCount(a))||a.name.localeCompare(b.name);
+      if (songSort==='instrs')     return (b.instruments.length-a.instruments.length)||a.name.localeCompare(b.name);
+      return a.name.localeCompare(b.name);
+    });
+  }
+  function sortInstrsArr(arr) {
+    return [...arr].sort((a,b)=>{
+      if (instrSort==='name-desc') return b.name.localeCompare(a.name);
+      if (instrSort==='type')      return a.typeName.localeCompare(b.typeName)||a.name.localeCompare(b.name);
+      if (instrSort==='usage')     return (instrUsage(b)-instrUsage(a))||a.name.localeCompare(b.name);
+      if (instrSort==='missing')   return ((instrMiss(b)?1:0)-(instrMiss(a)?1:0))||a.name.localeCompare(b.name);
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  // ── SONGS
+  $('song-q').addEventListener('input', e=>{ songFilter=e.target.value.toLowerCase(); renderSongs(); });
+  $('song-sort').addEventListener('change', e=>{ songSort=e.target.value; renderSongs(); });
+  $('song-miss-btn').addEventListener('click', ()=>{ songMissOnly=!songMissOnly; $('song-miss-btn').classList.toggle('on',songMissOnly); renderSongs(); });
+
+  function countMatchingSongs(node) {
+    let n = node.songs.filter(matchesSong).length;
+    for (const c of node.children) n += countMatchingSongs(c);
+    return n;
+  }
+  function countAllSongs(node) {
+    let n = node.songs.length;
+    for (const c of node.children) n += countAllSongs(c);
+    return n;
+  }
+
+  function renderSongs() {
+    const el = $('songs-list');
+    if (!songs.length) {
+      el.className=''; el.innerHTML='<div class="no-results">No .m8s files found.</div>';
+      $('songs-stat').textContent='0 songs';
+      return;
+    }
+    if (songView === 'grid') {
+      const visible = sortSongsArr(songs.filter(matchesSong));
+      $('songs-stat').textContent = `${visible.length} / ${songs.length} songs`;
+      renderSongsGrid(visible, el);
+    } else {
+      const tree = Scanner.buildSongsTree(songs);
+      const matchCount = countMatchingSongs(tree);
+      $('songs-stat').textContent = `${matchCount} / ${songs.length} songs`;
+      el.className = ''; el.innerHTML = '';
+      if (matchCount === 0) { el.innerHTML='<div class="no-results">No matches.</div>'; return; }
+      renderSongsTreeNode(tree, el, 0);
+    }
+  }
+
+  function renderSongsTreeNode(node, container, depth) {
+    const indent = 20 + depth * 16;
+    // Subfolders first
+    for (const child of node.children) {
+      if (countMatchingSongs(child) === 0) continue;
+      const total = countAllSongs(child);
+      const groupEl = document.createElement('div');
+      groupEl.className = 'song-folder open';
+      groupEl.innerHTML = `<div class="song-folder-hdr" style="padding-left:${indent}px">
+        <span class="sf-chev">▶</span>
+        <span class="sf-name">📁 ${esc(child.name)}</span>
+        <span class="sf-cnt">${total}</span>
+      </div><div class="sf-body"></div>`;
+      groupEl.querySelector('.song-folder-hdr').addEventListener('click',()=>groupEl.classList.toggle('open'));
+      renderSongsTreeNode(child, groupEl.querySelector('.sf-body'), depth+1);
+      container.appendChild(groupEl);
+    }
+    // Songs in this node
+    sortSongsArr(node.songs.filter(matchesSong)).forEach(song=>{
+      const item = buildSongListItem(song);
+      item.querySelector('.song-row').style.paddingLeft = `${indent}px`;
+      container.appendChild(item);
+    });
+  }
+
+  function buildSongListItem(song) {
+    const mi = missInfo(song);
+    const bundleTip = song.hasBundle ? `<span class="bundle-dot" title="Bundle folder">📦</span>` : '';
+    const item = document.createElement('div');
+    item.className = 'song-item';
+    item.innerHTML = `<div class="song-row">
+      <span class="s-chev">▶</span>
+      <span class="s-name">${esc(song.name)}</span>
+      <span class="s-file">${esc(song.fileName)}${bundleTip}</span>
+      <span class="s-ver">${fmtVer(song.header.version)}</span>
+      <span class="s-ic">${song.instruments.length} instr</span>
+      <span class="s-miss ${mi.cls}">${mi.lbl}</span></div>
+      <div class="song-detail">${buildSongDetail(song)}</div>`;
+    item.querySelector('.song-row').addEventListener('click',()=>item.classList.toggle('open'));
+    return item;
+  }
+
+  function renderSongsGrid(sorted, el) {
+    el.className = 'song-grid'; el.innerHTML = '';
+    sorted.forEach(song=>{
+      const mi = missInfo(song);
+      const card = document.createElement('div');
+      card.className = 'song-card';
+      card.innerHTML = `<div class="sc-bar ${mi.bar}"></div>
+        <div class="sc-body">
+          <div class="sc-name">${esc(song.name)}</div>
+          <div class="sc-file">${esc(song.filePath)}</div>
+          <div class="sc-foot">
+            <span class="sc-ic">${song.instruments.length} instr</span>
+            ${song.hasBundle?'<span class="sc-bundle" title="Bundle">📦</span>':''}
+            <span class="sc-badge ${mi.cls}">${mi.lbl}</span>
+          </div>
+        </div>`;
+      card.addEventListener('click', ()=>openSongModal(song));
+      el.appendChild(card);
+    });
+  }
+
+  function buildSongDetail(song) {
+    const hasI = song.instruments.length > 0;
+    const hasS = song.samplePaths.length > 0;
+    if (!hasI && !hasS) return '<div style="color:var(--muted);font-size:12px">Empty song — no instruments.</div>';
+    let instrHtml='', sampHtml='';
+    if (hasI) {
+      const chips = song.instruments.map(i=>`<span class="ichip">
+        <span class="ichip-slot">${i.slot.toString().padStart(2,'0')}</span>
+        <span class="tb ${i.typeName}">${i.kindShort||i.typeName.substring(0,3)}</span>
+        <span class="ichip-name">${esc(i.name)}</span>
+      </span>`).join('');
+      instrHtml=`<div><div class="det-title">Instruments (${song.instruments.length})</div><div class="iblock">${chips}</div></div>`;
+    }
+    if (hasS) {
+      const rows = song.samplePaths.map(p=>{
+        const f=Scanner.sampleFound(p,known);
+        const cls=f===null?'unk':f?'ok':'miss';
+        const icon=f===null?'?':f?'✓':'✗';
+        const col=`var(${f===null?'--muted':f?'--c-found':'--c-miss'})`;
+        return `<div class="spr ${cls}"><span class="spr-ic" style="color:${col}">${icon}</span><span class="spr-path">${esc(p)}</span></div>`;
+      }).join('');
+      sampHtml=`<div><div class="det-title">Sample dependencies (${song.samplePaths.length})</div>${rows}</div>`;
+    }
+    if (hasI && hasS) return `<div class="sd-cols"><div class="sd-col">${instrHtml}</div><div class="sd-col">${sampHtml}</div></div>`;
+    return instrHtml || sampHtml;
+  }
+
+  // ── INSTRUMENTS
+  $('instr-q').addEventListener('input', e=>{ instrFilter=e.target.value.toLowerCase(); renderInstrs(); });
+  $('instr-sort').addEventListener('change', e=>{ instrSort=e.target.value; renderInstrs(); });
+  $('instr-miss-btn').addEventListener('click', ()=>{ instrMissOnly=!instrMissOnly; $('instr-miss-btn').classList.toggle('on',instrMissOnly); renderInstrs(); });
+  ['list','grid'].forEach(v=>$('ivtog-'+v).addEventListener('click',()=>{
+    instrView=v;
+    $('ivtog-list').classList.toggle('active', v==='list');
+    $('ivtog-grid').classList.toggle('active', v==='grid');
+    $('btn-igroup').style.display = v==='grid' ? 'none' : '';
+    renderInstrs();
+  }));
+
+  const TYPE_ORDER=['WAVSYNTH','MACROSYNTH','SAMPLER','MIDIOUT','FMSYNTH'];
+  function buildTypePills() {
+    const present=new Set(instrs.map(i=>i.typeName));
+    const wrap=$('type-filters'); wrap.innerHTML='';
+    TYPE_ORDER.forEach(t=>{
+      if (!present.has(t)) return;
+      const btn=document.createElement('button');
+      btn.className='type-pill'; btn.dataset.t=t; btn.textContent=t;
+      if (instrTypes.has(t)) btn.classList.add('on');
+      btn.addEventListener('click',()=>{ instrTypes.has(t)?instrTypes.delete(t):instrTypes.add(t); btn.classList.toggle('on',instrTypes.has(t)); renderInstrs(); });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function matchesInstr(i) {
+    const q=instrFilter;
+    if (q && !i.name.toLowerCase().includes(q) && !i.filePath.toLowerCase().includes(q) && !(i.samplePath||'').toLowerCase().includes(q)) return false;
+    if (instrTypes.size && !instrTypes.has(i.typeName)) return false;
+    if (instrMissOnly && !instrMiss(i)) return false;
+    return true;
+  }
+
+  function buildInstrCard(instr) {
+    const usedIn = usageMap.get(instr.name.toLowerCase()) || [];
+    const miss = instrMiss(instr);
+    let sampLine='', sampCls='';
+    if (instr.kind === 0x02) {
+      if (!instr.samplePath)  { sampLine='— no sample'; }
+      else if (!sampIndexed)  { sampLine=instr.samplePath.split('/').pop()||instr.samplePath; }
+      else if (miss)          { sampLine='✗ '+(instr.samplePath.split('/').pop()||instr.samplePath); sampCls='miss'; }
+      else                    { sampLine='✓ '+(instr.samplePath.split('/').pop()||instr.samplePath); }
+    }
+    const usedCls = usedIn.length ? 'yes' : 'no';
+    const usedLbl = usedIn.length ? `Used in ${usedIn.length} song${usedIn.length!==1?'s':''}` : 'Unused';
+    const card = document.createElement('div');
+    card.className = 'instr-card';
+    card.innerHTML = `<div class="ic-bar ${instr.typeName}"></div>
+      <div class="ic-body">
+        <div class="ic-hdr">
+          <span class="tb ${instr.typeName}">${instr.typeName}</span>
+          <span class="ic-name">${esc(instr.name)}</span>
+        </div>
+        <div class="ic-samp ${sampCls}">${sampLine ? esc(sampLine) : ''}</div>
+        <div class="ic-foot"><span class="ic-used ${usedCls}">${usedLbl}</span></div>
+      </div>`;
+    return card;
+  }
+
+  function buildInstrItem(instr) {
+    const usedIn=usageMap.get(instr.name.toLowerCase())||[];
+    const miss=instrMiss(instr);
+    const found=instr.kind===0x02&&instr.samplePath?Scanner.sampleFound(instr.samplePath,known):null;
+    let sc;
+    if (instr.kind!==0x02)      sc=`<span class="samp-c pend"></span>`;
+    else if (!instr.samplePath) sc=`<span class="samp-c pend">— no sample</span>`;
+    else if (!sampIndexed)      sc=`<span class="samp-c pend">? unchecked</span>`;
+    else if (miss)              sc=`<span class="samp-c miss">✗ missing</span>`;
+    else                        sc=`<span class="samp-c ok">✓ sample ok</span>`;
+    const ub=usedIn.length?`<span class="ubadge used">Used in ${usedIn.length}</span>`
+                           :`<span class="ubadge unused">Unused</span>`;
+    let dh='';
+    if (instr.kind===0x02) {
+      if (!instr.samplePath)   dh+=`<div class="drow"><span class="dlabel">Sample</span><span class="dval dim">No sample assigned</span></div>`;
+      else if (!sampIndexed)   dh+=`<div class="drow"><span class="dlabel">Sample</span><span class="dval pend">${esc(instr.samplePath)}</span></div>`;
+      else dh+=`<div class="drow"><span class="dlabel">Sample</span><span class="dval ${found?'ok':'miss'}">${found?'✓':'✗'} ${esc(instr.samplePath)}</span></div>`;
+    }
+    dh+=usedIn.length
+      ?`<div class="drow"><span class="dlabel">Used in</span><div class="schips">${usedIn.map(s=>`<span class="schip">${esc(s)}</span>`).join('')}</div></div>`
+      :`<div class="drow"><span class="dlabel">Used in</span><span class="dval dim">Not in any scanned song</span></div>`;
+    dh+=`<div class="drow"><span class="dlabel">File</span><span class="dval dim">${esc(instr.filePath)} · ${fmtVer(instr.header.version)}</span></div>`;
+    const item=document.createElement('div');
+    item.className='instr-item';
+    item.innerHTML=`<div class="instr-row">
+      <span class="i-chev">▶</span>
+      <span class="tb ${instr.typeName}">${instr.typeName}</span>
+      <span class="i-lname">${esc(instr.name)}</span>
+      ${sc}${ub}</div>
+      <div class="instr-det">${dh}</div>`;
+    item.querySelector('.instr-row').addEventListener('click',()=>item.classList.toggle('open'));
+    return item;
+  }
+
+  function countMatchingInstrs(node) {
+    let n = node.instrs.filter(matchesInstr).length;
+    for (const c of node.children) n += countMatchingInstrs(c);
+    return n;
+  }
+  function countAllInstrs(node) {
+    let n = node.instrs.length;
+    for (const c of node.children) n += countAllInstrs(c);
+    return n;
+  }
+
+  function renderInstrTreeNode(node, container, depth, useGrid) {
+    const indent = 20 + depth * 16;
+    // Subfolders
+    for (const child of node.children) {
+      if (countMatchingInstrs(child) === 0) continue;
+      const total = countAllInstrs(child);
+      const groupEl = document.createElement('div');
+      groupEl.className = 'igroup'; // collapsed by default
+      groupEl.innerHTML = `<div class="igroup-hdr" style="padding-left:${indent}px">
+        <span class="igroup-chev">▶</span>
+        <span class="igroup-name">📁 ${esc(child.name)}</span>
+        <span class="igroup-cnt">${total}</span>
+      </div><div class="igroup-body"></div>`;
+      groupEl.querySelector('.igroup-hdr').addEventListener('click',()=>groupEl.classList.toggle('open'));
+      renderInstrTreeNode(child, groupEl.querySelector('.igroup-body'), depth+1, useGrid);
+      container.appendChild(groupEl);
+    }
+    // Instruments in this node
+    const matched = sortInstrsArr(node.instrs.filter(matchesInstr));
+    if (!matched.length) return;
+    if (useGrid) {
+      const grid = document.createElement('div');
+      grid.className = 'instr-grid';
+      matched.forEach(i => grid.appendChild(buildInstrCard(i)));
+      container.appendChild(grid);
+    } else {
+      matched.forEach(i => {
+        const item = buildInstrItem(i);
+        item.querySelector('.instr-row').style.paddingLeft = `${indent}px`;
+        container.appendChild(item);
+      });
+    }
+  }
+
+  function renderInstrs() {
+    buildTypePills();
+    const el = $('instrs-list'); el.innerHTML='';
+    const totalMatch = instrs.filter(matchesInstr).length;
+    $('instrs-stat').textContent=`${totalMatch} / ${instrs.length} instruments`;
+    if (!instrs.length) { el.className=''; el.innerHTML='<div class="no-results">No .m8i files in Instruments/</div>'; return; }
+    if (totalMatch === 0) { el.className=''; el.innerHTML='<div class="no-results">No matches.</div>'; return; }
+
+    el.className = '';
+    if (instrView === 'grid') {
+      // Grid always shows folder tree — cards rendered per-folder
+      const tree = Scanner.buildInstrTree(instrs);
+      renderInstrTreeNode(tree, el, 0, true);
+    } else if (instrGrouped) {
+      const tree = Scanner.buildInstrTree(instrs);
+      renderInstrTreeNode(tree, el, 0, false);
+    } else {
+      sortInstrsArr(instrs.filter(matchesInstr)).forEach(i=>el.appendChild(buildInstrItem(i)));
+    }
+  }
+
+  // ── THEMES
+  $('theme-q').addEventListener('input', e=>{ themeFilter=e.target.value.toLowerCase(); renderThemes(); });
+  $('tvtog-compact').addEventListener('click', ()=>{ themeExpanded=false; $('tvtog-compact').classList.add('active'); $('tvtog-expanded').classList.remove('active'); renderThemes(); });
+  $('tvtog-expanded').addEventListener('click', ()=>{ themeExpanded=true; $('tvtog-expanded').classList.add('active'); $('tvtog-compact').classList.remove('active'); renderThemes(); });
+
+  function buildThemePreview(colors) {
+    const c=colors;
+    if (!c||!c.background) return '<div class="no-preview">No preview</div>';
+    const bg=M8.rgbHex(c.background), fg=M8.rgbHex(c.text);
+    const ply=M8.rgbHex(c.play), cur=M8.rgbHex(c.cursor);
+    const sel=M8.rgbHex(c.selection), vw=M8.rgbHex(c.view), mrk=M8.rgbHex(c.marker);
+    const row=(bg2,txt,pre)=>`<div style="background:${bg2};color:${txt};padding:2px 7px;font-size:8px;font-family:monospace;white-space:pre">${pre}</div>`;
+    return `<div style="background:${bg};height:110px;overflow:hidden">
+      <div style="background:${vw};color:${fg};padding:3px 7px;font-size:8px;font-family:monospace;display:flex;justify-content:space-between"><span>SONG</span><span style="color:${mrk}">120.0 BPM</span></div>
+      ${row(ply,fg,'01  A0  B0  C0  D0  E0')}
+      ${row(cur,fg,'02  A1  B1  --  --  --')}
+      ${row(sel,fg,'03  A2  --  --  --  --')}
+      ${row(bg,fg,'04  --  --  --  --  --')}
+      <div style="color:${fg};padding:2px 7px;font-size:8px;font-family:monospace;opacity:.4;white-space:pre">05  --  --  --  --  --</div>
+    </div>`;
+  }
+
+  function buildThemeSwatches(colors) {
+    return ['background','text','play','cursor','selection','deselect','view','marker'].map(name=>{
+      const hex=M8.rgbHex(colors[name]);
+      const short={'background':'BG','text':'TEXT','play':'PLAY','cursor':'CUR',
+                   'selection':'SEL','deselect':'DSEL','view':'VIEW','marker':'MRK'}[name]||name;
+      return `<div><div class="swatch-box" style="background:${hex}"></div>
+        <div class="swatch-lbl">${short}</div><div class="swatch-hex">${hex}</div></div>`;
+    }).join('');
+  }
+
+  function renderThemes() {
+    const filtered=themes.filter(t=>t.fileName.toLowerCase().includes(themeFilter));
+    $('themes-stat').textContent=`${filtered.length} / ${themes.length} themes`;
+    const grid=$('themes-grid'); grid.innerHTML='';
+    if (!filtered.length) {
+      grid.innerHTML=`<div style="grid-column:1/-1;color:var(--muted);padding:36px;text-align:center">${!themes.length?'No .m8t files in Themes/':'No matches.'}</div>`;
+      return;
+    }
+    filtered.forEach(theme=>{
+      const name=theme.fileName.replace(/\.m8t$/i,'');
+      const card=document.createElement('div');
+      card.className = themeExpanded ? 'theme-card expanded' : 'theme-card';
+      card.innerHTML=`${buildThemePreview(theme.colors)}
+        <div class="theme-info"><span class="theme-name">${esc(name)}</span><span class="theme-meta">${fmtVer(theme.header.version)}</span></div>
+        <div class="theme-swatches">${buildThemeSwatches(theme.colors)}</div>`;
+      grid.appendChild(card);
+    });
+  }
+
+  // ── BACKUP
+  function renderBackupCounts() {
+    const fmt=n=>n!=null?`${n} file${n!==1?'s':''}`:'—';
+    ['Songs','Instruments','Themes','Grooves'].forEach(d=>$('cnt-'+d).textContent=fmt(dirCounts[d]));
+    const sc=dirCounts.Samples;
+    $('cnt-Samples').textContent=sc!=null?fmt(sc):'—';
+    const w=$('warn-Samples');
+    if (w) w.textContent=sc!=null&&sc>200?'⚠ may be large':'';
+  }
+  function appendLog(t,m) {
+    const log=$('backup-log'), d=document.createElement('div');
+    d.className='log-line '+t; d.textContent=m;
+    log.appendChild(d); log.scrollTop=log.scrollHeight;
+  }
+  $('btn-backup').addEventListener('click', async ()=>{
+    if (!sdHandle) return;
+    const dirs=['Songs','Instruments','Samples','Themes','Grooves'].filter(d=>$('inc-'+d)?.checked);
+    if (!dirs.length) { appendLog('err','✗ Nothing selected.'); return; }
+    $('backup-log').innerHTML=''; $('btn-backup').disabled=true;
+    await createBackup(sdHandle,dirs,(t,m)=>appendLog(t,m),
+      (n,name)=>{ appendLog('ok',`✓ Done — ${n} files → ${name}`); $('btn-backup').disabled=false; },
+      err=>{ appendLog('err',`✗ ${err}`); $('btn-backup').disabled=false; });
+  });
+})();
+</script>
+</body>
+</html>

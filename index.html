@@ -543,21 +543,53 @@
     .stats-scroll { flex:1; overflow-y:auto; padding:20px; }
     .stats-scroll::-webkit-scrollbar { width:5px; }
     .stats-scroll::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
-    .stats-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; }
     .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; }
     .stat-card-title { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
-      color:var(--muted); margin-bottom:14px; }
-    .stat-kpi-row { display:flex; flex-wrap:wrap; gap:24px; }
-    .stat-kpi { text-align:center; }
+      color:var(--muted); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; }
+    .stat-card-actions { display:flex; gap:5px; }
+    .stat-sort-btn { font-size:10px; padding:1px 7px; border:1px solid var(--border2); border-radius:3px;
+      background:transparent; color:var(--muted); cursor:pointer; font-family:inherit; transition:all .1s; }
+    .stat-sort-btn:hover { color:var(--text); border-color:var(--text); }
+    .stat-sort-btn.az { color:var(--accent); border-color:var(--accent); }
+    .stat-kpi-row { display:flex; flex-wrap:wrap; gap:16px; }
+    .stat-kpi { text-align:center; padding:8px 12px; border-radius:6px; }
+    .stat-kpi.nav { cursor:pointer; transition:background .1s; }
+    .stat-kpi.nav:hover { background:var(--surface2); }
     .stat-kpi-val { font-size:26px; font-weight:700; color:var(--accent); line-height:1; }
     .stat-kpi-lbl { font-size:10px; color:var(--muted); margin-top:3px; }
-    .bar-chart { display:flex; flex-direction:column; gap:7px; }
-    .bar-row { display:flex; align-items:center; gap:8px; font-size:11px; }
-    .bar-label { width:80px; color:var(--muted); white-space:nowrap; overflow:hidden;
+    .bar-chart { display:flex; flex-direction:column; gap:2px; }
+    .bar-row { display:flex; align-items:center; gap:8px; font-size:11px; padding:3px 4px; border-radius:3px; }
+    .bar-row.clickable { cursor:pointer; transition:background .1s; }
+    .bar-row.clickable:hover, .bar-row.active { background:rgba(249,115,22,.1); }
+    .bar-row.active { box-shadow:inset 3px 0 0 var(--accent); }
+    .bar-label { width:100px; color:var(--muted); white-space:nowrap; overflow:hidden;
       text-overflow:ellipsis; flex-shrink:0; text-align:right; font-size:10px; }
     .bar-track { flex:1; background:var(--surface2); border-radius:2px; height:10px; overflow:hidden; }
-    .bar-fill  { height:100%; border-radius:2px; }
+    .bar-fill  { height:100%; border-radius:2px; transition:width .3s; }
     .bar-val   { width:28px; color:var(--muted); text-align:right; flex-shrink:0; font-size:10px; }
+    .bar-drill { overflow:hidden; max-height:0; transition:max-height .25s ease; }
+    .bar-drill.open { max-height:320px; overflow-y:auto; margin-bottom:4px; }
+    .drill-list { padding:3px 0 3px 6px; }
+    .drill-item { display:flex; align-items:baseline; gap:8px; padding:4px 8px; border-radius:3px; cursor:pointer; }
+    .drill-item:hover { background:var(--surface2); }
+    .di-name { color:var(--text); font-size:11px; font-weight:600; flex-shrink:0;
+      max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .di-meta { color:var(--muted); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+    .stat-more { font-size:10px; color:var(--accent); cursor:pointer; padding:6px 4px 0; text-align:center; }
+    .stat-more:hover { text-decoration:underline; }
+    .health-rows { display:flex; flex-direction:column; gap:12px; }
+    .health-row { display:flex; align-items:center; gap:10px; }
+    .health-label { width:120px; color:var(--muted); flex-shrink:0; text-align:right; font-size:10px; }
+    .health-track { flex:1; background:var(--surface2); border-radius:3px; height:12px; overflow:hidden; }
+    .health-fill { height:100%; border-radius:3px; transition:width .4s; }
+    .health-note { width:52px; color:var(--muted); text-align:right; flex-shrink:0; font-size:10px; }
+    .recent-list { display:flex; flex-direction:column; gap:1px; }
+    .recent-item { display:flex; align-items:center; gap:8px; padding:5px 6px; border-radius:3px; cursor:pointer; transition:background .1s; }
+    .recent-item:hover { background:var(--surface2); }
+    .recent-name { flex:1; font-size:11px; font-weight:600; color:var(--text);
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .recent-date { font-size:10px; color:var(--muted); flex-shrink:0; }
 
     /* PATTERN VIEWER */
     .pv-section { margin-top:16px; border-top:1px solid var(--border); padding-top:14px; }
@@ -603,7 +635,7 @@
 <div id="app">
 
   <header>
-    <div class="logo">M8 LIBRARIAN <span style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px">v0.3.0 Beta</span></div>
+    <div class="logo">M8 LIBRARIAN <span style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px">v0.3.1 Beta</span></div>
     <div class="hdr-right">
       <span id="sd-label">No SD card mounted</span>
       <span class="ro-badge" id="ro-badge">🔒 READ ONLY</span>
@@ -777,7 +809,7 @@
             <label class="inc-row"><input type="checkbox" id="inc-Grooves" checked>
               <span class="inc-label">Grooves</span><span class="inc-count" id="cnt-Grooves">—</span></label>
             <label class="inc-row" id="inc-Bundles-row"><input type="checkbox" id="inc-Bundles" checked>
-              <div style="flex:1"><div class="inc-label">Bundles</div><div class="inc-warn">autosave bundles (SD root)</div></div>
+              <div style="flex:1"><div class="inc-label">Bundles</div><div class="inc-warn">manually created via M8 Bundle feature</div></div>
               <span class="inc-count" id="cnt-Bundles">—</span></label>
           </div>
           <div class="backup-info">
@@ -1541,6 +1573,8 @@ const UI = (() => {
   let sampIndexed=false;
   // Renders (lazy-scanned when tab first visited)
   let renders=[], rendersScanned=false;
+  // Stats
+  let statsItemMap=new Map(), statsListenersReady=false;
   // Songs
   let songFilter='', songSort='name-asc', songMissOnly=false, songBundleFilter=false;
   let songView='list', songFirmFilter='all';
@@ -2613,7 +2647,7 @@ const UI = (() => {
 
     else if (problemsSection==='unbundled') {
       if (!unbundledSongs.length) {
-        el.innerHTML='<div class="prob-empty"><b>✓</b>All songs have an autosave bundle folder.</div>';
+        el.innerHTML='<div class="prob-empty"><b>✓</b>All songs have a bundle.</div>';
         return;
       }
       const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
@@ -3104,6 +3138,148 @@ const UI = (() => {
   // ══════════════════════════════════════════════════════
   // STATS TAB
   // ══════════════════════════════════════════════════════
+  // ── Stats helpers ────────────────────────────────────────
+
+  function initStatsListeners() {
+    if (statsListenersReady) return;
+    statsListenersReady = true;
+    const tabEl = $('tab-stats');
+    if (!tabEl) return;
+
+    tabEl.addEventListener('click', e => {
+      // Sort toggle
+      const sortBtn = e.target.closest('.stat-sort-btn');
+      if (sortBtn) {
+        try {
+          const st = JSON.parse(localStorage.getItem('m8lib-stats-sort')||'{}');
+          const cid = sortBtn.dataset.chart;
+          st[cid] = st[cid]==='az' ? 'count' : 'az';
+          localStorage.setItem('m8lib-stats-sort', JSON.stringify(st));
+        } catch(ex){}
+        renderStats(); return;
+      }
+
+      // Show more / show less
+      const more = e.target.closest('.stat-more');
+      if (more) {
+        try {
+          const st = JSON.parse(localStorage.getItem('m8lib-stats-sort')||'{}');
+          const cid = more.dataset.chart;
+          st[`${cid}-all`] = !st[`${cid}-all`];
+          localStorage.setItem('m8lib-stats-sort', JSON.stringify(st));
+        } catch(ex){}
+        renderStats(); return;
+      }
+
+      // KPI navigation
+      const kpiEl = e.target.closest('.stat-kpi.nav');
+      if (kpiEl) {
+        const nav = kpiEl.dataset.nav;
+        if (nav==='songs')           { switchTab('songs'); renderSongs(); }
+        else if (nav==='instruments'){ switchTab('instruments'); renderInstrs(); }
+        else if (nav==='themes')     { switchTab('themes'); }
+        else if (nav==='bundled')    { songBundleFilter=false; $('song-bundle-btn').classList.remove('on'); switchTab('songs'); renderSongs(); }
+        else if (nav==='broken')     { problemsSection='broken'; switchTab('problems'); renderProblems(); }
+        return;
+      }
+
+      // Bar row drill-down toggle
+      const row = e.target.closest('.bar-row.clickable');
+      if (row) {
+        const sid = row.dataset.sid;
+        const drill = document.getElementById(`bdrill-${sid}`);
+        if (!drill) return;
+        const isOpen = drill.classList.contains('open');
+        tabEl.querySelectorAll('.bar-drill.open').forEach(d => d.classList.remove('open'));
+        tabEl.querySelectorAll('.bar-row.active').forEach(r => r.classList.remove('active'));
+        if (!isOpen) {
+          row.classList.add('active');
+          drill.classList.add('open');
+          if (!drill.dataset.rendered) {
+            drill.innerHTML = buildDrillContent(statsItemMap.get(sid));
+            drill.dataset.rendered = '1';
+          }
+        }
+        return;
+      }
+
+      // Drill item navigation
+      const di = e.target.closest('.drill-item');
+      if (di) {
+        if (di.dataset.sname) {
+          const s = songs.find(s=>s.name===di.dataset.sname && s.filePath===di.dataset.spath)
+                 || songs.find(s=>s.name===di.dataset.sname);
+          if (s) openSongModal(s);
+        } else if (di.dataset.iname) {
+          instrFilter = di.dataset.iname.toLowerCase();
+          $('instr-q').value = instrFilter;
+          switchTab('instruments'); renderInstrs();
+        } else if (di.dataset.sampath) {
+          openSampModal(di.dataset.sampath);
+        }
+        return;
+      }
+
+      // Recently modified item
+      const ri = e.target.closest('.recent-item');
+      if (ri) {
+        const s = songs.find(s=>s.name===ri.dataset.rsong && s.filePath===ri.dataset.rpath)
+               || songs.find(s=>s.name===ri.dataset.rsong);
+        if (s) openSongModal(s);
+        return;
+      }
+    });
+  }
+
+  function buildDrillContent(data) {
+    if (!data) return '';
+    const TYPE_COL = {WAVSYNTH:'var(--c-wav)',MACROSYNTH:'var(--c-mac)',SAMPLER:'var(--c-sam)',MIDIOUT:'var(--c-mid)',FMSYNTH:'var(--c-fm)'};
+    const none = txt => `<div style="padding:8px 12px;color:var(--muted);font-size:11px">${txt}</div>`;
+
+    if (data.type==='songs') {
+      if (!data.items.length) return none('No songs');
+      const rows = [...data.items].sort((a,b)=>a.name.localeCompare(b.name)).map(s =>
+        `<div class="drill-item" data-sname="${esc(s.name)}" data-spath="${esc(s.filePath)}">
+          <span class="di-name">${esc(s.name)}</span>
+          <span class="di-meta">${esc(s.filePath)} · ${firmStr(s)}</span>
+        </div>`).join('');
+      return `<div class="drill-list">${rows}</div>`;
+    }
+
+    if (data.type==='instrs') {
+      if (!data.items.length) return none('No instruments');
+      const rows = [...data.items].sort((a,b)=>a.name.localeCompare(b.name)).map(i =>
+        `<div class="drill-item" data-iname="${esc(i.name)}" data-ipath="${esc(i.filePath)}">
+          <span class="di-name" style="color:${TYPE_COL[i.typeName]||'var(--text)'}">${esc(i.name)}</span>
+          <span class="di-meta">${esc(i.filePath)}</span>
+        </div>`).join('');
+      return `<div class="drill-list">${rows}</div>`;
+    }
+
+    if (data.type==='sample') {
+      const { path, usage } = data;
+      const openRow = `<div class="drill-item" data-sampath="${esc(path)}">
+        <span class="di-name" style="color:var(--accent)">Open sample view →</span>
+        <span class="di-meta">${esc(path)}</span>
+      </div>`;
+      const songRows = (usage.songs||[]).map(n => {
+        const s = songs.find(s=>s.name===n);
+        return s ? `<div class="drill-item" data-sname="${esc(s.name)}" data-spath="${esc(s.filePath)}">
+          <span class="di-name">${esc(s.name)}</span>
+          <span class="di-meta">${esc(s.filePath)}</span>
+        </div>` : '';
+      }).filter(Boolean).join('');
+      const instrRows = (usage.instrFiles||[]).map(p =>
+        `<div class="drill-item">
+          <span class="di-name">${esc(p.split('(')[0].trim())}</span>
+          <span class="di-meta">instrument file</span>
+        </div>`).join('');
+      return `<div class="drill-list">${openRow}${songRows}${instrRows}</div>`;
+    }
+
+    return '';
+  }
+
   function renderStats() {
     const grid = $('stats-grid'); if (!grid) return;
     if (!songs.length && !instrs.length) {
@@ -3111,88 +3287,170 @@ const UI = (() => {
       return;
     }
     grid.innerHTML = '';
+    statsItemMap.clear();
+    initStatsListeners();
 
-    function barChart(items, maxVal, colorFn) {
-      return items.map(([label, val]) => {
-        const pct = maxVal ? (val/maxVal*100).toFixed(1) : 0;
-        const col = colorFn ? colorFn(label) : 'var(--accent)';
-        return `<div class="bar-row">
-          <span class="bar-label" title="${label}">${label}</span>
+    let sortState = {};
+    try { sortState = JSON.parse(localStorage.getItem('m8lib-stats-sort')||'{}'); } catch(ex){}
+
+    const TYPE_COL = {WAVSYNTH:'var(--c-wav)',MACROSYNTH:'var(--c-mac)',SAMPLER:'var(--c-sam)',MIDIOUT:'var(--c-mid)',FMSYNTH:'var(--c-fm)'};
+    let idSeed = 0;
+    const uid = () => `s${++idSeed}`;
+
+    function addCard(title, bodyHtml, actions='') {
+      const el = document.createElement('div'); el.className='stat-card';
+      el.innerHTML = `<div class="stat-card-title">${title}${actions?`<span class="stat-card-actions">${actions}</span>`:''}</div>${bodyHtml}`;
+      grid.appendChild(el);
+    }
+
+    function barChart(chartId, rawItems, {colorFn, drillFn, limit=12}) {
+      const az = sortState[chartId]==='az';
+      const showAll = !!sortState[`${chartId}-all`];
+      const items = az
+        ? [...rawItems].sort((a,b)=>a.label.localeCompare(b.label))
+        : [...rawItems].sort((a,b)=>b.val-a.val);
+      const maxVal = Math.max(...items.map(i=>i.val), 1);
+      const effectiveLimit = showAll ? items.length : limit;
+      const shown = items.slice(0, effectiveLimit);
+      const hiddenCount = items.length - shown.length;
+
+      const rows = shown.map(item => {
+        const id = uid();
+        const pct = (item.val/maxVal*100).toFixed(1);
+        const col = colorFn ? colorFn(item.label) : 'var(--accent)';
+        if (drillFn) statsItemMap.set(id, drillFn(item.key ?? item.label));
+        return `<div class="bar-row${drillFn?' clickable':''}" data-sid="${id}">
+          <span class="bar-label" title="${item.label}">${item.label}</span>
           <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div>
-          <span class="bar-val">${val}</span>
-        </div>`;
+          <span class="bar-val">${item.val}</span>
+        </div><div class="bar-drill" id="bdrill-${id}"></div>`;
       }).join('');
+
+      const moreBtn = !showAll && hiddenCount>0
+        ? `<div class="stat-more" data-chart="${chartId}">+${hiddenCount} more ▾</div>`
+        : showAll && items.length>limit
+        ? `<div class="stat-more" data-chart="${chartId}">Show less ▴</div>` : '';
+
+      const sortBtn = `<button class="stat-sort-btn${az?' az':''}" data-chart="${chartId}">${az?'A-Z':'#'}</button>`;
+      return { html:`<div class="bar-chart">${rows}${moreBtn}</div>`, sortBtn };
     }
 
-    function card(title, html) {
-      const c = document.createElement('div'); c.className='stat-card';
-      c.innerHTML = `<div class="stat-card-title">${title}</div>${html}`;
-      grid.appendChild(c);
-    }
+    // ── 1. Overview ──
+    const bundled = songs.filter(s=>s.hasBundle).length;
+    const brokenCt = sampIndexed ? instrs.filter(i=>instrMiss(i)).length : null;
+    const avgInstrs = songs.length ? (songs.reduce((n,s)=>n+s.instruments.length,0)/songs.length).toFixed(1) : 0;
 
-    // KPI overview
-    const totalInstrsInSongs = songs.reduce((n,s) => n+s.instruments.length, 0);
-    const avgInstrs = songs.length ? (totalInstrsInSongs/songs.length).toFixed(1) : 0;
-    const brokenCount = sampIndexed ? instrs.filter(i=>instrMiss(i)).length : '—';
-    card('Overview', `<div class="stat-kpi-row">
-      <div class="stat-kpi"><div class="stat-kpi-val">${songs.length}</div><div class="stat-kpi-lbl">Songs</div></div>
-      <div class="stat-kpi"><div class="stat-kpi-val">${instrs.length}</div><div class="stat-kpi-lbl">Instruments</div></div>
-      <div class="stat-kpi"><div class="stat-kpi-val">${themes.length}</div><div class="stat-kpi-lbl">Themes</div></div>
-      <div class="stat-kpi"><div class="stat-kpi-val">${avgInstrs}</div><div class="stat-kpi-lbl">Avg instrs/song</div></div>
-      <div class="stat-kpi"><div class="stat-kpi-val">${songs.filter(s=>s.hasBundle).length}</div><div class="stat-kpi-lbl">Bundled</div></div>
-      <div class="stat-kpi"><div class="stat-kpi-val" style="color:${sampIndexed&&brokenCount>0?'var(--c-miss)':'var(--accent)'}">${brokenCount}</div><div class="stat-kpi-lbl">Broken refs</div></div>
+    function kpiTile(val, lbl, nav, extraStyle='') {
+      const navAttr = nav ? ` class="stat-kpi nav" data-nav="${nav}" title="Go to ${lbl}"` : ' class="stat-kpi"';
+      return `<div${navAttr}><div class="stat-kpi-val" style="${extraStyle}">${val}</div><div class="stat-kpi-lbl">${lbl}</div></div>`;
+    }
+    addCard('Overview', `<div class="stat-kpi-row">
+      ${kpiTile(songs.length,'Songs','songs')}
+      ${kpiTile(instrs.length,'Instruments','instruments')}
+      ${kpiTile(themes.length,'Themes','themes')}
+      ${kpiTile(avgInstrs,'Avg instrs/song','')}
+      ${kpiTile(bundled,'Bundled','bundled')}
+      ${kpiTile(brokenCt===null?'—':brokenCt,'Broken refs',brokenCt?'broken':'',brokenCt?'color:var(--c-miss)':'')}
     </div>`);
 
-    // Instrument type distribution (from standalone instrs)
+    // ── 2. Collection Health ──
+    if (songs.length) {
+      const bundlePct = Math.round(bundled/songs.length*100);
+      const songsClean = sampIndexed ? songs.filter(s=>songMissCount(s)===0).length : null;
+      const cleanPct = songsClean!==null ? Math.round(songsClean/songs.length*100) : null;
+      const instrOk = brokenCt!==null ? instrs.length-brokenCt : null;
+      const instrPct = instrOk!==null && instrs.length ? Math.round(instrOk/instrs.length*100) : null;
+
+      function heatColor(pct) { return pct>=90?'var(--c-found)':pct>=60?'#f59e0b':'var(--c-miss)'; }
+      function hrow(label, pct, note) {
+        return pct===null ? '' :
+          `<div class="health-row">
+            <span class="health-label">${label}</span>
+            <div class="health-track"><div class="health-fill" style="width:${pct}%;background:${heatColor(pct)}"></div></div>
+            <span class="health-note">${note}</span>
+          </div>`;
+      }
+      addCard('Collection Health', `<div class="health-rows">
+        ${hrow('Bundle coverage', bundlePct, `${bundled}/${songs.length}`)}
+        ${hrow('Sample integrity', cleanPct, cleanPct!==null?`${songsClean}/${songs.length}`:'')}
+        ${hrow('Clean instruments', instrPct, instrPct!==null?`${instrOk}/${instrs.length}`:'')}
+      </div>`);
+    }
+
+    // ── 3. Instrument Types ──
     if (instrs.length) {
       const typeCounts = {};
-      for (const i of instrs) typeCounts[i.typeName] = (typeCounts[i.typeName]||0)+1;
-      const TYPE_COLORS_MAP = {WAVSYNTH:'var(--c-wav)',MACROSYNTH:'var(--c-mac)',SAMPLER:'var(--c-sam)',MIDIOUT:'var(--c-mid)',FMSYNTH:'var(--c-fm)'};
-      const sorted = Object.entries(typeCounts).sort((a,b)=>b[1]-a[1]);
-      const max = sorted[0]?.[1] || 1;
-      card('Instrument Types', `<div class="bar-chart">${barChart(sorted, max, t=>TYPE_COLORS_MAP[t]||'var(--accent)')}</div>`);
+      for (const i of instrs) typeCounts[i.typeName]=(typeCounts[i.typeName]||0)+1;
+      const {html, sortBtn} = barChart('instr-types',
+        Object.entries(typeCounts).map(([label,val])=>({label,val})),
+        { colorFn:t=>TYPE_COL[t]||'var(--accent)',
+          drillFn:typeName=>({type:'instrs', items:instrs.filter(i=>i.typeName===typeName)}) });
+      addCard('Instrument Types', html, sortBtn);
     }
 
-    // Firmware distribution
+    // ── 4. Firmware Versions ──
     if (songs.length) {
       const firmCounts = {};
-      for (const s of songs) {
-        const v = firmStr(s);
-        firmCounts[v] = (firmCounts[v]||0)+1;
-      }
-      const sorted = Object.entries(firmCounts).sort((a,b)=>b[1]-a[1]);
-      const max = sorted[0]?.[1]||1;
-      card('Firmware Versions', `<div class="bar-chart">${barChart(sorted, max, ()=>'var(--accent)')}</div>`);
+      for (const s of songs) { const v=firmStr(s); firmCounts[v]=(firmCounts[v]||0)+1; }
+      const {html, sortBtn} = barChart('firmware',
+        Object.entries(firmCounts).map(([label,val])=>({label,val})),
+        { colorFn:()=>'var(--accent)',
+          drillFn:ver=>({type:'songs', items:songs.filter(s=>firmStr(s)===ver)}) });
+      addCard('Firmware Versions', html, sortBtn);
     }
 
-    // Top 10 instruments by usage (backbone)
-    const backbone = [...usageMap.entries()]
-      .sort((a,b)=>b[1].length-a[1].length).slice(0,10);
+    // ── 5. Most-Used Instruments ──
+    const backbone = [...usageMap.entries()].filter(([,ss])=>ss.length>0);
     if (backbone.length) {
-      const max = backbone[0]?.[1].length||1;
-      card('Most-Used Instruments', `<div class="bar-chart">${barChart(backbone.map(([n,ss])=>[n,ss.length]),max,()=>'var(--c-found)')}</div>`);
+      const raw = backbone.map(([name,songNames])=>({label:name, val:songNames.length, key:name}));
+      const {html, sortBtn} = barChart('top-instrs', raw,
+        { colorFn:()=>'var(--c-found)',
+          drillFn:name=>({type:'songs', items:songs.filter(s=>(usageMap.get(name)||[]).includes(s.name))}) });
+      addCard('Most-Used Instruments', html, sortBtn);
     }
 
-    // Top 10 hot samples
+    // ── 6. Most-Referenced Samples ──
     if (sampleUsageMap.size) {
-      const sorted = [...sampleUsageMap.entries()]
-        .map(([k,v])=>[k.split('/').pop()||k, v.songs.length+v.instrFiles.length])
-        .sort((a,b)=>b[1]-a[1]).slice(0,10);
-      const max = sorted[0]?.[1]||1;
-      card('Most-Referenced Samples', `<div class="bar-chart">${barChart(sorted, max, ()=>'var(--c-mid)')}</div>`);
+      const raw = [...sampleUsageMap.entries()].map(([path,usage])=>({
+        label:path.split('/').pop()||path, val:usage.songs.length+usage.instrFiles.length, key:path
+      }));
+      const {html, sortBtn} = barChart('top-samples', raw,
+        { colorFn:()=>'var(--c-mid)',
+          drillFn:path=>({type:'sample', path, usage:sampleUsageMap.get(path)||{songs:[],instrFiles:[]}}) });
+      addCard('Most-Referenced Samples', html, sortBtn);
     }
 
-    // Songs per folder
-    const folderCounts = {};
+    // ── 7. Songs by Folder ──
+    const folderMap = {};
     for (const s of songs) {
       const slash = s.filePath.lastIndexOf('/');
-      const folder = slash>0 ? s.filePath.slice(0,slash) : '(root)';
-      folderCounts[folder] = (folderCounts[folder]||0)+1;
+      const f = slash>0 ? s.filePath.slice(0,slash) : '(root)';
+      (folderMap[f]||(folderMap[f]=[])).push(s);
     }
-    const folderSorted = Object.entries(folderCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
-    if (folderSorted.length > 1) {
-      const max = folderSorted[0]?.[1]||1;
-      card('Songs by Folder', `<div class="bar-chart">${barChart(folderSorted, max, ()=>'var(--accent)')}</div>`);
+    if (Object.keys(folderMap).length>1) {
+      const raw = Object.entries(folderMap).map(([label,ss])=>({label,val:ss.length,key:label}));
+      const {html, sortBtn} = barChart('by-folder', raw,
+        { colorFn:()=>'var(--accent)',
+          drillFn:folder=>({type:'songs', items:folderMap[folder]||[]}) });
+      addCard('Songs by Folder', html, sortBtn);
+    }
+
+    // ── 8. Recently Modified ──
+    const withDate = songs.filter(s=>s.lastModified);
+    if (withDate.length) {
+      const recent = [...withDate].sort((a,b)=>b.lastModified-a.lastModified).slice(0,12);
+      const now = Date.now();
+      const rows = recent.map(s => {
+        const age = now-s.lastModified;
+        const lbl = age<86400000?'Today':age<172800000?'Yesterday':
+          age<604800000?`${Math.floor(age/86400000)}d ago`:
+          new Date(s.lastModified).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+        return `<div class="recent-item" data-rsong="${esc(s.name)}" data-rpath="${esc(s.filePath)}">
+          <span class="recent-name">${esc(s.name)}</span>
+          <span class="recent-date">${lbl}</span>
+        </div>`;
+      }).join('');
+      addCard('Recently Modified', `<div class="recent-list">${rows}</div>`);
     }
   }
 

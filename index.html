@@ -520,13 +520,90 @@
     .no-results { color:var(--muted); padding:36px; text-align:center; }
     .kbd-hint { font-size:10px; color:var(--border2); padding:2px 5px; background:var(--surface2);
       border:1px solid var(--border); border-radius:3px; }
+
+    /* AUDIO PLAY BUTTON */
+    .play-btn { background:transparent; border:none; cursor:pointer; padding:0 4px;
+      font-size:11px; color:var(--muted); line-height:1; transition:color .1s; flex-shrink:0; }
+    .play-btn:hover,.play-btn.playing { color:var(--accent); }
+    .play-btn:disabled { opacity:.4; cursor:default; }
+
+    /* RENDERS TAB */
+    .renders-toolbar { display:flex; align-items:center; gap:8px; padding:10px 20px;
+      background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; }
+    .renders-stat { font-size:11px; color:var(--muted); }
+    .render-row { display:grid; align-items:center; gap:0 12px; padding:8px 20px;
+      border-bottom:1px solid var(--border);
+      grid-template-columns:26px minmax(160px,1fr) 80px 80px 140px; }
+    .render-name { font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .render-meta { font-size:11px; color:var(--muted); }
+    .render-wave { width:140px; height:28px; border-radius:4px; background:var(--surface2);
+      border:1px solid var(--border); display:block; }
+
+    /* STATS TAB */
+    .stats-scroll { flex:1; overflow-y:auto; padding:20px; }
+    .stats-scroll::-webkit-scrollbar { width:5px; }
+    .stats-scroll::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
+    .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; }
+    .stat-card-title { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+      color:var(--muted); margin-bottom:14px; }
+    .stat-kpi-row { display:flex; flex-wrap:wrap; gap:24px; }
+    .stat-kpi { text-align:center; }
+    .stat-kpi-val { font-size:26px; font-weight:700; color:var(--accent); line-height:1; }
+    .stat-kpi-lbl { font-size:10px; color:var(--muted); margin-top:3px; }
+    .bar-chart { display:flex; flex-direction:column; gap:7px; }
+    .bar-row { display:flex; align-items:center; gap:8px; font-size:11px; }
+    .bar-label { width:80px; color:var(--muted); white-space:nowrap; overflow:hidden;
+      text-overflow:ellipsis; flex-shrink:0; text-align:right; font-size:10px; }
+    .bar-track { flex:1; background:var(--surface2); border-radius:2px; height:10px; overflow:hidden; }
+    .bar-fill  { height:100%; border-radius:2px; }
+    .bar-val   { width:28px; color:var(--muted); text-align:right; flex-shrink:0; font-size:10px; }
+
+    /* PATTERN VIEWER */
+    .pv-section { margin-top:16px; border-top:1px solid var(--border); padding-top:14px; }
+    .pv-hdr { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+    .pv-hdr-title { font-size:10px; font-weight:700; letter-spacing:1.5px;
+      text-transform:uppercase; color:var(--muted); flex:1; }
+    .pv-grid-wrap { overflow-x:auto; padding-bottom:4px; }
+    .pv-grid { display:grid; gap:1px; width:max-content; }
+    .pv-cell { width:30px; height:22px; display:flex; align-items:center; justify-content:center;
+      font-size:10px; font-family:monospace; border-radius:3px;
+      background:var(--surface2); color:var(--border2); cursor:default; user-select:none; }
+    .pv-cell.chain { background:#1f0e00; color:var(--accent); cursor:pointer; }
+    .pv-cell.chain:hover { background:#2d1500; }
+    .pv-cell.chain.hi { background:var(--accent); color:#000; }
+    .pv-cell.rlbl { background:transparent; color:var(--border2); font-size:9px; }
+    .pv-cell.clbl { background:transparent; color:var(--muted); font-size:9px; font-weight:600; }
+    .pv-detail { margin-top:10px; background:var(--surface2); border:1px solid var(--border);
+      border-radius:6px; padding:12px; max-height:280px; overflow-y:auto; }
+    .pv-detail::-webkit-scrollbar { width:4px; }
+    .pv-detail::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+    .pv-detail-title { font-size:10px; font-weight:700; letter-spacing:1px;
+      text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+    .pv-cstep { display:flex; gap:8px; padding:3px 0; font-size:11px; font-family:monospace;
+      border-bottom:1px solid var(--border); align-items:center; }
+    .pv-cstep:last-child { border-bottom:none; }
+    .pv-cstep .ci { color:var(--border2); width:18px; flex-shrink:0; }
+    .pv-cstep .cp { color:var(--accent); cursor:pointer; }
+    .pv-cstep .cp:hover { text-decoration:underline; }
+    .pv-cstep .ct { color:var(--muted); }
+    .pv-pstep { display:grid;
+      grid-template-columns:18px 36px 26px 26px 1fr;
+      gap:4px; padding:3px 0; font-size:10px; font-family:monospace;
+      border-bottom:1px solid var(--border); align-items:center; }
+    .pv-pstep:last-child { border-bottom:none; }
+    .pv-pstep .pi { color:var(--border2); }
+    .pv-pstep .pn { color:var(--c-wav); font-weight:600; }
+    .pv-pstep .pn.empty { color:var(--border2); font-weight:400; }
+    .pv-pstep .pv { color:var(--muted); }
+    .pv-pstep .pfx { color:var(--c-mid); }
   </style>
 </head>
 <body>
 <div id="app">
 
   <header>
-    <div class="logo">M8 LIBRARIAN <span style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px">v0.2.2 Beta</span></div>
+    <div class="logo">M8 LIBRARIAN <span style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px">v0.3.0 Beta</span></div>
     <div class="hdr-right">
       <span id="sd-label">No SD card mounted</span>
       <span class="ro-badge" id="ro-badge">🔒 READ ONLY</span>
@@ -559,6 +636,8 @@
       <button class="tab-btn" data-tab="problems" title="4">PROBLEMS</button>
       <button class="tab-btn" data-tab="grooves" title="5">GROOVES</button>
       <button class="tab-btn" data-tab="backup" title="6">BACKUP</button>
+      <button class="tab-btn" data-tab="renders" title="7">RENDERS</button>
+      <button class="tab-btn" data-tab="stats" title="8">STATS</button>
     </div>
 
     <div id="cache-bar">
@@ -713,6 +792,20 @@
       </div>
     </div>
 
+    <!-- ── RENDERS ── -->
+    <div class="tab-pane" id="tab-renders">
+      <div class="renders-toolbar">
+        <span class="renders-stat" id="renders-stat">Open an SD card to browse renders.</span>
+        <button class="btn ghost sm" id="btn-renders-scan" style="margin-left:auto;display:none">↺ Rescan</button>
+      </div>
+      <div class="scroll-area"><div id="renders-list"></div></div>
+    </div>
+
+    <!-- ── STATS ── -->
+    <div class="tab-pane" id="tab-stats">
+      <div class="stats-scroll"><div class="stats-grid" id="stats-grid"></div></div>
+    </div>
+
   </div><!-- #main -->
 </div><!-- #app -->
 
@@ -722,10 +815,13 @@
     <div class="song-modal-hdr">
       <span class="song-modal-title" id="modal-title"></span>
       <span class="song-modal-meta" id="modal-meta"></span>
+      <button class="btn ghost sm" id="btn-modal-patterns" style="margin-right:4px">▦ Patterns</button>
       <button class="btn ghost sm" id="btn-modal-diff" style="margin-right:4px">⇌ Compare</button>
       <button class="btn ghost sm" id="btn-modal-close">✕</button>
     </div>
-    <div class="song-modal-body" id="modal-body"></div>
+    <div class="song-modal-body" id="modal-body">
+      <div id="modal-pattern-section" class="pv-section" style="display:none"></div>
+    </div>
   </div>
 </div>
 
@@ -870,7 +966,63 @@ const M8 = (() => {
   function fmtVer(v) { return `v${v.major}.${v.minor}.${v.patch}`; }
   function verNum(v) { return v.major*10000 + v.minor*100 + v.patch; }
 
-  return { parseSong, parseInstrFile, parseTheme, parseGroove, rgbHex, fmtVer, verNum, THEME_COLORS };
+  // ── Pattern parser ──────────────────────────────────────
+  // Offsets from AlexCharlton/m8-files V4_OFFSETS (confirmed absolute from byte 0)
+  const GRID_OFF = 0x2EE, PHRASE_OFF = 0xAEE, CHAIN_OFF = 0x9A5E;
+  const N_ROWS = 256, N_TRACKS = 8, N_CHAINS = 255, N_PHRASES = 255;
+  const STEP_SZ = 9; // phrase step: note+vol+instr+3×(cmd+val)
+
+  const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  function noteStr(n) {
+    if (n === 0xFF) return '---';
+    const oct = Math.trunc(n / 12) + 1, key = NOTES[n % 12];
+    return (key.length===1 ? key+'-' : key) + (oct > 9 ? String.fromCharCode(55+oct) : oct);
+  }
+  function fxStr(cmd, val) {
+    if (cmd === 0xFF) return '------';
+    const c = cmd.toString(16).toUpperCase().padStart(2,'0');
+    const v = val.toString(16).toUpperCase().padStart(2,'0');
+    return `${c}${v}`;
+  }
+
+  function parseSongPatterns(b) {
+    if (b.length < CHAIN_OFF + N_CHAINS * 32) return null;
+    const grid = [];
+    for (let row = 0; row < N_ROWS; row++) {
+      const tracks = [];
+      for (let t = 0; t < N_TRACKS; t++) tracks.push(b[GRID_OFF + row * N_TRACKS + t]);
+      grid.push(tracks);
+    }
+    let lastRow = -1;
+    for (let row = N_ROWS-1; row >= 0; row--) {
+      if (grid[row].some(v => v !== 0xFF)) { lastRow = row; break; }
+    }
+    const chains = [];
+    for (let c = 0; c < N_CHAINS; c++) {
+      const steps = [];
+      for (let s = 0; s < 16; s++) {
+        const o = CHAIN_OFF + c * 32 + s * 2;
+        steps.push({ phrase: b[o], transpose: b[o+1] });
+      }
+      chains.push(steps);
+    }
+    if (b.length < PHRASE_OFF + N_PHRASES * 16 * STEP_SZ) return { grid, chains, phrases:[], lastRow };
+    const phrases = [];
+    for (let p = 0; p < N_PHRASES; p++) {
+      const steps = [];
+      for (let s = 0; s < 16; s++) {
+        const o = PHRASE_OFF + p * 16 * STEP_SZ + s * STEP_SZ;
+        steps.push({ note:b[o], vol:b[o+1], instr:b[o+2],
+          fx:[{cmd:b[o+3],val:b[o+4]},{cmd:b[o+5],val:b[o+6]},{cmd:b[o+7],val:b[o+8]}] });
+      }
+      phrases.push(steps);
+    }
+    return { grid, chains, phrases, lastRow };
+  }
+
+  return { parseSong, parseInstrFile, parseTheme, parseGroove,
+    parseSongPatterns, noteStr, fxStr,
+    rgbHex, fmtVer, verNum, THEME_COLORS };
 })();
 
 
@@ -1217,10 +1369,32 @@ const Scanner = (() => {
     return union === 0 ? 0 : inter / union;
   }
 
+  async function scanRenders(sdRoot) {
+    const renders = [];
+    let dir; try { dir = await sdRoot.getDirectoryHandle('Renders'); } catch { return renders; }
+    for await (const entry of walkFiles(dir, '')) {
+      if (!entry.name.toLowerCase().endsWith('.wav')) continue;
+      try {
+        const file = await entry.handle.getFile();
+        renders.push({ fileName:entry.name, filePath:entry.path, handle:entry.handle,
+          fileSize:file.size, lastModified:file.lastModified });
+      } catch {}
+    }
+    renders.sort((a,b) => b.lastModified - a.lastModified);
+    return renders;
+  }
+
+  function fmtBytes(n) {
+    if (n < 1024) return n+'B';
+    if (n < 1024*1024) return (n/1024).toFixed(0)+'KB';
+    return (n/1024/1024).toFixed(1)+'MB';
+  }
+  function fmtDate(ts) { return new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'2-digit'}); }
+
   return {
     scanFast, catalogueSamples, sampleFound,
     buildUsageMap, buildSampleUsageMap, buildInstrDupeMap, buildUnusedSamples,
-    buildSongsTree, buildInstrTree, jaccardSim,
+    buildSongsTree, buildInstrTree, jaccardSim, scanRenders, fmtBytes, fmtDate,
   };
 })();
 
@@ -1261,6 +1435,97 @@ async function createBackup(sdHandle, dirs, onLog, onDone, onError) {
 }
 
 // ══════════════════════════════════════════════════════════
+// AUDIO PLAYER
+// ══════════════════════════════════════════════════════════
+const AudioPlayer = (() => {
+  let actx = null, src = null, playingBtn = null;
+
+  function getCtx() {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+
+  function stopCurrent() {
+    if (src) { try { src.stop(); } catch {} src = null; }
+    if (playingBtn) {
+      playingBtn.textContent = '▶';
+      playingBtn.classList.remove('playing');
+      playingBtn = null;
+    }
+  }
+
+  async function playBuffer(arrayBuf, btnEl) {
+    stopCurrent();
+    if (!arrayBuf) return;
+    try {
+      btnEl.textContent = '…'; btnEl.disabled = true;
+      const ctx = getCtx();
+      const decoded = await ctx.decodeAudioData(arrayBuf);
+      // Draw waveform if canvas sibling exists
+      const canvas = btnEl.closest('.render-row')?.querySelector('.render-wave');
+      if (canvas) drawWaveform(canvas, decoded);
+      src = ctx.createBufferSource();
+      src.buffer = decoded;
+      src.connect(ctx.destination);
+      src.start();
+      playingBtn = btnEl;
+      btnEl.textContent = '■'; btnEl.disabled = false; btnEl.classList.add('playing');
+      src.onended = () => {
+        btnEl.textContent = '▶'; btnEl.classList.remove('playing');
+        if (playingBtn === btnEl) playingBtn = null;
+        src = null;
+      };
+    } catch(e) {
+      btnEl.textContent = '▶'; btnEl.disabled = false;
+      console.warn('AudioPlayer: decode failed', e);
+    }
+  }
+
+  async function playPath(sdRoot, relativePath, btnEl) {
+    // Toggle off if same button
+    if (playingBtn === btnEl) { stopCurrent(); return; }
+    try {
+      const parts = relativePath.replace(/\\/g, '/').replace(/^\//, '').split('/');
+      let dir = sdRoot;
+      for (let i = 0; i < parts.length - 1; i++) dir = await dir.getDirectoryHandle(parts[i]);
+      const fh = await dir.getFileHandle(parts[parts.length - 1]);
+      const file = await fh.getFile();
+      const buf = await file.arrayBuffer();
+      await playBuffer(buf, btnEl);
+    } catch(e) {
+      btnEl.textContent = '▶'; btnEl.disabled = false;
+      console.warn('AudioPlayer: play failed', e);
+    }
+  }
+
+  function drawWaveform(canvas, audioBuffer) {
+    const ctx2d = canvas.getContext('2d');
+    const W = canvas.width || canvas.offsetWidth || 140;
+    const H = canvas.height || 28;
+    canvas.width = W; canvas.height = H;
+    ctx2d.fillStyle = '#111';
+    ctx2d.fillRect(0, 0, W, H);
+    const data = audioBuffer.getChannelData(0);
+    const step = Math.ceil(data.length / W);
+    ctx2d.strokeStyle = '#f97316';
+    ctx2d.lineWidth = 1;
+    ctx2d.beginPath();
+    for (let x = 0; x < W; x++) {
+      let min = 1, max = -1;
+      const start = x * step;
+      for (let j = 0; j < step; j++) { const v = data[start+j]||0; if(v<min)min=v; if(v>max)max=v; }
+      const y1 = ((1-max)/2*H), y2 = ((1-min)/2*H);
+      x === 0 ? ctx2d.moveTo(0, (y1+y2)/2) : (ctx2d.lineTo(x,y1), ctx2d.lineTo(x,y2));
+    }
+    ctx2d.stroke();
+  }
+
+  return { playPath, stopCurrent, drawWaveform };
+})();
+
+
+// ══════════════════════════════════════════════════════════
 // UI
 // ══════════════════════════════════════════════════════════
 const UI = (() => {
@@ -1274,6 +1539,8 @@ const UI = (() => {
   let sampleUsageMap=new Map(), instrDupeMap=new Map();
   let dirCounts={};
   let sampIndexed=false;
+  // Renders (lazy-scanned when tab first visited)
+  let renders=[], rendersScanned=false;
   // Songs
   let songFilter='', songSort='name-asc', songMissOnly=false, songBundleFilter=false;
   let songView='list', songFirmFilter='all';
@@ -1444,6 +1711,7 @@ const UI = (() => {
     $('empty-state').style.display='none';
     $('main').classList.add('visible');
     sampIndexed=false; known=new Set(); dirCounts={};
+    renders=[]; rendersScanned=false;
     setCatNotice('idle');
 
     const cached = await Cache.load(cacheKey);
@@ -1480,6 +1748,9 @@ const UI = (() => {
     renderSongs(); renderInstrs(); renderThemes();
     renderProblems(); renderGrooves(); renderBackupCounts();
     renderHealthBar();
+    renderStats();
+    // Renders tab re-checks if already scanned
+    if (rendersScanned) renderRendersTab();
   }
 
   // ── Open / reconnect ───────────────────────────────────
@@ -1734,7 +2005,9 @@ const UI = (() => {
         const cls=f===null?'unk':f?'ok':'miss';
         const icon=f===null?'?':f?'✓':'✗';
         const col=`var(${f===null?'--muted':f?'--c-found':'--c-miss'})`;
-        return `<div class="spr ${cls}"><span class="spr-ic" style="color:${col}">${icon}</span><span class="spr-path" data-spath="${esc(p)}">${esc(p)}</span></div>`;
+        const canPlay = sdHandle && p && p.toLowerCase().endsWith('.wav');
+        const playBtn = canPlay ? `<button class="play-btn" data-playpath="${esc(p)}" title="Preview">▶</button>` : '';
+        return `<div class="spr ${cls}"><span class="spr-ic" style="color:${col}">${icon}</span>${playBtn}<span class="spr-path" data-spath="${esc(p)}">${esc(p)}</span></div>`;
       }).join('');
       sampHtml = `<div><div class="det-title">Sample dependencies (${song.samplePaths.length})</div>${rows}</div>`;
     }
@@ -1768,10 +2041,20 @@ const UI = (() => {
     _modalSong = song;
     $('modal-title').textContent = song.name;
     $('modal-meta').textContent  = `${song.filePath} · ${firmStr(song)}${song.hasBundle?' · 📦':''}`;
+    // Reset pattern section
+    const patSec = $('modal-pattern-section');
+    patSec.style.display = 'none'; patSec.innerHTML = ''; delete patSec.dataset.loaded;
+    $('btn-modal-patterns').textContent = '▦ Patterns';
     const body = $('modal-body');
-    body.innerHTML = buildSongDetail(song);
+    // Re-insert pattern section since we replaced innerHTML
+    body.innerHTML = '';
+    body.appendChild(patSec);
+    const detail = document.createElement('div');
+    detail.innerHTML = buildSongDetail(song);
+    // Insert detail before pattern section
+    body.insertBefore(detail, patSec);
     // Instrument chip clicks → jump to instrument
-    body.querySelectorAll('.ichip[data-iname]').forEach(chip => {
+    detail.querySelectorAll('.ichip[data-iname]').forEach(chip => {
       chip.addEventListener('click', () => {
         const name = chip.dataset.iname;
         closeSongModal();
@@ -1781,12 +2064,16 @@ const UI = (() => {
         renderInstrs();
       });
     });
+    // Sample play buttons
+    detail.querySelectorAll('.play-btn[data-playpath]').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); AudioPlayer.playPath(sdHandle, btn.dataset.playpath, btn); });
+    });
     // Sample path clicks → usage modal
-    body.querySelectorAll('.spr-path[data-spath]').forEach(el => {
+    detail.querySelectorAll('.spr-path[data-spath]').forEach(el => {
       el.addEventListener('click', () => openSampModal(el.dataset.spath));
     });
     // Similar song clicks → open that song's modal
-    body.querySelectorAll('.sim-item[data-simname]').forEach(el => {
+    detail.querySelectorAll('.sim-item[data-simname]').forEach(el => {
       el.addEventListener('click', () => {
         const target = songs.find(s => s.name === el.dataset.simname);
         if (target) openSongModal(target);
@@ -1799,6 +2086,18 @@ const UI = (() => {
   $('song-modal').addEventListener('click', e => { if (e.target===$('song-modal')) closeSongModal(); });
   $('btn-modal-diff').addEventListener('click', () => {
     if (_modalSong) { closeSongModal(); openDiffModal(_modalSong); }
+  });
+  $('btn-modal-patterns').addEventListener('click', () => {
+    const btn = $('btn-modal-patterns');
+    const sec = $('modal-pattern-section');
+    if (sec.style.display === 'none') {
+      sec.style.display = 'block';
+      btn.textContent = '▲ Patterns';
+      if (!sec.dataset.loaded && _modalSong) loadPatternViewer(_modalSong, sec);
+    } else {
+      sec.style.display = 'none';
+      btn.textContent = '▦ Patterns';
+    }
   });
 
   // ── Diff pick mode (⇌ buttons on song rows) ───────────
@@ -1960,7 +2259,11 @@ const UI = (() => {
     if (instr.kind===0x02) {
       if (!instr.samplePath)   dh += `<div class="drow"><span class="dlabel">Sample</span><span class="dval dim">No sample assigned</span></div>`;
       else if (!sampIndexed)   dh += `<div class="drow"><span class="dlabel">Sample</span><span class="dval pend">${esc(instr.samplePath)}</span></div>`;
-      else dh += `<div class="drow"><span class="dlabel">Sample</span><span class="dval link ${found?'ok':'miss'}" data-spath="${esc(instr.samplePath)}">${found?'✓':'✗'} ${esc(instr.samplePath)}</span></div>`;
+      else {
+        const playBtnHtml = (sdHandle && instr.samplePath.toLowerCase().endsWith('.wav'))
+          ? `<button class="play-btn" data-playpath="${esc(instr.samplePath)}" title="Preview" style="margin-right:4px">▶</button>` : '';
+        dh += `<div class="drow"><span class="dlabel">Sample</span><span class="dval" style="display:flex;align-items:center;gap:4px">${playBtnHtml}<span class="link ${found?'ok':'miss'}" data-spath="${esc(instr.samplePath)}" style="cursor:pointer">${found?'✓':'✗'} ${esc(instr.samplePath)}</span></span></div>`;
+      }
     }
     if (usedIn.length) {
       dh += `<div class="drow"><span class="dlabel">Used in</span><div class="schips">${usedIn.map(s=>`<span class="schip" data-songname="${esc(s)}">${esc(s)}</span>`).join('')}</div></div>`;
@@ -1982,6 +2285,10 @@ const UI = (() => {
     // Sample path click → usage modal
     item.querySelectorAll('[data-spath]').forEach(el => {
       el.addEventListener('click', e => { e.stopPropagation(); openSampModal(el.dataset.spath); });
+    });
+    // Sample play buttons in instrument detail
+    item.querySelectorAll('.play-btn[data-playpath]').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); AudioPlayer.playPath(sdHandle, btn.dataset.playpath, btn); });
     });
     // "Used in N" badge click → show songs
     const ubEl = item.querySelector('.ubadge.used');
@@ -2632,6 +2939,264 @@ const UI = (() => {
   });
 
   // ══════════════════════════════════════════════════════
+  // PATTERN VIEWER
+  // ══════════════════════════════════════════════════════
+  async function loadPatternViewer(song, container) {
+    container.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Reading pattern data…</div>';
+    container.dataset.loaded = '1';
+    if (!sdHandle) { container.innerHTML = '<div class="no-results">No SD card mounted.</div>'; return; }
+    try {
+      const parts = ('Songs/' + song.filePath).replace(/\\/g,'/').split('/').filter(Boolean);
+      let dir = sdHandle;
+      for (let i = 0; i < parts.length - 1; i++) dir = await dir.getDirectoryHandle(parts[i]);
+      const fh = await dir.getFileHandle(parts[parts.length-1]);
+      const file = await fh.getFile();
+      const b = new Uint8Array(await file.arrayBuffer());
+      const pat = M8.parseSongPatterns(b);
+      if (!pat) { container.innerHTML = '<div class="no-results">Could not parse pattern data (file may be too small or old firmware).</div>'; return; }
+      renderPatternGrid(container, pat, song.instruments);
+    } catch(e) {
+      container.innerHTML = `<div class="no-results">Could not read patterns: ${esc(e.message)}</div>`;
+      console.warn('loadPatternViewer:', e);
+    }
+  }
+
+  function renderPatternGrid(container, pat, songInstrs) {
+    const { grid, chains, phrases, lastRow } = pat;
+    if (lastRow < 0) { container.innerHTML = '<div class="no-results" style="padding:16px;color:var(--muted)">Song grid is empty — no chains placed.</div>'; return; }
+    const visRows = lastRow + 1;
+    const N_TRACKS = 8;
+
+    container.innerHTML = '';
+
+    // Column labels row
+    const wrap = document.createElement('div'); wrap.className = 'pv-grid-wrap';
+    const gridEl = document.createElement('div');
+    gridEl.className = 'pv-grid';
+    gridEl.style.gridTemplateColumns = `30px repeat(${N_TRACKS}, 30px)`;
+    // Row label header
+    const cornerCell = document.createElement('div'); cornerCell.className='pv-cell clbl'; cornerCell.textContent=''; gridEl.appendChild(cornerCell);
+    for (let t = 0; t < N_TRACKS; t++) {
+      const lbl = document.createElement('div'); lbl.className='pv-cell clbl'; lbl.textContent=`T${t+1}`; gridEl.appendChild(lbl);
+    }
+    // Grid rows
+    for (let row = 0; row < visRows; row++) {
+      const rl = document.createElement('div'); rl.className='pv-cell rlbl';
+      rl.textContent = row.toString(16).toUpperCase().padStart(2,'0'); gridEl.appendChild(rl);
+      for (let t = 0; t < N_TRACKS; t++) {
+        const v = grid[row][t];
+        const cell = document.createElement('div');
+        cell.className = v === 0xFF ? 'pv-cell' : 'pv-cell chain';
+        cell.textContent = v === 0xFF ? '--' : v.toString(16).toUpperCase().padStart(2,'0');
+        if (v !== 0xFF) {
+          cell.title = `Chain ${v.toString(16).toUpperCase()} — click to inspect`;
+          cell.addEventListener('click', () => showChainDetail(detailEl, v, chains[v], phrases));
+        }
+        gridEl.appendChild(cell);
+      }
+    }
+    wrap.appendChild(gridEl);
+    container.appendChild(wrap);
+    const detailEl = document.createElement('div'); detailEl.className='pv-detail'; detailEl.style.display='none';
+    container.appendChild(detailEl);
+    container.style.display='block';
+  }
+
+  function showChainDetail(container, chainNum, chainSteps, phrases) {
+    // Highlight all cells with this chain number
+    document.querySelectorAll('.pv-cell.chain').forEach(c => c.classList.toggle('hi', c.textContent === chainNum.toString(16).toUpperCase().padStart(2,'0')));
+    container.style.display='block';
+    const activeSteps = chainSteps.filter(s => s.phrase !== 0xFF);
+    if (!activeSteps.length) {
+      container.innerHTML=`<div class="pv-detail-title">Chain ${chainNum.toString(16).toUpperCase().padStart(2,'0')}</div><div style="color:var(--muted);font-size:11px">Empty chain — no phrases assigned.</div>`;
+      return;
+    }
+    let html = `<div class="pv-detail-title">Chain ${chainNum.toString(16).toUpperCase().padStart(2,'0')}</div>`;
+    chainSteps.forEach((s, idx) => {
+      if (s.phrase === 0xFF) return;
+      const pHex = s.phrase.toString(16).toUpperCase().padStart(2,'0');
+      const tHex = s.transpose === 0 ? '+00' : (s.transpose > 127 ? '-'+(256-s.transpose).toString(16).toUpperCase().padStart(2,'0') : '+'+s.transpose.toString(16).toUpperCase().padStart(2,'0'));
+      html += `<div class="pv-cstep"><span class="ci">${idx.toString(16).toUpperCase().padStart(2,'0')}</span><span class="cp" data-phrase="${s.phrase}">PH ${pHex}</span><span class="ct">TRNSP ${tHex}</span></div>`;
+    });
+    container.innerHTML = html;
+    container.querySelectorAll('.cp[data-phrase]').forEach(el => {
+      el.addEventListener('click', () => showPhraseDetail(container, parseInt(el.dataset.phrase), phrases));
+    });
+  }
+
+  function showPhraseDetail(container, phraseNum, phrases) {
+    document.querySelectorAll('.pv-cell.chain.hi').forEach(c => c.classList.remove('hi'));
+    const ph = phrases[phraseNum];
+    if (!ph) { container.innerHTML = `<div class="pv-detail-title">Phrase ${phraseNum.toString(16).toUpperCase().padStart(2,'0')}</div><div style="color:var(--muted);font-size:11px">Phrase data unavailable.</div>`; return; }
+    const activeSteps = ph.filter(s => s.note !== 0xFF || s.fx.some(f => f.cmd !== 0xFF));
+    let html = `<div class="pv-detail-title">Phrase ${phraseNum.toString(16).toUpperCase().padStart(2,'0')} <span style="font-weight:400;opacity:.6;font-size:9px">${activeSteps.length} active step${activeSteps.length!==1?'s':''}</span></div>`;
+    html += `<div class="pv-pstep" style="color:var(--border2);font-size:9px"><span class="pi">#</span><span class="pn">NOTE</span><span class="pv">VOL</span><span class="ps">INS</span><span class="pfx">FX1 FX2 FX3</span></div>`;
+    ph.forEach((s, idx) => {
+      const isEmpty = s.note===0xFF && s.fx.every(f=>f.cmd===0xFF);
+      if (isEmpty) return;
+      const noteClass = s.note===0xFF?'pn empty':'pn';
+      const volStr = s.vol===0xFF ? '--' : s.vol.toString(16).toUpperCase().padStart(2,'0');
+      const insStr = s.instr===0xFF ? '--' : s.instr.toString(16).toUpperCase().padStart(2,'0');
+      const fxStr = s.fx.map(f => f.cmd===0xFF ? '------' : M8.fxStr(f.cmd,f.val)).join(' ');
+      html += `<div class="pv-pstep"><span class="pi">${idx.toString(16).toUpperCase()}</span><span class="${noteClass}">${M8.noteStr(s.note)}</span><span class="pv">${volStr}</span><span class="ps">${insStr}</span><span class="pfx">${fxStr}</span></div>`;
+    });
+    if (activeSteps.length === 0) html += `<div style="color:var(--muted);font-size:11px;padding-top:4px">All steps empty.</div>`;
+    container.innerHTML = html;
+  }
+
+  // ══════════════════════════════════════════════════════
+  // RENDERS TAB
+  // ══════════════════════════════════════════════════════
+  async function scanAndRenderRenders() {
+    if (!sdHandle) return;
+    $('renders-stat').textContent = 'Scanning Renders/…';
+    renders = await Scanner.scanRenders(sdHandle);
+    rendersScanned = true;
+    renderRendersTab();
+  }
+
+  function renderRendersTab() {
+    const el = $('renders-list'); el.innerHTML = '';
+    const stat = $('renders-stat');
+    const rescanBtn = $('btn-renders-scan');
+    rescanBtn.style.display = sdHandle ? '' : 'none';
+    if (!sdHandle) { stat.textContent = 'Open an SD card to browse renders.'; return; }
+    if (!rendersScanned) { stat.textContent = 'Click ↺ Rescan to scan the Renders/ folder.'; return; }
+    if (!renders.length) {
+      stat.textContent = 'No WAV files found in Renders/';
+      el.innerHTML = '<div class="no-results">No .wav files in Renders/ — or the folder doesn\'t exist yet.</div>';
+      return;
+    }
+    stat.textContent = `${renders.length} render${renders.length!==1?'s':''}`;
+    renders.forEach(r => {
+      const row = document.createElement('div'); row.className='render-row';
+      const name = r.fileName.replace(/\.wav$/i,'');
+      const canvas = document.createElement('canvas'); canvas.className='render-wave'; canvas.width=140; canvas.height=28;
+      const btn = document.createElement('button'); btn.className='play-btn'; btn.textContent='▶'; btn.title='Preview';
+      btn.addEventListener('click', async () => {
+        if (!r.handle) return;
+        try {
+          const file = await r.handle.getFile();
+          const buf = await file.arrayBuffer();
+          // Draw waveform inline via AudioContext (reuse existing playBuffer logic)
+          const ctx = new (window.AudioContext||window.webkitAudioContext)();
+          const decoded = await ctx.decodeAudioData(buf.slice(0)); // slice to copy
+          AudioPlayer.drawWaveform(canvas, decoded);
+          ctx.close();
+        } catch {}
+        AudioPlayer.playPath(sdHandle, 'Renders/'+r.filePath, btn);
+      });
+      row.appendChild(btn);
+      const nameSpan = document.createElement('span'); nameSpan.className='render-name'; nameSpan.textContent=name; nameSpan.title=r.filePath;
+      const sizeSpan = document.createElement('span'); sizeSpan.className='render-meta'; sizeSpan.textContent=Scanner.fmtBytes(r.fileSize);
+      const dateSpan = document.createElement('span'); dateSpan.className='render-meta'; dateSpan.textContent=Scanner.fmtDate(r.lastModified);
+      row.append(nameSpan, sizeSpan, dateSpan, canvas);
+      el.appendChild(row);
+    });
+  }
+
+  // Trigger scan when switching to renders tab
+  document.querySelectorAll('.tab-btn[data-tab="renders"]').forEach(btn =>
+    btn.addEventListener('click', () => { if (sdHandle && !rendersScanned) scanAndRenderRenders(); else renderRendersTab(); })
+  );
+  $('btn-renders-scan').addEventListener('click', () => { rendersScanned=false; scanAndRenderRenders(); });
+
+  // ══════════════════════════════════════════════════════
+  // STATS TAB
+  // ══════════════════════════════════════════════════════
+  function renderStats() {
+    const grid = $('stats-grid'); if (!grid) return;
+    if (!songs.length && !instrs.length) {
+      grid.innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center;grid-column:1/-1">Open an SD card to see stats.</div>';
+      return;
+    }
+    grid.innerHTML = '';
+
+    function barChart(items, maxVal, colorFn) {
+      return items.map(([label, val]) => {
+        const pct = maxVal ? (val/maxVal*100).toFixed(1) : 0;
+        const col = colorFn ? colorFn(label) : 'var(--accent)';
+        return `<div class="bar-row">
+          <span class="bar-label" title="${label}">${label}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div>
+          <span class="bar-val">${val}</span>
+        </div>`;
+      }).join('');
+    }
+
+    function card(title, html) {
+      const c = document.createElement('div'); c.className='stat-card';
+      c.innerHTML = `<div class="stat-card-title">${title}</div>${html}`;
+      grid.appendChild(c);
+    }
+
+    // KPI overview
+    const totalInstrsInSongs = songs.reduce((n,s) => n+s.instruments.length, 0);
+    const avgInstrs = songs.length ? (totalInstrsInSongs/songs.length).toFixed(1) : 0;
+    const brokenCount = sampIndexed ? instrs.filter(i=>instrMiss(i)).length : '—';
+    card('Overview', `<div class="stat-kpi-row">
+      <div class="stat-kpi"><div class="stat-kpi-val">${songs.length}</div><div class="stat-kpi-lbl">Songs</div></div>
+      <div class="stat-kpi"><div class="stat-kpi-val">${instrs.length}</div><div class="stat-kpi-lbl">Instruments</div></div>
+      <div class="stat-kpi"><div class="stat-kpi-val">${themes.length}</div><div class="stat-kpi-lbl">Themes</div></div>
+      <div class="stat-kpi"><div class="stat-kpi-val">${avgInstrs}</div><div class="stat-kpi-lbl">Avg instrs/song</div></div>
+      <div class="stat-kpi"><div class="stat-kpi-val">${songs.filter(s=>s.hasBundle).length}</div><div class="stat-kpi-lbl">Bundled</div></div>
+      <div class="stat-kpi"><div class="stat-kpi-val" style="color:${sampIndexed&&brokenCount>0?'var(--c-miss)':'var(--accent)'}">${brokenCount}</div><div class="stat-kpi-lbl">Broken refs</div></div>
+    </div>`);
+
+    // Instrument type distribution (from standalone instrs)
+    if (instrs.length) {
+      const typeCounts = {};
+      for (const i of instrs) typeCounts[i.typeName] = (typeCounts[i.typeName]||0)+1;
+      const TYPE_COLORS_MAP = {WAVSYNTH:'var(--c-wav)',MACROSYNTH:'var(--c-mac)',SAMPLER:'var(--c-sam)',MIDIOUT:'var(--c-mid)',FMSYNTH:'var(--c-fm)'};
+      const sorted = Object.entries(typeCounts).sort((a,b)=>b[1]-a[1]);
+      const max = sorted[0]?.[1] || 1;
+      card('Instrument Types', `<div class="bar-chart">${barChart(sorted, max, t=>TYPE_COLORS_MAP[t]||'var(--accent)')}</div>`);
+    }
+
+    // Firmware distribution
+    if (songs.length) {
+      const firmCounts = {};
+      for (const s of songs) {
+        const v = firmStr(s);
+        firmCounts[v] = (firmCounts[v]||0)+1;
+      }
+      const sorted = Object.entries(firmCounts).sort((a,b)=>b[1]-a[1]);
+      const max = sorted[0]?.[1]||1;
+      card('Firmware Versions', `<div class="bar-chart">${barChart(sorted, max, ()=>'var(--accent)')}</div>`);
+    }
+
+    // Top 10 instruments by usage (backbone)
+    const backbone = [...usageMap.entries()]
+      .sort((a,b)=>b[1].length-a[1].length).slice(0,10);
+    if (backbone.length) {
+      const max = backbone[0]?.[1].length||1;
+      card('Most-Used Instruments', `<div class="bar-chart">${barChart(backbone.map(([n,ss])=>[n,ss.length]),max,()=>'var(--c-found)')}</div>`);
+    }
+
+    // Top 10 hot samples
+    if (sampleUsageMap.size) {
+      const sorted = [...sampleUsageMap.entries()]
+        .map(([k,v])=>[k.split('/').pop()||k, v.songs.length+v.instrFiles.length])
+        .sort((a,b)=>b[1]-a[1]).slice(0,10);
+      const max = sorted[0]?.[1]||1;
+      card('Most-Referenced Samples', `<div class="bar-chart">${barChart(sorted, max, ()=>'var(--c-mid)')}</div>`);
+    }
+
+    // Songs per folder
+    const folderCounts = {};
+    for (const s of songs) {
+      const slash = s.filePath.lastIndexOf('/');
+      const folder = slash>0 ? s.filePath.slice(0,slash) : '(root)';
+      folderCounts[folder] = (folderCounts[folder]||0)+1;
+    }
+    const folderSorted = Object.entries(folderCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    if (folderSorted.length > 1) {
+      const max = folderSorted[0]?.[1]||1;
+      card('Songs by Folder', `<div class="bar-chart">${barChart(folderSorted, max, ()=>'var(--accent)')}</div>`);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════
   // KEYBOARD SHORTCUTS
   // ══════════════════════════════════════════════════════
   document.addEventListener('keydown', e => {
@@ -2656,8 +3221,8 @@ const UI = (() => {
       return;
     }
 
-    // Tab switching: 1-6
-    const tabMap = {'1':'songs','2':'instruments','3':'themes','4':'problems','5':'grooves','6':'backup'};
+    // Tab switching: 1-8
+    const tabMap = {'1':'songs','2':'instruments','3':'themes','4':'problems','5':'grooves','6':'backup','7':'renders','8':'stats'};
     if (tabMap[e.key] && !e.metaKey && !e.ctrlKey) { switchTab(tabMap[e.key]); return; }
 
     // View toggles on active tab

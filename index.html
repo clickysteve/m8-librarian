@@ -630,13 +630,63 @@
     .pv-pstep .pn.empty { color:var(--border2); font-weight:400; }
     .pv-pstep .pv { color:var(--muted); }
     .pv-pstep .pfx { color:var(--c-mid); }
+
+    /* MODAL NAV */
+    .modal-nav-btn { background:transparent; border:none; color:var(--muted);
+      font-size:20px; cursor:pointer; padding:2px 7px; border-radius:4px; line-height:1;
+      transition:color .1s; flex-shrink:0; }
+    .modal-nav-btn:hover { color:var(--text); }
+    .modal-nav-btn:disabled { opacity:.18; cursor:default; }
+
+    /* NOTE HISTOGRAM */
+    .nh-wrap { margin-top:14px; border-top:1px solid var(--border); padding-top:12px; }
+    .nh-title { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+      color:var(--muted); margin-bottom:8px; }
+    .nh-bins { display:flex; align-items:flex-end; gap:2px; height:52px; margin-bottom:4px; }
+    .nh-bin { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; }
+    .nh-bar { width:100%; border-radius:2px 2px 0 0; min-height:0; transition:height .2s; }
+    .nh-lbl { font-size:7px; color:var(--muted); font-family:monospace; white-space:nowrap; }
+    .nh-scale-row { display:flex; flex-wrap:wrap; gap:4px; margin-top:8px; }
+    .nh-scale-chip { font-size:10px; padding:2px 7px; border-radius:4px;
+      background:var(--surface2); border:1px solid var(--border2); color:var(--muted); }
+    .nh-scale-chip.top { border-color:var(--accent); color:var(--accent); background:#1f0e00; }
+
+    /* SAMPLE BROWSER */
+    .sampbr-toolbar { display:flex; align-items:center; gap:8px; padding:10px 20px;
+      background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; }
+    .sb-dir-hdr { display:flex; align-items:center; gap:8px;
+      background:var(--surface2); border-bottom:1px solid var(--border);
+      cursor:pointer; user-select:none; padding:7px 20px; transition:background .1s; }
+    .sb-dir-hdr:hover { background:#252525; }
+    .sb-dir-chev { font-size:9px; color:var(--muted); transition:transform .15s; flex-shrink:0; }
+    .sb-dir.open > .sb-dir-hdr .sb-dir-chev { transform:rotate(90deg); }
+    .sb-dir-name { font-size:11px; font-weight:600; letter-spacing:.3px; color:var(--muted); flex:1; }
+    .sb-dir-cnt  { font-size:11px; color:var(--border2); }
+    .sb-dir-body { display:none; }
+    .sb-dir.open > .sb-dir-body { display:block; }
+    .sb-file-row { display:flex; align-items:center; gap:8px; padding:5px 20px;
+      border-bottom:1px solid var(--border); }
+    .sb-fname { font-size:12px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sb-fmeta { font-size:10px; color:var(--muted); flex-shrink:0; }
+    .sb-badge { font-size:10px; font-weight:600; padding:1px 7px; border-radius:4px; flex-shrink:0; white-space:nowrap; }
+    .sb-badge.used   { background:#1c2f1c; color:var(--c-found); border:1px solid #2a4a2a; }
+    .sb-badge.unused { background:var(--surface2); color:var(--border2); border:1px solid var(--border); }
+
+    /* SONG TIMELINE */
+    .tl-svg-wrap { overflow-x:auto; }
+    .tl-svg { display:block; }
+    .tl-legend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; }
+    .tl-leg-item { display:inline-flex; align-items:center; gap:5px;
+      font-size:10px; color:var(--muted); max-width:160px;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .tl-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
   </style>
 </head>
 <body>
 <div id="app">
 
   <header>
-    <div class="logo">M8 LIBRARIAN <span style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px">v0.3.1 Beta</span></div>
+    <div class="logo">M8 LIBRARIAN <span style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px">v0.4.0 Beta</span></div>
     <div class="hdr-right">
       <span id="sd-label">No SD card mounted</span>
       <span class="ro-badge" id="ro-badge">🔒 READ ONLY</span>
@@ -671,6 +721,7 @@
       <button class="tab-btn" data-tab="backup" title="6">BACKUP</button>
       <button class="tab-btn" data-tab="renders" title="7">RENDERS</button>
       <button class="tab-btn" data-tab="stats" title="8">STATS</button>
+      <button class="tab-btn" data-tab="samples" title="9">SAMPLES</button>
     </div>
 
     <div id="cache-bar">
@@ -839,6 +890,16 @@
       <div class="stats-scroll"><div class="stats-grid" id="stats-grid"></div></div>
     </div>
 
+    <!-- ── SAMPLE BROWSER ── -->
+    <div class="tab-pane" id="tab-samples">
+      <div class="sampbr-toolbar">
+        <input class="search" id="sampbr-q" type="text" placeholder="filter samples…">
+        <span class="stat-chip" id="sampbr-stat" style="margin-left:auto"></span>
+        <button class="btn ghost sm" id="btn-sampbr-scan" style="display:none">↺ Rescan</button>
+      </div>
+      <div class="scroll-area"><div id="sampbr-list"></div></div>
+    </div>
+
   </div><!-- #main -->
 </div><!-- #app -->
 
@@ -846,10 +907,12 @@
 <div id="song-modal" class="song-modal-overlay" style="display:none">
   <div class="song-modal-box">
     <div class="song-modal-hdr">
+      <button class="modal-nav-btn" id="btn-modal-prev" title="Previous song (←)" style="display:none">‹</button>
       <span class="song-modal-title" id="modal-title"></span>
       <span class="song-modal-meta" id="modal-meta"></span>
       <button class="btn ghost sm" id="btn-modal-patterns" style="margin-right:4px">▦ Patterns</button>
       <button class="btn ghost sm" id="btn-modal-diff" style="margin-right:4px">⇌ Compare</button>
+      <button class="modal-nav-btn" id="btn-modal-next" title="Next song (→)" style="display:none">›</button>
       <button class="btn ghost sm" id="btn-modal-close">✕</button>
     </div>
     <div class="song-modal-body" id="modal-body">
@@ -942,10 +1005,18 @@ const M8 = (() => {
 
   const SONG_NAME_OFF = 148, INSTR_TABLE = 80446, ISIZE = 215, SAMP_OFF = 0x57;
 
+  const TEMPO_OFF = 0x8F, TRANSPOSE_OFF = 0x8E, QUANTIZE_OFF = 0x93;
+  const QUANTIZE_NAMES = ['None','1/16','1/8','1/4','1/2','1 bar'];
+
   function parseSong(b) {
     const h = parseHeader(b);
     if (!h || h.fileType !== 0x00 || b.length < INSTR_TABLE + 128 * ISIZE) return null;
     const name = readStr(b, SONG_NAME_OFF, 12).trim() || 'UNTITLED';
+    // Song settings (anchored from SONG_NAME_OFF=0x94)
+    const dv = new DataView(b.buffer, b.byteOffset);
+    const tempo     = b.length > TEMPO_OFF + 3 ? dv.getFloat32(TEMPO_OFF, true) : null;
+    const transpose = b.length > TRANSPOSE_OFF  ? dv.getInt8(TRANSPOSE_OFF)     : 0;
+    const quantize  = b.length > QUANTIZE_OFF   ? b[QUANTIZE_OFF]               : 0;
     const instruments = [];
     for (let i = 0; i < 128; i++) {
       const base = INSTR_TABLE + i * ISIZE, kind = b[base];
@@ -957,7 +1028,7 @@ const M8 = (() => {
         name:iname, samplePath:kind===0x02?readStr(b,base+SAMP_OFF,127).trim():'' });
     }
     const samplePaths = [...new Set(instruments.filter(x=>x.samplePath).map(x=>x.samplePath))];
-    return { header:h, name, instruments, samplePaths };
+    return { header:h, name, instruments, samplePaths, tempo, transpose, quantize };
   }
 
   function parseInstrFile(b) {
@@ -1576,6 +1647,10 @@ const UI = (() => {
   let renders=[], rendersScanned=false;
   // Stats
   let statsItemMap=new Map(), statsListenersReady=false;
+  // Song modal navigation
+  let _modalSongList=[], _modalSongIdx=-1;
+  // Sample browser
+  let sampbrData=[], sampbrScanned=false, sampbrFilter='', sampHandleMap=new Map();
   // Songs
   let songFilter='', songSort='name-asc', songMissOnly=false, songBundleFilter=false;
   let songView='list', songFirmFilter='all';
@@ -1786,6 +1861,7 @@ const UI = (() => {
     renderStats();
     // Renders tab re-checks if already scanned
     if (rendersScanned) renderRendersTab();
+    if (sampbrScanned) renderSampBrowser();
   }
 
   // ── Open / reconnect ───────────────────────────────────
@@ -1917,7 +1993,7 @@ const UI = (() => {
       $('songs-stat').textContent = `${visible.length} / ${songs.length} songs`;
       el.className=''; el.innerHTML='';
       if (!visible.length) { el.innerHTML='<div class="no-results">No matches.</div>'; return; }
-      visible.forEach(s => el.appendChild(buildSongCompact(s)));
+      visible.forEach(s => el.appendChild(buildSongCompact(s, visible)));
     } else if (songView === 'grid') {
       const visible = sortSongsArr(songs.filter(matchesSong));
       $('songs-stat').textContent = `${visible.length} / ${songs.length} songs`;
@@ -1932,7 +2008,7 @@ const UI = (() => {
     }
   }
 
-  function buildSongCompact(song) {
+  function buildSongCompact(song, navList) {
     const mi = missInfo(song);
     const item = document.createElement('div');
     item.className = 'song-compact-item';
@@ -1943,7 +2019,7 @@ const UI = (() => {
       <span class="s-cmiss ${mi.cls}">${mi.lbl}</span>
       <button class="btn ghost sm btn-diff-row" data-sname="${esc(song.name)}" data-spath="${esc(song.filePath)}" title="Compare with…" style="padding:2px 7px;font-size:12px;flex-shrink:0">⇌</button>
     </div>`;
-    item.querySelector('.s-crow').addEventListener('click', () => openSongModal(song));
+    item.querySelector('.s-crow').addEventListener('click', () => openSongModal(song, navList||null));
     item.querySelector('.btn-diff-row').addEventListener('click', e => handleDiffRowBtn(e, song));
     return item;
   }
@@ -2009,16 +2085,34 @@ const UI = (() => {
             <button class="btn ghost sm btn-diff-row" data-sname="${esc(song.name)}" data-spath="${esc(song.filePath)}" title="Compare with…" style="padding:1px 6px;font-size:11px;flex-shrink:0;margin-left:auto">⇌</button>
           </div>
         </div>`;
-      card.addEventListener('click', e => { if (!e.target.closest('.btn-diff-row')) openSongModal(song); });
+      card.addEventListener('click', e => { if (!e.target.closest('.btn-diff-row')) openSongModal(song, sorted); });
       card.querySelector('.btn-diff-row').addEventListener('click', e => handleDiffRowBtn(e, song));
       el.appendChild(card);
     });
   }
 
+  const QUANTIZE_NAMES = ['None','1/16','1/8','1/4','1/2','1 bar'];
+
   function buildSongDetail(song) {
     const hasI = song.instruments.length > 0;
     const hasS = song.samplePaths.length > 0;
-    if (!hasI && !hasS) return '<div style="color:var(--muted);font-size:12px">Empty song — no instruments.</div>';
+
+    // Song settings strip (BPM / transpose / quantize)
+    let settingsHtml = '';
+    if (song.tempo != null && !isNaN(song.tempo) && song.tempo > 0) {
+      const bpm = song.tempo.toFixed(1);
+      const xpose = song.transpose != null
+        ? (song.transpose > 0 ? `+${song.transpose}` : `${song.transpose}`)
+        : '0';
+      const qname = QUANTIZE_NAMES[song.quantize] ?? song.quantize;
+      settingsHtml = `<div style="margin-bottom:12px;display:flex;gap:16px;font-size:12px;flex-wrap:wrap">
+        <span><span style="color:var(--muted);font-size:10px">BPM </span><b>${bpm}</b></span>
+        <span><span style="color:var(--muted);font-size:10px">TRANSPOSE </span><b>${xpose}</b></span>
+        <span><span style="color:var(--muted);font-size:10px">QUANTIZE </span><b>${qname}</b></span>
+      </div>`;
+    }
+
+    if (!hasI && !hasS) return settingsHtml + '<div style="color:var(--muted);font-size:12px">Empty song — no instruments.</div>';
     let instrHtml='', sampHtml='', simHtml='';
 
     if (hasI) {
@@ -2067,15 +2161,25 @@ const UI = (() => {
     const body = hasI && hasS
       ? `<div class="sd-cols"><div class="sd-col">${instrHtml}</div><div class="sd-col">${sampHtml}</div></div>${simHtml}`
       : `${instrHtml||sampHtml}${simHtml}`;
-    return body;
+    return settingsHtml + body;
   }
 
   // ── Song modal ─────────────────────────────────────────
   let _modalSong = null;
-  function openSongModal(song) {
+  function openSongModal(song, navList) {
     _modalSong = song;
+    if (navList) _modalSongList = navList;
+    _modalSongIdx = _modalSongList.indexOf(song);
+    const bpm = song.tempo != null && !isNaN(song.tempo) && song.tempo > 0
+      ? ` · ${song.tempo.toFixed(1)} BPM` : '';
     $('modal-title').textContent = song.name;
-    $('modal-meta').textContent  = `${song.filePath} · ${firmStr(song)}${song.hasBundle?' · 📦':''}`;
+    $('modal-meta').textContent  = `${song.filePath} · ${firmStr(song)}${bpm}${song.hasBundle?' · 📦':''}`;
+    // Nav buttons
+    const hasNav = _modalSongList.length > 1 && _modalSongIdx >= 0;
+    $('btn-modal-prev').style.display = hasNav ? '' : 'none';
+    $('btn-modal-next').style.display = hasNav ? '' : 'none';
+    $('btn-modal-prev').disabled = _modalSongIdx <= 0;
+    $('btn-modal-next').disabled = _modalSongIdx >= _modalSongList.length - 1;
     // Reset pattern section
     const patSec = $('modal-pattern-section');
     patSec.style.display = 'none'; patSec.innerHTML = ''; delete patSec.dataset.loaded;
@@ -2117,7 +2221,14 @@ const UI = (() => {
     $('song-modal').style.display='flex';
   }
   function closeSongModal() { $('song-modal').style.display='none'; _modalSong=null; }
+  function navModal(delta) {
+    const idx = _modalSongIdx + delta;
+    if (idx < 0 || idx >= _modalSongList.length) return;
+    openSongModal(_modalSongList[idx]);
+  }
   $('btn-modal-close').addEventListener('click', closeSongModal);
+  $('btn-modal-prev').addEventListener('click', () => navModal(-1));
+  $('btn-modal-next').addEventListener('click', () => navModal(+1));
   $('song-modal').addEventListener('click', e => { if (e.target===$('song-modal')) closeSongModal(); });
   $('btn-modal-diff').addEventListener('click', () => {
     if (_modalSong) { closeSongModal(); openDiffModal(_modalSong); }
@@ -2977,6 +3088,68 @@ const UI = (() => {
   // ══════════════════════════════════════════════════════
   // PATTERN VIEWER
   // ══════════════════════════════════════════════════════
+
+  function buildNoteHistogram(phrases) {
+    const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    const bins = new Array(12).fill(0);
+    let total = 0;
+    for (const ph of phrases) {
+      for (const s of ph) {
+        if (s.note !== 0xFF) { bins[s.note % 12]++; total++; }
+      }
+    }
+    if (total === 0) return '';
+    const maxBin = Math.max(...bins, 1);
+
+    // Scale detection: dot-product of normalised histogram vs scale mask
+    const SCALES = [
+      {n:'Major',       iv:[0,2,4,5,7,9,11]},
+      {n:'Nat. Minor',  iv:[0,2,3,5,7,8,10]},
+      {n:'Harm. Minor', iv:[0,2,3,5,7,8,11]},
+      {n:'Dorian',      iv:[0,2,3,5,7,9,10]},
+      {n:'Mixolydian',  iv:[0,2,4,5,7,9,10]},
+      {n:'Phrygian',    iv:[0,1,3,5,7,8,10]},
+      {n:'Lydian',      iv:[0,2,4,6,7,9,11]},
+      {n:'Pentat. Maj', iv:[0,2,4,7,9]},
+      {n:'Pentat. Min', iv:[0,3,5,7,10]},
+    ];
+    const norm = bins.map(b => b / maxBin);
+    const candidates = [];
+    for (const {n, iv} of SCALES) {
+      for (let root = 0; root < 12; root++) {
+        const mask = new Array(12).fill(0);
+        for (const i of iv) mask[(root+i)%12] = 1;
+        const inScore  = iv.reduce((s,i) => s + norm[(root+i)%12], 0) / iv.length;
+        const outCount = 12 - iv.length;
+        const outScore = outCount > 0 ? norm.reduce((s,v,i) => mask[i] ? s : s+v, 0) / outCount : 0;
+        candidates.push({label:`${NOTES[root]} ${n}`, score: inScore - outScore*0.6});
+      }
+    }
+    candidates.sort((a,b) => b.score - a.score);
+    const top5 = candidates.slice(0, 5);
+
+    const SHARP_IDX = new Set([1,3,6,8,10]);
+    const binsHtml = bins.map((b, i) => {
+      const pct = Math.round(b / maxBin * 40);
+      const col = SHARP_IDX.has(i) ? 'var(--c-mid)' : 'var(--accent)';
+      const lbl = NOTES[i].replace('#','♯');
+      return `<div class="nh-bin">
+        <div class="nh-bar" style="height:${pct}px;background:${col}" title="${NOTES[i]}: ${b}"></div>
+        <span class="nh-lbl">${lbl}</span>
+      </div>`;
+    }).join('');
+
+    const scaleChips = top5.map((c, i) =>
+      `<span class="nh-scale-chip${i===0?' top':''}" title="Score: ${c.score.toFixed(2)}">${esc(c.label)}</span>`
+    ).join('');
+
+    return `<div class="nh-wrap">
+      <div class="nh-title">Note histogram · ${total} note${total!==1?'s':''} — likely scale</div>
+      <div class="nh-bins">${binsHtml}</div>
+      <div class="nh-scale-row">${scaleChips}</div>
+    </div>`;
+  }
+
   async function loadPatternViewer(song, container) {
     container.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Reading pattern data…</div>';
     container.dataset.loaded = '1';
@@ -3035,6 +3208,13 @@ const UI = (() => {
     container.appendChild(wrap);
     const detailEl = document.createElement('div'); detailEl.className='pv-detail'; detailEl.style.display='none';
     container.appendChild(detailEl);
+    // Note histogram
+    const histHtml = buildNoteHistogram(phrases);
+    if (histHtml) {
+      const histEl = document.createElement('div');
+      histEl.innerHTML = histHtml;
+      container.appendChild(histEl.firstElementChild);
+    }
     container.style.display='block';
   }
 
@@ -3079,6 +3259,129 @@ const UI = (() => {
     if (activeSteps.length === 0) html += `<div style="color:var(--muted);font-size:11px;padding-top:4px">All steps empty.</div>`;
     container.innerHTML = html;
   }
+
+  // ══════════════════════════════════════════════════════
+  // SAMPLE BROWSER
+  // ══════════════════════════════════════════════════════
+  async function scanSampBrowser() {
+    if (!sdHandle) return;
+    $('sampbr-stat').textContent = 'Scanning…';
+    $('sampbr-list').innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Scanning Samples/…</div>';
+    sampbrData = []; sampHandleMap = new Map();
+    let found = false;
+    try {
+      const samplesDir = await sdHandle.getDirectoryHandle('Samples');
+      found = true;
+      async function walk(dir, prefix) {
+        const subdirs = [], files = [];
+        for await (const [name, h] of dir) {
+          const path = prefix ? `${prefix}/${name}` : `Samples/${name}`;
+          if (h.kind === 'directory') subdirs.push({name, h, path});
+          else if (name.toLowerCase().endsWith('.wav')) files.push({name, path, handle:h});
+        }
+        for (const f of files) {
+          sampbrData.push(f);
+          const lc = f.path.toLowerCase();
+          sampHandleMap.set(lc, f.handle);
+          sampHandleMap.set('/'+lc, f.handle);
+        }
+        for (const s of subdirs) await walk(s.h, s.path);
+      }
+      await walk(samplesDir, 'Samples');
+    } catch(e) {
+      if (!found) {
+        $('sampbr-list').innerHTML = '<div class="no-results">No Samples/ folder found on this SD card.</div>';
+        $('sampbr-stat').textContent = '0 files';
+        sampbrScanned = true; return;
+      }
+      console.warn('scanSampBrowser:', e);
+    }
+    sampbrScanned = true;
+    $('btn-sampbr-scan').style.display = '';
+    renderSampBrowser();
+  }
+
+  function renderSampBrowser() {
+    const el = $('sampbr-list'); el.innerHTML = '';
+    const q = sampbrFilter;
+    const visible = q
+      ? sampbrData.filter(f => f.path.toLowerCase().includes(q) || f.name.toLowerCase().includes(q))
+      : sampbrData;
+    $('sampbr-stat').textContent = `${visible.length} / ${sampbrData.length} WAV files`;
+    $('btn-sampbr-scan').style.display = sdHandle ? '' : 'none';
+    if (!visible.length) { el.innerHTML = '<div class="no-results">No matches.</div>'; return; }
+
+    // Build display tree from flat list
+    const root = {name:'', files:[], children:new Map()};
+    function countNode(node) {
+      let n = node.files.length;
+      for (const c of node.children.values()) n += countNode(c);
+      return n;
+    }
+    for (const f of visible) {
+      const parts = f.path.split('/');
+      let node = root;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const p = parts[i];
+        if (!node.children.has(p)) node.children.set(p, {name:p, depth:i, files:[], children:new Map()});
+        node = node.children.get(p);
+      }
+      node.files.push(f);
+    }
+
+    function renderNode(node, baseIndent, container) {
+      const sortedChildren = [...node.children.values()].sort((a,b) => a.name.localeCompare(b.name));
+      for (const child of sortedChildren) {
+        const total = countNode(child);
+        const dirEl = document.createElement('div'); dirEl.className = 'sb-dir open';
+        dirEl.innerHTML = `<div class="sb-dir-hdr" style="padding-left:${baseIndent}px">
+          <span class="sb-dir-chev">▶</span>
+          <span class="sb-dir-name">📁 ${esc(child.name)}</span>
+          <span class="sb-dir-cnt">${total}</span>
+        </div><div class="sb-dir-body"></div>`;
+        dirEl.querySelector('.sb-dir-hdr').addEventListener('click', () => dirEl.classList.toggle('open'));
+        renderNode(child, baseIndent + 16, dirEl.querySelector('.sb-dir-body'));
+        container.appendChild(dirEl);
+      }
+      const sortedFiles = [...node.files].sort((a,b) => a.name.localeCompare(b.name));
+      for (const f of sortedFiles) {
+        const usageKey = f.path.toLowerCase().replace(/^\//, '');
+        const usage = sampleUsageMap.get(usageKey);
+        const usedCount = usage ? (usage.songs.length + usage.instrFiles.length) : 0;
+        const usedTitle = usage ? `Used in: ${usage.songs.join(', ')||'—'}` : 'Not referenced by any song or instrument';
+        const badge = usedCount > 0
+          ? `<span class="sb-badge used" title="${esc(usedTitle)}">✓ ${usedCount}</span>`
+          : `<span class="sb-badge unused" title="Not referenced">unused</span>`;
+        const row = document.createElement('div');
+        row.className = 'sb-file-row';
+        row.style.paddingLeft = (baseIndent + 20) + 'px';
+        const playBtn = document.createElement('button');
+        playBtn.className = 'play-btn'; playBtn.textContent = '▶'; playBtn.title = 'Preview';
+        playBtn.addEventListener('click', () => AudioPlayer.playPath(sdHandle, f.path, playBtn));
+        row.appendChild(playBtn);
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'sb-fname'; nameSpan.textContent = f.name; nameSpan.title = f.path;
+        row.appendChild(nameSpan);
+        row.insertAdjacentHTML('beforeend', badge);
+        container.appendChild(row);
+      }
+    }
+
+    renderNode(root, 20, el);
+  }
+
+  $('sampbr-q').addEventListener('input', e => {
+    sampbrFilter = e.target.value.toLowerCase();
+    if (sampbrScanned) renderSampBrowser();
+  });
+  document.querySelectorAll('.tab-btn[data-tab="samples"]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      if (sdHandle && !sampbrScanned) scanSampBrowser();
+      else if (sampbrScanned) renderSampBrowser();
+      else $('sampbr-list').innerHTML = '<div class="no-results">Open an SD card first.</div>';
+    })
+  );
+  $('btn-sampbr-scan').addEventListener('click', () => { sampbrScanned=false; sampbrData=[]; scanSampBrowser(); });
 
   // ══════════════════════════════════════════════════════
   // RENDERS TAB
@@ -3454,6 +3757,50 @@ const UI = (() => {
       }).join('');
       addCard('Recently Modified', `<div class="recent-list">${rows}</div>`);
     }
+
+    // ── 9. Song Timeline ──
+    if (withDate.length > 1) {
+      const sorted = [...withDate].sort((a,b) => a.lastModified - b.lastModified);
+      const minT = sorted[0].lastModified, maxT = sorted[sorted.length-1].lastModified;
+      const span = maxT - minT || 1;
+      const W = 340, H = 64, PAD = 14, R = 5;
+      const plotW = W - PAD * 2, midY = (H - 18) / 2;
+
+      // Assign folder colors
+      const folders = [...new Set(songs.map(s => {
+        const sl = s.filePath.lastIndexOf('/'); return sl > 0 ? s.filePath.slice(0,sl) : '(root)';
+      }))].sort();
+      const PALETTE = ['#f97316','#60a5fa','#34d399','#fcd34d','#a78bfa','#f472b6','#fb923c','#4ade80','#38bdf8','#e879f9'];
+      const folderCol = new Map(folders.map((f,i) => [f, PALETTE[i % PALETTE.length]]));
+
+      const dots = sorted.map(s => {
+        const sl = s.filePath.lastIndexOf('/');
+        const folder = sl > 0 ? s.filePath.slice(0,sl) : '(root)';
+        const x = PAD + (s.lastModified - minT) / span * plotW;
+        const col = folderCol.get(folder);
+        return `<circle cx="${x.toFixed(1)}" cy="${midY}" r="${R}" fill="${col}" opacity=".8">
+          <title>${esc(s.name)} — ${Scanner.fmtDate(s.lastModified)} — ${esc(folder)}</title>
+        </circle>`;
+      }).join('');
+
+      const fmtTick = ts => new Date(ts).toLocaleDateString('en-GB',{month:'short',year:'2-digit'});
+      const svgHtml = `<div class="tl-svg-wrap">
+        <svg class="tl-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+          <line x1="${PAD}" y1="${midY}" x2="${W-PAD}" y2="${midY}" stroke="#2e2e2e" stroke-width="1"/>
+          ${dots}
+          <text x="${PAD}" y="${H-4}" fill="#737373" font-size="9" font-family="monospace">${esc(fmtTick(minT))}</text>
+          <text x="${W-PAD}" y="${H-4}" fill="#737373" font-size="9" font-family="monospace" text-anchor="end">${esc(fmtTick(maxT))}</text>
+        </svg>
+      </div>`;
+
+      const legendHtml = `<div class="tl-legend">` +
+        folders.map(f => `<span class="tl-leg-item" title="${esc(f)}">
+          <span class="tl-dot" style="background:${folderCol.get(f)}"></span>${esc(f)}
+        </span>`).join('') +
+        `</div>`;
+
+      addCard(`Song Timeline <span style="font-weight:400;font-size:10px;opacity:.6">${sorted.length} songs</span>`, svgHtml + legendHtml);
+    }
   }
 
   // ══════════════════════════════════════════════════════
@@ -3472,6 +3819,12 @@ const UI = (() => {
       if ($('song-modal').style.display==='flex') { closeSongModal(); return; }
     }
 
+    // Arrow nav inside song modal
+    if ($('song-modal').style.display==='flex') {
+      if (e.key==='ArrowLeft')  { e.preventDefault(); navModal(-1); return; }
+      if (e.key==='ArrowRight') { e.preventDefault(); navModal(+1); return; }
+    }
+
     if (inInput) return;
 
     // Cmd/Ctrl+K or / → open search
@@ -3482,7 +3835,7 @@ const UI = (() => {
     }
 
     // Tab switching: 1-8
-    const tabMap = {'1':'songs','2':'instruments','3':'themes','4':'problems','5':'grooves','6':'backup','7':'renders','8':'stats'};
+    const tabMap = {'1':'songs','2':'instruments','3':'themes','4':'problems','5':'grooves','6':'backup','7':'renders','8':'stats','9':'samples'};
     if (tabMap[e.key] && !e.metaKey && !e.ctrlKey) { switchTab(tabMap[e.key]); return; }
 
     // View toggles on active tab

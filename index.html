@@ -230,6 +230,11 @@
     .spr-ic   { flex-shrink:0; width:14px; font-size:11px; }
     .spr-path { flex:1; word-break:break-all; line-height:1.4; cursor:pointer; }
     .spr-path:hover { color:var(--accent); text-decoration:underline; }
+    .btn-diff-row { opacity:0; transition:opacity .1s; }
+    .song-item:hover .btn-diff-row,
+    .song-compact-item:hover .btn-diff-row,
+    .song-card:hover .btn-diff-row,
+    .btn-diff-row.on { opacity:1; }
     .spr.miss .spr-path { color:var(--c-miss); }
     .spr.ok   .spr-path { color:var(--muted); }
     .spr.unk  .spr-path { color:var(--muted); font-style:italic; }
@@ -521,7 +526,7 @@
 <div id="app">
 
   <header>
-    <div class="logo">M8 LIBRARIAN <span style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px">v0.2.0 Beta</span></div>
+    <div class="logo">M8 LIBRARIAN <span style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px">v0.2.1 Beta</span></div>
     <div class="hdr-right">
       <span id="sd-label">No SD card mounted</span>
       <span class="ro-badge" id="ro-badge">🔒 READ ONLY</span>

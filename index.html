@@ -526,7 +526,7 @@
 <div id="app">
 
   <header>
-    <div class="logo">M8 LIBRARIAN <span style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px">v0.2.1 Beta</span></div>
+    <div class="logo">M8 LIBRARIAN <span style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px">v0.2.2 Beta</span></div>
     <div class="hdr-right">
       <span id="sd-label">No SD card mounted</span>
       <span class="ro-badge" id="ro-badge">🔒 READ ONLY</span>
@@ -698,7 +698,7 @@
             <label class="inc-row"><input type="checkbox" id="inc-Grooves" checked>
               <span class="inc-label">Grooves</span><span class="inc-count" id="cnt-Grooves">—</span></label>
             <label class="inc-row" id="inc-Bundles-row"><input type="checkbox" id="inc-Bundles" checked>
-              <div style="flex:1"><div class="inc-label">Bundles</div><div class="inc-warn">autosave dirs in Songs/</div></div>
+              <div style="flex:1"><div class="inc-label">Bundles</div><div class="inc-warn">autosave bundles (SD root)</div></div>
               <span class="inc-count" id="cnt-Bundles">—</span></label>
           </div>
           <div class="backup-info">
@@ -1240,19 +1240,7 @@ async function copyDir(src, dest, onFile) {
     }
   }
 }
-// Copy only files (not subdirs) — used for Songs/ when bundles excluded
-async function copySongsOnly(src, dest, onFile) {
-  for await (const [name, h] of src) {
-    if (h.kind === 'file') {
-      const file = await h.getFile();
-      const w = await (await dest.getFileHandle(name, {create:true})).createWritable();
-      await w.write(await file.arrayBuffer()); await w.close();
-      onFile?.(name);
-    }
-    // subdirectories (bundle folders) skipped intentionally
-  }
-}
-async function createBackup(sdHandle, dirs, opts, onLog, onDone, onError) {
+async function createBackup(sdHandle, dirs, onLog, onDone, onError) {
   let dest;
   try { dest=await window.showDirectoryPicker({mode:'readwrite'}); }
   catch(e) { if (e.name!=='AbortError') onError?.(e.message); return; }
@@ -1264,15 +1252,9 @@ async function createBackup(sdHandle, dirs, opts, onLog, onDone, onError) {
     let count=0;
     for (const dir of dirs) {
       let s; try { s=await sdHandle.getDirectoryHandle(dir); } catch { continue; }
-      if (dir === 'Songs' && !opts?.bundles) {
-        onLog?.('ok', `Copying Songs/ (no bundles)…`);
-        await copySongsOnly(s, await bd.getDirectoryHandle(dir,{create:true}),
-          n=>{ count++; onLog?.('log',`  ${n}`); });
-      } else {
-        onLog?.('ok',`Copying ${dir}/…`);
-        await copyDir(s, await bd.getDirectoryHandle(dir,{create:true}),
-          n=>{ count++; onLog?.('log',`  ${n}`); });
-      }
+      onLog?.('ok',`Copying ${dir}/…`);
+      await copyDir(s, await bd.getDirectoryHandle(dir,{create:true}),
+        n=>{ count++; onLog?.('log',`  ${n}`); });
     }
     onDone?.(count, bname);
   } catch(e) { onError?.(e.message); }
@@ -2702,12 +2684,8 @@ const UI = (() => {
     const w = $('warn-Samples');
     if (w) w.textContent = sc!=null&&sc>200 ? '⚠ may be large' : '';
     const bundleCount = songs.filter(s => s.hasBundle).length;
-    const brow = $('inc-Bundles-row');
-    if (brow) brow.style.opacity = $('inc-Songs')?.checked ? '' : '0.4';
     $('cnt-Bundles').textContent = bundleCount > 0 ? `${bundleCount} found` : 'none';
   }
-
-  $('inc-Songs').addEventListener('change', () => renderBackupCounts());
   function appendLog(t, m) {
     const log=$('backup-log'), d=document.createElement('div');
     d.className='log-line '+t; d.textContent=m;
@@ -2715,11 +2693,10 @@ const UI = (() => {
   }
   $('btn-backup').addEventListener('click', async () => {
     if (!sdHandle) return;
-    const dirs=['Songs','Instruments','Samples','Themes','Grooves'].filter(d=>$('inc-'+d)?.checked);
+    const dirs=['Songs','Instruments','Samples','Themes','Grooves','Bundles'].filter(d=>$('inc-'+d)?.checked);
     if (!dirs.length) { appendLog('err','✗ Nothing selected.'); return; }
-    const opts = { bundles: $('inc-Bundles')?.checked !== false };
     $('backup-log').innerHTML=''; $('btn-backup').disabled=true;
-    await createBackup(sdHandle, dirs, opts, (t,m)=>appendLog(t,m),
+    await createBackup(sdHandle, dirs, (t,m)=>appendLog(t,m),
       (n,name)=>{ appendLog('ok',`✓ Done — ${n} files → ${name}`); $('btn-backup').disabled=false; },
       err=>{ appendLog('err',`✗ ${err}`); $('btn-backup').disabled=false; });
   });

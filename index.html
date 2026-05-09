@@ -680,13 +680,44 @@
       font-size:10px; color:var(--muted); max-width:160px;
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .tl-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+    /* BUNDLE BROWSER */
+    .bb-toolbar { display:flex; align-items:center; gap:8px; padding:10px 20px;
+      background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; }
+    .bb-bundle { border-bottom:1px solid var(--border); }
+    .bb-bundle-hdr { display:flex; align-items:center; gap:10px; padding:9px 20px;
+      cursor:pointer; user-select:none; transition:background .1s; }
+    .bb-bundle-hdr:hover { background:var(--surface); }
+    .bb-bundle.open .bb-bundle-hdr { background:var(--surface); }
+    .bb-chev { font-size:9px; color:var(--muted); transition:transform .15s; flex-shrink:0; }
+    .bb-bundle.open .bb-chev { transform:rotate(90deg); }
+    .bb-bundle-name { font-size:13px; font-weight:600; flex:1; min-width:0;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .bb-bundle-meta { font-size:11px; color:var(--muted); flex-shrink:0; white-space:nowrap; }
+    .bb-badge { font-size:10px; font-weight:600; padding:2px 8px; border-radius:4px;
+      flex-shrink:0; white-space:nowrap; }
+    .bb-badge.linked  { background:#1c2f1c; color:var(--c-found); border:1px solid #2a4a2a; cursor:pointer; }
+    .bb-badge.linked:hover { background:#243f24; }
+    .bb-badge.orphan  { background:var(--surface2); color:var(--muted); border:1px solid var(--border); }
+    .bb-bundle-body { display:none; padding:0 0 8px 0; border-top:1px solid var(--border); }
+    .bb-bundle.open .bb-bundle-body { display:block; }
+    .bb-file-row { display:flex; align-items:center; gap:8px; padding:5px 20px 5px 44px;
+      border-bottom:1px solid var(--border); }
+    .bb-file-row:last-child { border-bottom:none; }
+    .bb-file-ext { font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px;
+      flex-shrink:0; letter-spacing:.3px; }
+    .bb-file-ext.song { background:#1f0e00; color:var(--accent); border:1px solid #4a2e00; }
+    .bb-file-ext.instr { background:#2d2054; color:var(--c-mac); border:1px solid #4a3880; }
+    .bb-file-ext.wav   { background:#1c3254; color:var(--c-wav); border:1px solid #2a4a6a; }
+    .bb-file-ext.other { background:var(--surface2); color:var(--muted); border:1px solid var(--border); }
+    .bb-fname { font-size:12px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
   </style>
 </head>
 <body>
 <div id="app">
 
   <header>
-    <div class="logo">M8 LIBRARIAN <span style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px">v0.4.0 Beta</span></div>
+    <div class="logo">M8 LIBRARIAN <span style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px">v0.4.1 Beta</span></div>
     <div class="hdr-right">
       <span id="sd-label">No SD card mounted</span>
       <span class="ro-badge" id="ro-badge">🔒 READ ONLY</span>
@@ -722,6 +753,7 @@
       <button class="tab-btn" data-tab="renders" title="7">RENDERS</button>
       <button class="tab-btn" data-tab="stats" title="8">STATS</button>
       <button class="tab-btn" data-tab="samples" title="9">SAMPLES</button>
+      <button class="tab-btn" data-tab="bundles" title="0">BUNDLES</button>
     </div>
 
     <div id="cache-bar">
@@ -898,6 +930,16 @@
         <button class="btn ghost sm" id="btn-sampbr-scan" style="display:none">↺ Rescan</button>
       </div>
       <div class="scroll-area"><div id="sampbr-list"></div></div>
+    </div>
+
+    <!-- ── BUNDLE BROWSER ── -->
+    <div class="tab-pane" id="tab-bundles">
+      <div class="bb-toolbar">
+        <input class="search" id="bb-q" type="text" placeholder="filter bundles…">
+        <span class="stat-chip" id="bb-stat" style="margin-left:auto"></span>
+        <button class="btn ghost sm" id="btn-bb-scan" style="display:none">↺ Rescan</button>
+      </div>
+      <div class="scroll-area"><div id="bb-list"></div></div>
     </div>
 
   </div><!-- #main -->
@@ -1651,6 +1693,8 @@ const UI = (() => {
   let _modalSongList=[], _modalSongIdx=-1;
   // Sample browser
   let sampbrData=[], sampbrScanned=false, sampbrFilter='', sampHandleMap=new Map();
+  // Bundle browser
+  let bundleBrData=[], bundleBrScanned=false, bundleBrFilter='';
   // Songs
   let songFilter='', songSort='name-asc', songMissOnly=false, songBundleFilter=false;
   let songView='list', songFirmFilter='all';
@@ -1862,6 +1906,7 @@ const UI = (() => {
     // Renders tab re-checks if already scanned
     if (rendersScanned) renderRendersTab();
     if (sampbrScanned) renderSampBrowser();
+    if (bundleBrScanned) renderBundleBrowser();
   }
 
   // ── Open / reconnect ───────────────────────────────────
@@ -3261,6 +3306,156 @@ const UI = (() => {
   }
 
   // ══════════════════════════════════════════════════════
+  // BUNDLE BROWSER
+  // ══════════════════════════════════════════════════════
+  async function scanBundleBrowser() {
+    if (!sdHandle) return;
+    $('bb-stat').textContent = 'Scanning…';
+    $('bb-list').innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Scanning Bundles/…</div>';
+    bundleBrData = [];
+    let bundlesDir;
+    try { bundlesDir = await sdHandle.getDirectoryHandle('Bundles'); }
+    catch {
+      $('bb-list').innerHTML = '<div class="no-results">No Bundles/ folder found on this SD card.</div>';
+      $('bb-stat').textContent = '0 bundles';
+      bundleBrScanned = true; return;
+    }
+    // Each top-level dir in Bundles/ is one bundle
+    for await (const [name, h] of bundlesDir) {
+      if (h.kind !== 'directory') continue;
+      const files = [];
+      for await (const [fname, fh] of h) {
+        if (fh.kind !== 'file') continue;
+        const ext = fname.split('.').pop().toLowerCase();
+        files.push({ name: fname, handle: fh, ext });
+      }
+      // Sort: songs → instrs → wavs → other
+      const extOrder = { m8s:0, m8i:1, wav:2 };
+      files.sort((a,b) => ((extOrder[a.ext]??9)-(extOrder[b.ext]??9)) || a.name.localeCompare(b.name));
+      bundleBrData.push({ name, dirHandle:h, files });
+    }
+    bundleBrData.sort((a,b) => a.name.localeCompare(b.name, undefined, {sensitivity:'base'}));
+    bundleBrScanned = true;
+    $('btn-bb-scan').style.display = '';
+    renderBundleBrowser();
+  }
+
+  function findBundleSong(bundleName) {
+    const lc = bundleName.toLowerCase();
+    return songs.find(s =>
+      s.name.toLowerCase() === lc ||
+      s.fileName.toLowerCase().replace(/\.m8s$/, '') === lc
+    ) || null;
+  }
+
+  function renderBundleBrowser() {
+    const el = $('bb-list'); el.innerHTML = '';
+    const q = bundleBrFilter;
+    const visible = q
+      ? bundleBrData.filter(b => b.name.toLowerCase().includes(q))
+      : bundleBrData;
+
+    // Sort: linked first (have a matching song), then orphans; within each group A-Z
+    const linked = visible.filter(b => findBundleSong(b.name));
+    const orphans = visible.filter(b => !findBundleSong(b.name));
+    const sorted = [...linked, ...orphans];
+
+    $('bb-stat').textContent =
+      `${visible.length} / ${bundleBrData.length} bundle${bundleBrData.length!==1?'s':''} · ${linked.length} linked · ${orphans.length} orphan${orphans.length!==1?'s':''}`;
+    $('btn-bb-scan').style.display = sdHandle ? '' : 'none';
+
+    if (!sorted.length) {
+      el.innerHTML = '<div class="no-results">No bundles found.</div>'; return;
+    }
+
+    for (const bundle of sorted) {
+      const song = findBundleSong(bundle.name);
+      const wavCount = bundle.files.filter(f => f.ext === 'wav').length;
+      const fileMeta = `${bundle.files.length} file${bundle.files.length!==1?'s':''}${wavCount?' · '+wavCount+' WAV':''}`;
+
+      const div = document.createElement('div');
+      div.className = 'bb-bundle';
+      const badge = song
+        ? `<span class="bb-badge linked" data-songname="${esc(song.name)}" data-songpath="${esc(song.filePath)}" title="Open song modal">🎵 ${esc(song.name)}</span>`
+        : `<span class="bb-badge orphan" title="No matching song found in Songs/">orphan</span>`;
+
+      div.innerHTML = `<div class="bb-bundle-hdr">
+        <span class="bb-chev">▶</span>
+        <span class="bb-bundle-name">📦 ${esc(bundle.name)}</span>
+        <span class="bb-bundle-meta">${fileMeta}</span>
+        ${badge}
+      </div>
+      <div class="bb-bundle-body"></div>`;
+
+      // Linked badge → open song modal
+      const linkedBadge = div.querySelector('.bb-badge.linked');
+      if (linkedBadge) {
+        linkedBadge.addEventListener('click', e => {
+          e.stopPropagation();
+          if (song) openSongModal(song);
+        });
+      }
+
+      // Toggle open/close
+      div.querySelector('.bb-bundle-hdr').addEventListener('click', e => {
+        if (e.target.classList.contains('bb-badge')) return;
+        const isOpen = div.classList.toggle('open');
+        if (!isOpen) return;
+        // Lazy-render file list
+        const body = div.querySelector('.bb-bundle-body');
+        if (body.dataset.rendered) return;
+        body.dataset.rendered = '1';
+        for (const f of bundle.files) {
+          const row = document.createElement('div');
+          row.className = 'bb-file-row';
+          const extCls = {m8s:'song', m8i:'instr', wav:'wav'}[f.ext] || 'other';
+          const extLabel = f.ext.toUpperCase();
+          const playBtn = f.ext === 'wav' ? (() => {
+            const btn = document.createElement('button');
+            btn.className = 'play-btn'; btn.textContent = '▶'; btn.title = 'Preview';
+            btn.addEventListener('click', async () => {
+              try {
+                const file = await f.handle.getFile();
+                const buf = await file.arrayBuffer();
+                AudioPlayer.stopCurrent();
+                // Build a temp path-like key; use direct buffer play
+                const ctx = new (window.AudioContext||window.webkitAudioContext)();
+                const decoded = await ctx.decodeAudioData(buf);
+                if (AudioPlayer.stopCurrent) AudioPlayer.stopCurrent();
+                const src = ctx.createBufferSource();
+                src.buffer = decoded; src.connect(ctx.destination); src.start();
+                btn.textContent = '■'; btn.classList.add('playing');
+                src.onended = () => { btn.textContent = '▶'; btn.classList.remove('playing'); };
+              } catch(err) { console.warn('Bundle play:', err); btn.textContent = '▶'; }
+            });
+            return btn;
+          })() : null;
+
+          row.innerHTML = `<span class="bb-file-ext ${extCls}">${extLabel}</span>
+            <span class="bb-fname" title="${esc(f.name)}">${esc(f.name)}</span>`;
+          if (playBtn) row.insertBefore(playBtn, row.querySelector('.bb-fname'));
+          body.appendChild(row);
+        }
+      });
+
+      el.appendChild(div);
+    }
+  }
+
+  $('bb-q').addEventListener('input', e => {
+    bundleBrFilter = e.target.value.toLowerCase();
+    if (bundleBrScanned) renderBundleBrowser();
+  });
+  document.querySelectorAll('.tab-btn[data-tab="bundles"]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      if (sdHandle && !bundleBrScanned) scanBundleBrowser();
+      else if (bundleBrScanned) renderBundleBrowser();
+      else $('bb-list').innerHTML = '<div class="no-results">Open an SD card first.</div>';
+    })
+  );
+  $('btn-bb-scan').addEventListener('click', () => { bundleBrScanned=false; bundleBrData=[]; scanBundleBrowser(); });
+
+  // ══════════════════════════════════════════════════════
   // SAMPLE BROWSER
   // ══════════════════════════════════════════════════════
   async function scanSampBrowser() {
@@ -3835,7 +4030,7 @@ const UI = (() => {
     }
 
     // Tab switching: 1-8
-    const tabMap = {'1':'songs','2':'instruments','3':'themes','4':'problems','5':'grooves','6':'backup','7':'renders','8':'stats','9':'samples'};
+    const tabMap = {'1':'songs','2':'instruments','3':'themes','4':'problems','5':'grooves','6':'backup','7':'renders','8':'stats','9':'samples','0':'bundles'};
     if (tabMap[e.key] && !e.metaKey && !e.ctrlKey) { switchTab(tabMap[e.key]); return; }
 
     // View toggles on active tab

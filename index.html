@@ -651,6 +651,19 @@
       background:var(--surface2); border:1px solid var(--border2); color:var(--muted); }
     .nh-scale-chip.top { border-color:var(--accent); color:var(--accent); background:#1f0e00; }
 
+    /* STATS OVERVIEW STRIP */
+    .stats-strip { display:none; align-items:center; flex-shrink:0; flex-wrap:wrap;
+      background:var(--surface); border-bottom:1px solid var(--border); }
+    .stats-strip.visible { display:flex; }
+    .ss-item { display:flex; align-items:baseline; gap:6px; padding:10px 18px;
+      border-right:1px solid var(--border); }
+    .ss-item:last-child { border-right:none; }
+    .ss-item.nav { cursor:pointer; }
+    .ss-item.nav:hover .ss-val { color:var(--text); }
+    .ss-val { font-size:22px; font-weight:700; color:var(--accent); line-height:1; }
+    .ss-val.bad { color:var(--c-miss); }
+    .ss-lbl { font-size:11px; color:var(--muted); white-space:nowrap; }
+
     /* SAMPLE BROWSER */
     .sampbr-toolbar { display:flex; align-items:center; gap:8px; padding:10px 20px;
       background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; }
@@ -919,6 +932,7 @@
 
     <!-- ── STATS ── -->
     <div class="tab-pane" id="tab-stats">
+      <div id="stats-strip" class="stats-strip"></div>
       <div class="stats-scroll"><div class="stats-grid" id="stats-grid"></div></div>
     </div>
 
@@ -3671,8 +3685,8 @@ const UI = (() => {
         renderStats(); return;
       }
 
-      // KPI navigation
-      const kpiEl = e.target.closest('.stat-kpi.nav');
+      // KPI navigation (cards or strip)
+      const kpiEl = e.target.closest('.stat-kpi.nav, .ss-item.nav');
       if (kpiEl) {
         const nav = kpiEl.dataset.nav;
         if (nav==='songs')           { switchTab('songs'); renderSongs(); }
@@ -3840,18 +3854,25 @@ const UI = (() => {
     const brokenCt = sampIndexed ? instrs.filter(i=>instrMiss(i)).length : null;
     const avgInstrs = songs.length ? (songs.reduce((n,s)=>n+s.instruments.length,0)/songs.length).toFixed(1) : 0;
 
-    function kpiTile(val, lbl, nav, extraStyle='') {
-      const navAttr = nav ? ` class="stat-kpi nav" data-nav="${nav}" title="Go to ${lbl}"` : ' class="stat-kpi"';
-      return `<div${navAttr}><div class="stat-kpi-val" style="${extraStyle}">${val}</div><div class="stat-kpi-lbl">${lbl}</div></div>`;
-    }
-    addCard('Overview', `<div class="stat-kpi-row">
-      ${kpiTile(songs.length,'Songs','songs')}
-      ${kpiTile(instrs.length,'Instruments','instruments')}
-      ${kpiTile(themes.length,'Themes','themes')}
-      ${kpiTile(avgInstrs,'Avg instrs/song','')}
-      ${kpiTile(bundled,'Bundled','bundled')}
-      ${kpiTile(brokenCt===null?'—':brokenCt,'Broken refs',brokenCt?'broken':'',brokenCt?'color:var(--c-miss)':'')}
-    </div>`);
+    // ── Overview strip (horizontal bar above cards) ──
+    (function renderStrip() {
+      const strip = $('stats-strip');
+      if (!strip) return;
+      function ssItem(val, lbl, nav, valClass) {
+        const cls = 'ss-item' + (nav ? ' nav' : '');
+        const navAttr = nav ? ` data-nav="${nav}"` : '';
+        const vc = valClass ? ` ${valClass}` : '';
+        return `<div class="${cls}"${navAttr}><span class="ss-val${vc}">${val}</span><span class="ss-lbl">${lbl}</span></div>`;
+      }
+      strip.innerHTML =
+        ssItem(songs.length, 'Songs', 'songs') +
+        ssItem(instrs.length, 'Instruments', 'instruments') +
+        ssItem(themes.length, 'Themes', 'themes') +
+        ssItem(avgInstrs, 'Avg instrs/song', '') +
+        ssItem(bundled, 'Bundled', 'bundled') +
+        ssItem(brokenCt === null ? '—' : brokenCt, 'Broken refs', brokenCt ? 'broken' : '', brokenCt ? 'bad' : '');
+      strip.classList.toggle('visible', songs.length > 0 || instrs.length > 0);
+    })();
 
     // ── 2. Collection Health ──
     if (songs.length) {

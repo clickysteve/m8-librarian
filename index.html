@@ -479,6 +479,15 @@
       border-bottom:1px solid var(--border); flex-shrink:0; }
     .diff-title { font-size:14px; font-weight:700; flex:1; }
     .diff-score { font-size:12px; padding:2px 8px; border-radius:4px; background:var(--surface2); color:var(--muted); }
+    #diff-meta { display:none; grid-template-columns:90px 1fr 1fr; gap:2px 12px;
+      padding:8px 16px; border-bottom:1px solid var(--border); font-size:11px; flex-shrink:0; }
+    #diff-meta.on { display:grid; }
+    .dm-lbl { color:var(--muted); text-transform:uppercase; font-size:9px; letter-spacing:1px; padding-top:1px; }
+    .dm-val { font-variant-numeric:tabular-nums; }
+    .dm-val.diff { color:#f59e0b; }
+    .diff-sec-hdr { padding:8px 14px 4px; font-size:10px; font-weight:700; letter-spacing:1.5px;
+      text-transform:uppercase; color:var(--muted); border-top:1px solid var(--border); }
+    .diff-row.samp { font-size:11px; font-family:monospace; word-break:break-all; }
     .diff-cols { display:grid; grid-template-columns:1fr 1fr; flex:1; overflow:hidden; min-height:0; }
     .diff-col { display:flex; flex-direction:column; overflow:hidden; border-right:1px solid var(--border); }
     .diff-col:last-child { border-right:none; }
@@ -873,6 +882,7 @@
         <button class="prob-btn" data-psec="unusedsamp">Unused Samples<span class="prob-count" id="pc-unusedsamp"></span></button>
         <button class="prob-btn" data-psec="unbundled">Unbundled<span class="prob-count" id="pc-unbundled"></span></button>
         <button class="prob-btn" data-psec="dupes">Duplicates<span class="prob-count" id="pc-dupes"></span></button>
+        <button class="prob-btn" data-psec="dupesamp">Dupe Samples<span class="prob-count" id="pc-dupesamp"></span></button>
         <button class="prob-btn" data-psec="backbone">Backbone<span class="prob-count" id="pc-backbone"></span></button>
         <button class="prob-btn" data-psec="hotsamples">Hot Samples</button>
         <button class="btn sm dim" id="btn-export-report" style="margin-left:auto">⬇ Export Report</button>
@@ -914,6 +924,7 @@
             <span style="color:var(--muted);font-size:11px">SD card opened read-only — this app cannot alter or delete your data.</span>
           </div>
           <button class="btn" id="btn-backup">CREATE BACKUP</button>
+          <button class="btn secondary" id="btn-backup-zip">DOWNLOAD AS ZIP</button>
         </div>
         <div class="backup-log" id="backup-log">
           <div class="log-line">Ready. Select what to include, then press CREATE BACKUP.</div>
@@ -985,6 +996,7 @@
       <span class="diff-score" id="diff-score"></span>
       <button class="btn ghost sm" id="btn-diff-close">✕</button>
     </div>
+    <div id="diff-meta"></div>
     <div class="diff-cols">
       <div class="diff-col">
         <div class="diff-col-hdr" id="diff-hdr-a">—</div>
@@ -1126,7 +1138,12 @@ const M8 = (() => {
   function verNum(v) { return v.major*10000 + v.minor*100 + v.patch; }
 
   // ── Pattern parser ──────────────────────────────────────
-  // Offsets from AlexCharlton/m8-files V4_OFFSETS (confirmed absolute from byte 0)
+  // Offsets from AlexCharlton/m8-files V4_OFFSETS. The core layout
+  // (grid → phrases → chains → tables → instruments) is sequential and
+  // byte-identical across firmware 1.x-4.x: whitlockjc/m8-js reads these
+  // regions with no version branches, and m8-files V4/V4.1 use the same
+  // values. Version differences are confined to instrument internals,
+  // scales (2.5+) and EQs (4.0+), none of which we read here.
   const GRID_OFF = 0x2EE, PHRASE_OFF = 0xAEE, CHAIN_OFF = 0x9A5E;
   const N_ROWS = 256, N_TRACKS = 8, N_CHAINS = 255, N_PHRASES = 255;
   const STEP_SZ = 9; // phrase step: note+vol+instr+3×(cmd+val)
@@ -1137,11 +1154,45 @@ const M8 = (() => {
     const oct = Math.trunc(n / 12) + 1, key = NOTES[n % 12];
     return (key.length===1 ? key+'-' : key) + (oct > 9 ? String.fromCharCode(55+oct) : oct);
   }
-  function fxStr(cmd, val) {
-    if (cmd === 0xFF) return '----';
-    const c = cmd.toString(16).toUpperCase().padStart(2,'0');
+
+  // ── FX command names (from whitlockjc/m8-js, Apache 2.0) ─
+  // 0x00-0x16 sequencer, 0x17-0x3A fx/mixer, 0x80+ instrument-specific.
+  // Newer-firmware commands beyond these tables fall back to hex.
+  const SEQ_FX_CMDS = [
+    'ARP','CHA','DEL','GRV','HOP','KIL','RAN','RET','REP','NTH','PSL','PSN',
+    'PVB','PVX','SCA','SCG','SED','SNG','TBL','THO','TIC','TPO','TSP',
+    // fx/mixer from 0x17
+    'VMV','XCM','XCF','XCW','XCR','XDT','XDF','XDW','XDR','XRS','XRD','XRM',
+    'XRF','XRW','XRZ','VCH','VCD','VRE','VT1','VT2','VT3','VT4','VT5','VT6',
+    'VT7','VT8','DJF','IVO','ICH','IDE','IRE','IV2','IC2','ID2','IR2','USB',
+  ];
+  const INSTR_FX_COMMON = ['VOL','PIT','FIN']; // 0x80-0x82 for all synth types
+  const INSTR_FX_TAIL = [ // 0x88-0xA1 shared across synth types
+    'FIL','CUT','RES','AMP','LIM','PAN','DRY','SCH','SDL','SRV',
+    'EA1','AT1','HO1','DE1','ET1','EA2','AT2','HO2','DE2','ET2',
+    'LA1','LF1','LT1','LA2','LF2','LT2',
+  ];
+  const INSTR_FX_CMDS = {
+    WAVSYNTH:   [...INSTR_FX_COMMON,'OSC','SIZ','MUL','WRP','MIR',...INSTR_FX_TAIL],
+    MACROSYNTH: [...INSTR_FX_COMMON,'OSC','TBR','COL','DEG','RED',...INSTR_FX_TAIL,'TRG'],
+    SAMPLER:    [...INSTR_FX_COMMON,'PLY','STA','LOP','LEN','DEG',...INSTR_FX_TAIL,'SLI'],
+    FMSYNTH:    [...INSTR_FX_COMMON,'ALG','FM1','FM2','FM3','FM4',...INSTR_FX_TAIL,'FMP'],
+    MIDIOUT:    ['MPG','MPB','ADD','CHD','CCA','CCB','CCC','CCD','CCE','CCF','CCG','CCH','CCI','CCJ'],
+  };
+  function fxName(cmd, typeName) {
+    if (cmd === 0xFF || cmd == null) return null;
+    if (cmd < SEQ_FX_CMDS.length) return SEQ_FX_CMDS[cmd];
+    if (cmd >= 0x80 && typeName) {
+      const t = INSTR_FX_CMDS[typeName];
+      if (t && cmd - 0x80 < t.length) return t[cmd - 0x80];
+    }
+    return null;
+  }
+  function fxStr(cmd, val, typeName) {
+    if (cmd === 0xFF) return '------';
     const v = val.toString(16).toUpperCase().padStart(2,'0');
-    return `${c}${v}`;
+    const n = fxName(cmd, typeName);
+    return n ? `${n} ${v}` : `${cmd.toString(16).toUpperCase().padStart(2,'0')}? ${v}`;
   }
 
   function parseSongPatterns(b) {
@@ -1180,7 +1231,7 @@ const M8 = (() => {
   }
 
   return { parseSong, parseInstrFile, parseTheme, parseGroove,
-    parseSongPatterns, noteStr, fxStr,
+    parseSongPatterns, noteStr, fxStr, fxName,
     rgbHex, fmtVer, verNum, THEME_COLORS };
 })();
 
@@ -1218,12 +1269,12 @@ const Cache = (() => {
   async function load(key) {
     try {
       const data = await tx(LIB, 'readonly', s => s.get(key));
-      if (!data || data.cacheVer !== 2) return null;
+      if (!data || data.cacheVer !== 3) return null;
       return data;
     } catch { return null; }
   }
   async function save(data) {
-    try { await tx(LIB, 'readwrite', s => s.put({...data, cacheVer:2})); }
+    try { await tx(LIB, 'readwrite', s => s.put({...data, cacheVer:3})); }
     catch(e) { console.warn('Cache.save:', e); }
   }
   async function remove(key) {
@@ -1268,7 +1319,8 @@ const Scanner = (() => {
   async function subDir(root, name) {
     try { return await root.getDirectoryHandle(name); } catch { return null; }
   }
-  async function scanSongsDir(dir, prefix, bundleSet) {
+  // ctx: {bundleSet, prev:Map<filePath,cachedSong>, stats, skipped}
+  async function scanSongsDir(dir, prefix, ctx) {
     const songs = [], fileEntries = [], dirEntries = [];
     for await (const [name, handle] of dir) {
       if (handle.kind === 'file') fileEntries.push({name, handle});
@@ -1276,25 +1328,37 @@ const Scanner = (() => {
     }
     for (const {name, handle} of fileEntries) {
       if (!name.toLowerCase().endsWith('.m8s')) continue;
+      const filePath = prefix ? `${prefix}/${name}` : name;
+      const fileBase = name.toLowerCase().replace(/\.m8s$/, '');
       try {
         const file = await handle.getFile();
+        // Incremental: reuse the cached parse when mtime+size are unchanged
+        const prev = ctx.prev.get(filePath);
+        const bundleNow = songName => ctx.bundleSet.size > 0 &&
+          (ctx.bundleSet.has(songName.toLowerCase()) || ctx.bundleSet.has(fileBase));
+        if (prev && prev.lastModified === file.lastModified && prev.fileSize === file.size) {
+          songs.push({...prev, hasBundle: bundleNow(prev.name)});
+          ctx.stats.reused++;
+          continue;
+        }
         const buf  = await file.arrayBuffer();
         const song = M8.parseSong(new Uint8Array(buf));
         if (song) {
-          const fileBase = name.toLowerCase().replace(/\.m8s$/, '');
-          const filePath = prefix ? `${prefix}/${name}` : name;
-          // Bundles live in SD root Bundles/ dir — match on internal song name or filename
-          const hasBundle = bundleSet.size > 0 && (
-            bundleSet.has(song.name.toLowerCase()) || bundleSet.has(fileBase)
-          );
           songs.push({...song, fileName:name, filePath,
-            fileSize:buf.byteLength, lastModified:file.lastModified, hasBundle});
+            fileSize:buf.byteLength, lastModified:file.lastModified,
+            hasBundle: bundleNow(song.name)});
+          ctx.stats.parsed++;
+        } else {
+          ctx.skipped.push({path:filePath, kind:'song', reason:'not a valid .m8s file (bad header or truncated)'});
         }
-      } catch(e) { console.warn('Song parse error:', e); }
+      } catch(e) {
+        console.warn('Song parse error:', e);
+        ctx.skipped.push({path:filePath, kind:'song', reason:e.message||'read error'});
+      }
     }
     for (const {name, handle} of dirEntries) {
       const sub = prefix ? `${prefix}/${name}` : name;
-      songs.push(...await scanSongsDir(handle, sub, bundleSet));
+      songs.push(...await scanSongsDir(handle, sub, ctx));
     }
     return songs;
   }
@@ -1351,8 +1415,13 @@ const Scanner = (() => {
     return root;
   }
 
-  async function scanFast(root, onProgress) {
-    const instrs=[], themes=[], grooves=[];
+  // prev (optional): previous scan result / cache record. Unchanged files
+  // (same path, mtime, size) reuse their cached parse instead of re-reading.
+  async function scanFast(root, onProgress, prev) {
+    const instrs=[], themes=[], grooves=[], skipped=[];
+    const stats = {reused:0, parsed:0};
+    const byPath = arr => new Map((arr||[]).map(x => [x.filePath, x]));
+    const prevInstrs = byPath(prev?.instrs), prevThemes = byPath(prev?.themes), prevGrooves = byPath(prev?.grooves);
     const [songsDir, instrDir, themesDir, groovesDir, bundlesDir] = await Promise.all([
       subDir(root,'Songs'), subDir(root,'Instruments'),
       subDir(root,'Themes'), subDir(root,'Grooves'), subDir(root,'Bundles'),
@@ -1369,64 +1438,57 @@ const Scanner = (() => {
     onProgress?.('Scanning songs…');
     let songs = [];
     if (songsDir) {
-      songs = await scanSongsDir(songsDir, '', bundleSet);
+      songs = await scanSongsDir(songsDir, '', {bundleSet, prev:byPath(prev?.songs), stats, skipped});
       songs.sort((a,b) => a.filePath.localeCompare(b.filePath));
     }
 
-    onProgress?.('Scanning instruments…');
-    if (instrDir) {
-      for await (const entry of walkFiles(instrDir,'')) {
-        if (!entry.name.toLowerCase().endsWith('.m8i')) continue;
+    // Shared scan loop for the flat file kinds (instruments/themes/grooves)
+    async function scanKind(dir, ext, kind, parseFn, out, prevMap) {
+      if (!dir) return;
+      for await (const entry of walkFiles(dir,'')) {
+        if (!entry.name.toLowerCase().endsWith(ext)) continue;
         try {
           const file = await entry.handle.getFile();
-          const buf  = await file.arrayBuffer();
-          const inst = M8.parseInstrFile(new Uint8Array(buf));
-          if (inst) instrs.push({...inst, fileName:entry.name, filePath:entry.path,
-            fileSize:buf.byteLength, lastModified:file.lastModified});
-        } catch {}
+          const p = prevMap.get(entry.path);
+          if (p && p.lastModified === file.lastModified && p.fileSize === file.size) {
+            out.push(p); stats.reused++; continue;
+          }
+          const buf = await file.arrayBuffer();
+          const parsed = parseFn(new Uint8Array(buf));
+          if (parsed) {
+            out.push({...parsed, fileName:entry.name, filePath:entry.path,
+              fileSize:buf.byteLength, lastModified:file.lastModified});
+            stats.parsed++;
+          } else {
+            skipped.push({path:entry.path, kind, reason:`not a valid ${ext} file (bad header)`});
+          }
+        } catch(e) {
+          skipped.push({path:entry.path, kind, reason:e.message||'read error'});
+        }
       }
-      instrs.sort((a,b) => a.filePath.localeCompare(b.filePath));
     }
+
+    onProgress?.('Scanning instruments…');
+    await scanKind(instrDir, '.m8i', 'instrument', M8.parseInstrFile, instrs, prevInstrs);
+    instrs.sort((a,b) => a.filePath.localeCompare(b.filePath));
 
     onProgress?.('Scanning themes…');
-    if (themesDir) {
-      for await (const entry of walkFiles(themesDir,'')) {
-        if (!entry.name.toLowerCase().endsWith('.m8t')) continue;
-        try {
-          const file = await entry.handle.getFile();
-          const buf  = await file.arrayBuffer();
-          const thm  = M8.parseTheme(new Uint8Array(buf));
-          if (thm) themes.push({...thm, fileName:entry.name, filePath:entry.path,
-            fileSize:buf.byteLength, lastModified:file.lastModified});
-        } catch {}
-      }
-      themes.sort((a,b) => a.fileName.localeCompare(b.fileName));
-    }
+    await scanKind(themesDir, '.m8t', 'theme', M8.parseTheme, themes, prevThemes);
+    themes.sort((a,b) => a.fileName.localeCompare(b.fileName));
 
     onProgress?.('Scanning grooves…');
-    if (groovesDir) {
-      for await (const entry of walkFiles(groovesDir,'')) {
-        if (!entry.name.toLowerCase().endsWith('.m8g')) continue;
-        try {
-          const file = await entry.handle.getFile();
-          const buf  = await file.arrayBuffer();
-          const grv  = M8.parseGroove(new Uint8Array(buf));
-          if (grv) grooves.push({...grv, fileName:entry.name, filePath:entry.path,
-            fileSize:buf.byteLength, lastModified:file.lastModified});
-        } catch {}
-      }
-      grooves.sort((a,b) => a.fileName.localeCompare(b.fileName));
-    }
+    await scanKind(groovesDir, '.m8g', 'groove', M8.parseGroove, grooves, prevGrooves);
+    grooves.sort((a,b) => a.fileName.localeCompare(b.fileName));
 
     const dirCounts = {
       Songs:songs.length, Instruments:instrs.length,
       Samples:null, Themes:themes.length, Grooves:grooves.length,
     };
-    return { songs, instrs, themes, grooves, dirCounts };
+    return { songs, instrs, themes, grooves, dirCounts, skipped, stats };
   }
 
   async function catalogueSamples(sdRoot, onCount) {
-    const known = new Set(), rels = [];
+    const known = new Set(), rels = [], sizes = [];
     let total = 0;
     async function walkAndIndex(dir, prefix) {
       const subtasks = [];
@@ -1436,7 +1498,10 @@ const Scanner = (() => {
         else if (name.toLowerCase().endsWith('.wav')) {
           total++;
           const lc = rel.toLowerCase();
-          rels.push(lc); known.add(lc); known.add('/'+lc);
+          let size = 0;
+          try { size = (await handle.getFile()).size; } catch {}
+          // rels/sizes pushed together synchronously to stay aligned
+          rels.push(lc); sizes.push(size); known.add(lc); known.add('/'+lc);
           if (total % 25 === 0) onCount?.(total);
         }
       }
@@ -1446,7 +1511,7 @@ const Scanner = (() => {
       let dir; try { dir = await sdRoot.getDirectoryHandle(dirName); } catch { return; }
       await walkAndIndex(dir, dirName);
     }));
-    return { known, rels, count:total };
+    return { known, rels, sizes, count:total };
   }
 
   function sampleFound(path, known) {
@@ -1456,36 +1521,40 @@ const Scanner = (() => {
     return known.has(lp) || known.has(ns) || known.has('/'+ns);
   }
 
-  // usageMap: lowercase instr name → [song names...]
+  // usageMap: lowercase instr name → [song objects...] (deduped by filePath)
   function buildUsageMap(songs) {
     const m = new Map();
     for (const s of songs)
       for (const i of s.instruments) {
         const k = i.name.toLowerCase();
-        if (!m.has(k)) m.set(k, new Set());
-        m.get(k).add(s.name);
+        if (!m.has(k)) m.set(k, new Map());
+        m.get(k).set(s.filePath, s);
       }
     const out = new Map();
-    for (const [k,v] of m) out.set(k, [...v].sort());
+    for (const [k,v] of m)
+      out.set(k, [...v.values()].sort((a,b)=>a.name.localeCompare(b.name)));
     return out;
   }
 
-  // sampleUsageMap: lowercase sample path → {songs:[], instrFiles:[]}
+  // sampleUsageMap: lowercase sample path → {songs:[song objects], instrFiles:[instr objects]}
   function buildSampleUsageMap(songs, instrs) {
     const m = new Map();
     function touch(path) {
       const k = path.toLowerCase().replace(/\\/g,'/').replace(/^\//, '');
-      if (!m.has(k)) m.set(k, {songs:new Set(), instrFiles:new Set()});
+      if (!m.has(k)) m.set(k, {songs:new Map(), instrFiles:new Map()});
       return m.get(k);
     }
     for (const s of songs)
       for (const i of s.instruments)
-        if (i.samplePath) touch(i.samplePath).songs.add(s.name);
+        if (i.samplePath) touch(i.samplePath).songs.set(s.filePath, s);
     for (const i of instrs)
-      if (i.samplePath) touch(i.samplePath).instrFiles.add(`${i.name} (${i.filePath})`);
+      if (i.samplePath) touch(i.samplePath).instrFiles.set(i.filePath, i);
     const out = new Map();
     for (const [k,v] of m)
-      out.set(k, {songs:[...v.songs].sort(), instrFiles:[...v.instrFiles].sort()});
+      out.set(k, {
+        songs:[...v.songs.values()].sort((a,b)=>a.name.localeCompare(b.name)),
+        instrFiles:[...v.instrFiles.values()].sort((a,b)=>a.name.localeCompare(b.name)),
+      });
     return out;
   }
 
@@ -1593,6 +1662,134 @@ async function createBackup(sdHandle, dirs, onLog, onDone, onError) {
   } catch(e) { onError?.(e.message); }
 }
 
+// ── ZIP backup (STORE method, streamed — WAVs barely compress anyway) ──
+const Zip = (() => {
+  const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32(u8) {
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  function dosDateTime(ms) {
+    const d = new Date(ms || Date.now());
+    return {
+      time: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1),
+      date: (Math.max(0, d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate(),
+    };
+  }
+  const LIMIT = 0xFFFFFFFF; // no ZIP64 support — refuse rather than corrupt
+
+  // sink: anything with async write(Uint8Array) — e.g. a FileSystemWritableFileStream
+  class Writer {
+    constructor(sink) { this.sink = sink; this.offset = 0; this.entries = []; }
+    async _write(u8) { await this.sink.write(u8); this.offset += u8.length; }
+    _u16(v) { return new Uint8Array([v & 0xFF, (v >> 8) & 0xFF]); }
+    _u32(v) { return new Uint8Array([v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF]); }
+    async add(name, data, mtimeMs) {
+      const nameBytes = new TextEncoder().encode(name);
+      const crc = crc32(data);
+      const {time, date} = dosDateTime(mtimeMs);
+      if (this.offset + data.length + 128 > LIMIT || this.entries.length >= 0xFFFF)
+        throw new Error('Backup too large for ZIP (4GB / 65k file limit) — use the folder backup instead.');
+      const hdrOffset = this.offset;
+      const parts = [
+        this._u32(0x04034B50), this._u16(20), this._u16(0x0800), this._u16(0), // sig, version, utf-8 flag, method=store
+        this._u16(time), this._u16(date), this._u32(crc),
+        this._u32(data.length), this._u32(data.length), this._u16(nameBytes.length), this._u16(0),
+      ];
+      for (const p of parts) await this._write(p);
+      await this._write(nameBytes);
+      await this._write(data);
+      this.entries.push({nameBytes, crc, size:data.length, time, date, hdrOffset});
+    }
+    async finish() {
+      const cdStart = this.offset;
+      for (const e of this.entries) {
+        const parts = [
+          this._u32(0x02014B50), this._u16(20), this._u16(20), this._u16(0x0800), this._u16(0),
+          this._u16(e.time), this._u16(e.date), this._u32(e.crc),
+          this._u32(e.size), this._u32(e.size), this._u16(e.nameBytes.length),
+          this._u16(0), this._u16(0), this._u16(0), this._u16(0), this._u32(0), this._u32(e.hdrOffset),
+        ];
+        for (const p of parts) await this._write(p);
+        await this._write(e.nameBytes);
+      }
+      const cdSize = this.offset - cdStart;
+      const parts = [
+        this._u32(0x06054B50), this._u16(0), this._u16(0),
+        this._u16(this.entries.length), this._u16(this.entries.length),
+        this._u32(cdSize), this._u32(cdStart), this._u16(0),
+      ];
+      for (const p of parts) await this._write(p);
+    }
+  }
+  return { Writer };
+})();
+
+async function createBackupZip(sdHandle, dirs, onLog, onDone, onError) {
+  const now = new Date(), p = n => String(n).padStart(2,'0');
+  const stamp = `${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}_${p(now.getHours())}${p(now.getMinutes())}`;
+  let writable, blobParts = null;
+  if (window.showSaveFilePicker) {
+    let fh;
+    try {
+      fh = await window.showSaveFilePicker({
+        suggestedName: `M8_BACKUP_${stamp}.zip`,
+        types: [{description:'ZIP archive', accept:{'application/zip':['.zip']}}],
+      });
+    } catch(e) { if (e.name !== 'AbortError') onError?.(e.message); return; }
+    writable = await fh.createWritable();
+  } else {
+    // Fallback: build in memory and trigger a download (heavier on RAM)
+    blobParts = [];
+    writable = { write: async u8 => { blobParts.push(u8); }, close: async () => {} };
+    onLog?.('log', 'No save dialog support — building ZIP in memory.');
+  }
+  const zip = new Zip.Writer(writable);
+  try {
+    onLog?.('head', `Creating M8_BACKUP_${stamp}.zip…`);
+    let count = 0;
+    async function addDir(dir, prefix) {
+      for await (const [name, h] of dir) {
+        const rel = `${prefix}/${name}`;
+        if (h.kind === 'directory') await addDir(h, rel);
+        else {
+          const file = await h.getFile();
+          await zip.add(rel, new Uint8Array(await file.arrayBuffer()), file.lastModified);
+          count++;
+          if (count % 20 === 0) onLog?.('log', `  ${count} files…`);
+        }
+      }
+    }
+    for (const dirName of dirs) {
+      let s; try { s = await sdHandle.getDirectoryHandle(dirName); } catch { continue; }
+      onLog?.('ok', `Adding ${dirName}/…`);
+      await addDir(s, dirName);
+    }
+    await zip.finish();
+    await writable.close();
+    if (blobParts) {
+      const blob = new Blob(blobParts, {type:'application/zip'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `M8_BACKUP_${stamp}.zip`;
+      a.click(); URL.revokeObjectURL(a.href);
+    }
+    onDone?.(count, `M8_BACKUP_${stamp}.zip`);
+  } catch(e) {
+    try { await writable.close(); } catch {}
+    onError?.(e.message);
+  }
+}
+
 // ══════════════════════════════════════════════════════════
 // AUDIO PLAYER
 // ══════════════════════════════════════════════════════════
@@ -1693,6 +1890,28 @@ const UI = (() => {
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   const debounce = (fn, ms=120) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
+  // Render a large list incrementally: first chunk now, the rest as the
+  // user scrolls (IntersectionObserver sentinel). Keeps filtering snappy
+  // on libraries with thousands of entries.
+  function appendChunked(container, items, buildFn, chunk=250) {
+    let i = 0;
+    (function renderMore() {
+      const frag = document.createDocumentFragment();
+      const end = Math.min(i + chunk, items.length);
+      for (; i < end; i++) frag.appendChild(buildFn(items[i], i));
+      container.appendChild(frag);
+      if (i < items.length) {
+        const sentinel = document.createElement('div');
+        sentinel.style.cssText = 'height:1px;grid-column:1/-1';
+        container.appendChild(sentinel);
+        const obs = new IntersectionObserver(entries => {
+          if (entries.some(e => e.isIntersecting)) { obs.disconnect(); sentinel.remove(); renderMore(); }
+        }, {root: container.closest('.scroll-area'), rootMargin: '800px'});
+        obs.observe(sentinel);
+      }
+    })();
+  }
+
   // ── State ──────────────────────────────────────────────
   let sdHandle=null, cacheKey='';
   let songs=[], instrs=[], themes=[], grooves=[];
@@ -1700,6 +1919,9 @@ const UI = (() => {
   let sampleUsageMap=new Map(), instrDupeMap=new Map();
   let dirCounts={};
   let sampIndexed=false;
+  let skippedFiles=[];              // unreadable/unparseable files from last scan
+  let sampleSizeMap=new Map();      // lowercase wav rel path → bytes (from catalogue)
+  let dupeSampGroups=null;          // content-duplicate scan results (null = not run)
   // Renders (lazy-scanned when tab first visited)
   let renders=[], rendersScanned=false;
   // Stats
@@ -1810,7 +2032,7 @@ const UI = (() => {
   function firmNum(song) { return M8.verNum(song.header.version); }
 
   // ── Cache bar ──────────────────────────────────────────
-  function setCacheBar(state, ts) {
+  function setCacheBar(state, ts, stats) {
     const bar=$('cache-bar'), msg=$('cache-msg'), rscan=$('btn-rescan');
     bar.style.display='flex'; bar.className='';
     if (state==='scanning') { msg.textContent='Scanning SD card…'; rscan.style.display='none'; }
@@ -1819,7 +2041,10 @@ const UI = (() => {
       rscan.style.display='inline-block';
       if (Date.now()-ts > 7*24*60*60*1000) bar.className='stale';
     } else {
-      msg.textContent=`Library indexed · ${new Date(ts).toLocaleDateString()}`;
+      let extra = '';
+      if (stats && (stats.reused || stats.parsed)) extra = ` · ${stats.parsed} parsed, ${stats.reused} unchanged`;
+      if (skippedFiles.length) extra += ` · ⚠ ${skippedFiles.length} unreadable (see Problems)`;
+      msg.textContent=`Library indexed · ${new Date(ts).toLocaleDateString()}${extra}`;
       rscan.style.display='inline-block';
     }
   }
@@ -1917,6 +2142,7 @@ const UI = (() => {
     $('main').classList.add('visible');
     sampIndexed=false; known=new Set(); dirCounts={};
     renders=[]; rendersScanned=false;
+    skippedFiles=[]; sampleSizeMap=new Map(); dupeSampGroups=null;
     setCatNotice('idle');
 
     const cached = await Cache.load(cacheKey);
@@ -1924,10 +2150,12 @@ const UI = (() => {
       songs=cached.songs||[]; instrs=cached.instrs||[];
       themes=cached.themes||[]; grooves=cached.grooves||[];
       dirCounts=cached.dirCounts||{};
+      skippedFiles=cached.skipped||[];
       rebuildMaps();
       if (cached.sampIndexed && cached.sampleRels?.length) {
         known=Cache.rebuildKnown(cached.sampleRels);
         sampIndexed=true;
+        sampleSizeMap=buildSampleSizeMap(cached.sampleRels, cached.sampleSizes);
         setCatNotice('cached', dirCounts.Samples||cached.sampleRels.length);
       }
       renderAll(); setCacheBar('cached', cached.ts);
@@ -1940,13 +2168,21 @@ const UI = (() => {
         $('songs-list').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>${esc(msg)}</div>`;
       });
       songs=r.songs; instrs=r.instrs; themes=r.themes; grooves=r.grooves; dirCounts=r.dirCounts;
+      skippedFiles=r.skipped;
       rebuildMaps();
       const ts=Date.now();
       await Cache.save({key:cacheKey, ts, songs, instrs, themes, grooves,
-        sampleRels:[], sampIndexed:false, dirCounts});
-      renderAll(); setCacheBar('fresh', ts);
+        sampleRels:[], sampleSizes:[], sampIndexed:false, dirCounts, skipped:skippedFiles});
+      renderAll(); setCacheBar('fresh', ts, r.stats);
     }
     kickLazyTab(); // restored active tab may be a lazy-scanned one
+  }
+
+  function buildSampleSizeMap(rels, sizes) {
+    const m = new Map();
+    if (rels && sizes && rels.length === sizes.length)
+      for (let i = 0; i < rels.length; i++) m.set(rels[i], sizes[i]);
+    return m;
   }
 
   function renderAll() {
@@ -1995,10 +2231,11 @@ const UI = (() => {
   // ── Full rescan ────────────────────────────────────────
   $('btn-rescan').addEventListener('click', async () => {
     if (!sdHandle) return;
+    // Incremental: unchanged files (same mtime+size) reuse their cached parse
     const prevCache = await Cache.load(cacheKey);
     const prevRels    = (prevCache?.sampIndexed && prevCache?.sampleRels?.length) ? prevCache.sampleRels : [];
+    const prevSizes   = prevRels.length ? (prevCache.sampleSizes||[]) : [];
     const prevIndexed = prevRels.length > 0;
-    await Cache.remove(cacheKey);
     songs=[]; instrs=[]; themes=[]; grooves=[];
     if (!prevIndexed) { known=new Set(); sampIndexed=false; setCatNotice('idle'); }
     setCacheBar('scanning');
@@ -2007,14 +2244,19 @@ const UI = (() => {
     $('themes-grid').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
     const r = await Scanner.scanFast(sdHandle, msg => {
       $('songs-list').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>${esc(msg)}</div>`;
-    });
+    }, prevCache || undefined);
     songs=r.songs; instrs=r.instrs; themes=r.themes; grooves=r.grooves; dirCounts=r.dirCounts;
+    skippedFiles=r.skipped;
     rebuildMaps();
     const ts=Date.now();
     await Cache.save({key:cacheKey, ts, songs, instrs, themes, grooves,
-      sampleRels:prevRels, sampIndexed:prevIndexed, dirCounts});
-    if (prevIndexed) { known=Cache.rebuildKnown(prevRels); sampIndexed=true; setCatNotice('cached', dirCounts.Samples||prevRels.length); }
-    renderAll(); setCacheBar('fresh', ts);
+      sampleRels:prevRels, sampleSizes:prevSizes, sampIndexed:prevIndexed, dirCounts, skipped:skippedFiles});
+    if (prevIndexed) {
+      known=Cache.rebuildKnown(prevRels); sampIndexed=true;
+      sampleSizeMap=buildSampleSizeMap(prevRels, prevSizes);
+      setCatNotice('cached', dirCounts.Samples||prevRels.length);
+    }
+    renderAll(); setCacheBar('fresh', ts, r.stats);
   });
 
   // ── Catalogue samples ──────────────────────────────────
@@ -2023,6 +2265,7 @@ const UI = (() => {
     setCatNotice('running');
     const r = await Scanner.catalogueSamples(sdHandle, n=>setCatNotice('running',`${n} found…`));
     known=r.known; sampIndexed=true;
+    sampleSizeMap=buildSampleSizeMap(r.rels, r.sizes);
     sampleUsageMap = Scanner.buildSampleUsageMap(songs, instrs);
     setCatNotice('done', r.count);
     dirCounts={...dirCounts, Samples:r.count};
@@ -2032,7 +2275,7 @@ const UI = (() => {
     await Cache.save({ts:Date.now(), ...cached, key:cacheKey,
       songs:cached.songs||songs, instrs:cached.instrs||instrs,
       themes:cached.themes||themes, grooves:cached.grooves||grooves,
-      sampleRels:r.rels, sampIndexed:true, dirCounts});
+      sampleRels:r.rels, sampleSizes:r.sizes, sampIndexed:true, dirCounts, skipped:skippedFiles});
     renderAll();
   });
 
@@ -2100,7 +2343,7 @@ const UI = (() => {
       $('songs-stat').textContent = `${visible.length} / ${songs.length} songs`;
       el.className=''; el.innerHTML='';
       if (!visible.length) el.innerHTML=noMatchesMsg();
-      else visible.forEach(s => el.appendChild(buildSongCompact(s, visible)));
+      else appendChunked(el, visible, s => buildSongCompact(s, visible));
     } else if (songView === 'grid') {
       const visible = sortSongsArr(songs.filter(matchesSong));
       $('songs-stat').textContent = `${visible.length} / ${songs.length} songs`;
@@ -2196,7 +2439,7 @@ const UI = (() => {
 
   function renderSongsGrid(sorted, el) {
     el.className='song-grid'; el.innerHTML='';
-    sorted.forEach(song => {
+    appendChunked(el, sorted, song => {
       const mi = missInfo(song);
       const card = document.createElement('div');
       card.className = 'song-card';
@@ -2214,7 +2457,7 @@ const UI = (() => {
         </div>`;
       card.addEventListener('click', e => { if (!e.target.closest('.btn-diff-row')) openSongModal(song, sorted); });
       card.querySelector('.btn-diff-row').addEventListener('click', e => handleDiffRowBtn(e, song));
-      el.appendChild(card);
+      return card;
     });
   }
 
@@ -2546,7 +2789,7 @@ const UI = (() => {
       }
     }
     if (usedIn.length) {
-      dh += `<div class="drow"><span class="dlabel">Used in</span><div class="schips">${usedIn.map(s=>`<span class="schip" data-songname="${esc(s)}">${esc(s)}</span>`).join('')}</div></div>`;
+      dh += `<div class="drow"><span class="dlabel">Used in</span><div class="schips">${usedIn.map(s=>`<span class="schip" data-songname="${esc(s.name)}" data-songpath="${esc(s.filePath)}">${esc(s.name)}</span>`).join('')}</div></div>`;
     } else {
       dh += `<div class="drow"><span class="dlabel">Used in</span><span class="dval dim">Not in any scanned song</span></div>`;
     }
@@ -2578,11 +2821,12 @@ const UI = (() => {
       songFilter = iname.toLowerCase(); $('song-q').value = songFilter;
       switchTab('songs'); renderSongs();
     });
-    // Song chip clicks → open that song
+    // Song chip clicks → open that song (matched by path, name fallback)
     item.querySelectorAll('.schip[data-songname]').forEach(chip => {
       chip.addEventListener('click', e => {
         e.stopPropagation();
-        const s = songs.find(x => x.name===chip.dataset.songname);
+        const s = songs.find(x => x.filePath===chip.dataset.songpath)
+               || songs.find(x => x.name===chip.dataset.songname);
         if (s) openSongModal(s);
       });
     });
@@ -2648,7 +2892,7 @@ const UI = (() => {
       const tree = Scanner.buildInstrTree(instrs);
       renderInstrTreeNode(tree, el, 0, false);
     } else {
-      sortInstrsArr(instrs.filter(matchesInstr)).forEach(i => el.appendChild(buildInstrItem(i)));
+      appendChunked(el, sortInstrsArr(instrs.filter(matchesInstr)), i => buildInstrItem(i));
     }
   }
 
@@ -2763,11 +3007,12 @@ const UI = (() => {
       .sort((a,b)=>b[1].length-a[1].length)
       .slice(0, 20);
 
-    $('pc-broken').textContent = brokenInstrs.length + brokenSongInstrs.length || '';
+    $('pc-broken').textContent = (brokenInstrs.length + brokenSongInstrs.length + skippedFiles.length) || '';
     $('pc-unused').textContent = unusedInstrs.length || '';
     $('pc-unusedsamp').textContent = unusedSamples.length || '';
     $('pc-unbundled').textContent = unbundledSongs.length || '';
     $('pc-dupes').textContent = dupeKeys.length || '';
+    $('pc-dupesamp').textContent = dupeSampGroups?.length || '';
     $('pc-backbone').textContent = backboneInstrs.length || '';
 
     // Activate the current section button
@@ -2778,12 +3023,30 @@ const UI = (() => {
     const el = $('prob-content'); el.innerHTML='';
 
     if (problemsSection==='broken') {
+      // Files that failed to read/parse during scan (shown regardless of cataloguing)
+      if (skippedFiles.length) {
+        const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
+        hdr.textContent=`Unreadable files — skipped during scan (${skippedFiles.length})`;
+        el.appendChild(hdr);
+        skippedFiles.forEach(f => {
+          const row = document.createElement('div'); row.className='prob-row';
+          row.style.cursor='default';
+          row.innerHTML=`<span class="prob-icon" style="color:var(--c-miss)">⚠</span>
+            <div class="prob-main">
+              <div class="prob-name">${esc(f.path)}</div>
+              <div class="prob-sub">${esc(f.reason)}</div>
+            </div>
+            <span class="prob-right">${esc(f.kind)}</span>`;
+          el.appendChild(row);
+        });
+      }
       if (!sampIndexed) {
-        el.innerHTML='<div class="prob-empty">Run <b>Catalogue Samples</b> on the Songs tab first to detect broken references.</div>';
+        el.insertAdjacentHTML('beforeend',
+          '<div class="prob-empty">Run <b>Catalogue Samples</b> on the Songs tab to also detect broken sample references.</div>');
         return;
       }
       if (!brokenInstrs.length && !brokenSongInstrs.length) {
-        el.innerHTML='<div class="prob-empty"><b>✓</b>No broken sample references found.</div>';
+        el.insertAdjacentHTML('beforeend', '<div class="prob-empty"><b>✓</b>No broken sample references found.</div>');
         return;
       }
       if (brokenInstrs.length) {
@@ -2863,8 +3126,10 @@ const UI = (() => {
         el.innerHTML='<div class="prob-empty"><b>✓</b>Every WAV on the card is referenced by at least one song or instrument.</div>';
         return;
       }
+      const totalBytes = unusedSamples.reduce((n,p)=>n+(sampleSizeMap.get(p)||0), 0);
       const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
-      hdr.textContent=`${unusedSamples.length} WAV${unusedSamples.length!==1?'s':''} on card not referenced by any song or instrument`;
+      hdr.textContent=`${unusedSamples.length} WAV${unusedSamples.length!==1?'s':''} on card not referenced by any song or instrument`
+        + (totalBytes ? ` · ${Scanner.fmtBytes(totalBytes)} reclaimable` : '');
       el.appendChild(hdr);
       // Group by directory for readability
       const byDir = new Map();
@@ -2876,14 +3141,17 @@ const UI = (() => {
         byDir.get(dir).push({name, path:p});
       });
       byDir.forEach((files, dir) => {
+        const dirBytes = files.reduce((n,f)=>n+(sampleSizeMap.get(f.path)||0), 0);
         const ghdr = document.createElement('div'); ghdr.className='prob-group-hdr';
         ghdr.style.cssText='font-size:10px;letter-spacing:1px;opacity:.7;padding-top:10px';
-        ghdr.textContent=`${dir}/`;
+        ghdr.textContent=`${dir}/` + (dirBytes ? ` · ${Scanner.fmtBytes(dirBytes)}` : '');
         el.appendChild(ghdr);
         files.forEach(({name, path}) => {
+          const sz = sampleSizeMap.get(path);
           const row = document.createElement('div'); row.className='prob-row';
           row.innerHTML=`<span class="prob-icon" style="color:var(--muted)">◦</span>
-            <div class="prob-main"><div class="prob-name">${esc(name)}</div><div class="prob-sub">${esc(path)}</div></div>`;
+            <div class="prob-main"><div class="prob-name">${esc(name)}</div><div class="prob-sub">${esc(path)}</div></div>
+            <span class="prob-right">${sz ? Scanner.fmtBytes(sz) : ''}</span>`;
           row.style.cursor='pointer';
           row.addEventListener('click', () => openSampModal(path));
           el.appendChild(row);
@@ -2942,6 +3210,44 @@ const UI = (() => {
       });
     }
 
+    else if (problemsSection==='dupesamp') {
+      if (!sdHandle) {
+        el.innerHTML='<div class="prob-empty">Open an SD card first.</div>';
+      } else if (dupeSampGroups === null) {
+        el.innerHTML=`<div class="prob-empty">
+          Find WAVs with identical content (same bytes, different location).<br>
+          Reads every sample file once — may take a moment on large cards.<br><br>
+          <button class="btn" id="btn-dupesamp-scan">Scan for duplicate content</button>
+        </div>`;
+        $('btn-dupesamp-scan').addEventListener('click', runDupeSampleScan);
+      } else if (!dupeSampGroups.length) {
+        el.innerHTML='<div class="prob-empty"><b>✓</b>No content-identical samples found.'
+          + '<br><br><button class="btn sm dim" id="btn-dupesamp-rescan">Re-scan</button></div>';
+        $('btn-dupesamp-rescan').addEventListener('click', runDupeSampleScan);
+      } else {
+        const wasted = dupeSampGroups.reduce((n,g)=>n+g.size*(g.paths.length-1), 0);
+        const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
+        hdr.textContent=`${dupeSampGroups.length} duplicate group${dupeSampGroups.length!==1?'s':''} · ${Scanner.fmtBytes(wasted)} wasted`;
+        el.appendChild(hdr);
+        dupeSampGroups.forEach(g => {
+          const nameRow = document.createElement('div');
+          nameRow.style.cssText='padding:8px 20px 2px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border)';
+          nameRow.textContent=`${g.paths[0].split('/').pop()} — ${g.paths.length} copies · ${Scanner.fmtBytes(g.size)} each`;
+          el.appendChild(nameRow);
+          g.paths.forEach(p => {
+            const usage = sampleUsageMap.get(p.toLowerCase());
+            const refs = usage ? usage.songs.length + usage.instrFiles.length : 0;
+            const row = document.createElement('div'); row.className='prob-row';
+            row.innerHTML=`<span class="prob-icon" style="color:var(--muted)">◦</span>
+              <div class="prob-main"><div class="prob-sub">${esc(p)}</div></div>
+              <span class="prob-right">${refs ? refs+' ref'+(refs!==1?'s':'') : 'unreferenced'}</span>`;
+            row.addEventListener('click', () => openSampModal(p));
+            el.appendChild(row);
+          });
+        });
+      }
+    }
+
     else if (problemsSection==='backbone') {
       if (!backboneInstrs.length) {
         el.innerHTML='<div class="prob-empty">No cross-song instruments found yet.<br>Backbone shows instruments shared across multiple songs.</div>';
@@ -2950,15 +3256,15 @@ const UI = (() => {
       const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
       hdr.textContent=`Instruments used across the most songs — your backbone sounds`;
       el.appendChild(hdr);
-      backboneInstrs.forEach(([name, songNames]) => {
+      backboneInstrs.forEach(([name, usedSongs]) => {
         const instr = instrs.find(i=>i.name.toLowerCase()===name) || {typeName:'NONE'};
         const row = document.createElement('div'); row.className='prob-row';
         row.innerHTML=`<span class="prob-icon"><span class="tb ${instr.typeName}">${instr.typeName.substring(0,3)}</span></span>
           <div class="prob-main">
             <div class="prob-name">${esc(instr.name||name)}</div>
-            <div class="prob-sub">${songNames.slice(0,4).map(s=>esc(s)).join(', ')}${songNames.length>4?' …':''}</div>
+            <div class="prob-sub">${usedSongs.slice(0,4).map(s=>esc(s.name)).join(', ')}${usedSongs.length>4?' …':''}</div>
           </div>
-          <span class="prob-right" style="color:var(--c-found)">${songNames.length} songs</span>`;
+          <span class="prob-right" style="color:var(--c-found)">${usedSongs.length} songs</span>`;
         row.addEventListener('click', () => {
           instrFilter=name; $('instr-q').value=name;
           switchTab('instruments'); renderInstrs();
@@ -2994,6 +3300,62 @@ const UI = (() => {
         el.appendChild(row);
       });
     }
+  }
+
+  // ── Duplicate sample content scan ──────────────────────
+  // Groups WAVs by size first (free), then hashes only the size-collision
+  // candidates with SHA-256, so most files are never read.
+  async function runDupeSampleScan() {
+    if (!sdHandle) return;
+    const el = $('prob-content');
+    el.innerHTML='<div class="prob-empty"><div class="spinner-wrap" style="justify-content:center"><div class="spinner"></div><span id="dupesamp-prog">Listing samples…</span></div></div>';
+    const prog = msg => { const p=$('dupesamp-prog'); if (p) p.textContent=msg; };
+    try {
+      // Collect {path, handle, size} for every wav under Samples/ + Instruments/
+      const files = [];
+      async function walk(dir, prefix) {
+        for await (const [name, h] of dir) {
+          const rel = prefix ? `${prefix}/${name}` : name;
+          if (h.kind === 'directory') await walk(h, rel);
+          else if (name.toLowerCase().endsWith('.wav')) {
+            try { files.push({path:rel, handle:h, size:(await h.getFile()).size}); } catch {}
+          }
+        }
+      }
+      for (const dirName of ['Samples','Instruments']) {
+        let dir; try { dir = await sdHandle.getDirectoryHandle(dirName); } catch { continue; }
+        await walk(dir, dirName);
+      }
+      // Group by size; only size-collisions need hashing
+      const bySize = new Map();
+      for (const f of files) {
+        if (!f.size) continue;
+        if (!bySize.has(f.size)) bySize.set(f.size, []);
+        bySize.get(f.size).push(f);
+      }
+      const candidates = [...bySize.values()].filter(g => g.length > 1).flat();
+      const groups = new Map(); // hash → {size, paths[]}
+      let done = 0;
+      for (const f of candidates) {
+        prog(`Hashing ${++done}/${candidates.length}…`);
+        try {
+          const buf = await (await f.handle.getFile()).arrayBuffer();
+          const digest = await crypto.subtle.digest('SHA-256', buf);
+          const hex = [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
+          const key = `${f.size}:${hex}`;
+          if (!groups.has(key)) groups.set(key, {size:f.size, paths:[]});
+          groups.get(key).paths.push(f.path);
+        } catch(e) { console.warn('dupe scan:', f.path, e); }
+      }
+      dupeSampGroups = [...groups.values()]
+        .filter(g => g.paths.length > 1)
+        .map(g => ({...g, paths:g.paths.sort()}))
+        .sort((a,b) => b.size*(b.paths.length-1) - a.size*(a.paths.length-1));
+    } catch(e) {
+      console.warn('runDupeSampleScan:', e);
+      dupeSampGroups = [];
+    }
+    renderProblems();
   }
 
   // Export report
@@ -3046,23 +3408,20 @@ const UI = (() => {
       if (entry.songs.length) {
         const hdr = document.createElement('div'); hdr.className='samp-grp-hdr';
         hdr.textContent=`Songs (${entry.songs.length})`; body.appendChild(hdr);
-        entry.songs.forEach(sname => {
+        entry.songs.forEach(s => {
           const div=document.createElement('div'); div.className='samp-item';
           const span=document.createElement('span'); span.className='samp-item-name';
-          span.textContent=sname;
-          span.addEventListener('click', () => {
-            const s=songs.find(x=>x.name===sname);
-            if (s) { closeSampModal(); openSongModal(s); }
-          });
+          span.textContent=s.name; span.title=s.filePath;
+          span.addEventListener('click', () => { closeSampModal(); openSongModal(s); });
           div.appendChild(span); body.appendChild(div);
         });
       }
       if (entry.instrFiles.length) {
         const hdr = document.createElement('div'); hdr.className='samp-grp-hdr';
         hdr.textContent=`Instruments (${entry.instrFiles.length})`; body.appendChild(hdr);
-        entry.instrFiles.forEach(name => {
+        entry.instrFiles.forEach(i => {
           const div=document.createElement('div'); div.className='samp-item';
-          div.textContent=name; body.appendChild(div);
+          div.textContent=`${i.name} (${i.filePath})`; body.appendChild(div);
         });
       }
     }
@@ -3075,15 +3434,61 @@ const UI = (() => {
   // ══════════════════════════════════════════════════════
   // DIFF MODAL
   // ══════════════════════════════════════════════════════
+  let _diffToken = 0; // invalidates in-flight pattern summaries when the pair changes
+
+  function diffMetaValues(s) {
+    return {
+      'BPM': s.tempo != null && !isNaN(s.tempo) && s.tempo > 0 ? s.tempo.toFixed(1) : '—',
+      'Transpose': String(s.transpose ?? 0),
+      'Quantize': QUANTIZE_NAMES[s.quantize] ?? String(s.quantize),
+      'Firmware': firmStr(s),
+      'Instruments': String(s.instruments.length),
+      'Samples': String(s.samplePaths.length),
+      'Modified': s.lastModified ? Scanner.fmtDate(s.lastModified) : '—',
+      'File size': Scanner.fmtBytes(s.fileSize || 0),
+    };
+  }
+
+  function setDiffPair(a, b) {
+    diffSongA = a; diffSongB = b;
+    const j = Scanner.jaccardSim(a, b);
+    $('diff-score').textContent = `${Math.round(j*100)}% similar`;
+    renderDiffCol($('diff-body-a'), a, b);
+    renderDiffCol($('diff-body-b'), b, a);
+    // Metadata comparison strip
+    const va = diffMetaValues(a), vb = diffMetaValues(b);
+    const meta = $('diff-meta');
+    meta.innerHTML = Object.keys(va).map(k => {
+      const d = va[k] !== vb[k] ? ' diff' : '';
+      return `<span class="dm-lbl">${k}</span><span class="dm-val${d}">${esc(va[k])}</span><span class="dm-val${d}">${esc(vb[k])}</span>`;
+    }).join('')
+      + `<span class="dm-lbl">Patterns</span><span class="dm-val" id="dm-pat-a">…</span><span class="dm-val" id="dm-pat-b">…</span>`;
+    meta.classList.add('on');
+    // Async pattern summary (best-effort; needs the SD card mounted)
+    const token = ++_diffToken;
+    [[a,'dm-pat-a'],[b,'dm-pat-b']].forEach(async ([s, id]) => {
+      let txt = '—';
+      try {
+        const pat = await readSongPatterns(s);
+        if (pat && pat.lastRow >= 0) {
+          const used = new Set();
+          for (let r = 0; r <= pat.lastRow; r++)
+            for (const v of pat.grid[r]) if (v !== 0xFF) used.add(v);
+          const phr = new Set();
+          used.forEach(c => pat.chains[c]?.forEach(st => { if (st.phrase !== 0xFF) phr.add(st.phrase); }));
+          txt = `${pat.lastRow+1} rows · ${used.size} chains · ${phr.size} phrases`;
+        } else if (pat) txt = 'empty grid';
+      } catch {}
+      if (token === _diffToken) { const cell = $(id); if (cell) cell.textContent = txt; }
+    });
+  }
+
   function openDiffModal(song, prePickedB = null) {
     diffSongA = song; diffSongB = prePickedB;
     $('diff-hdr-a').textContent = song.name;
+    const meta = $('diff-meta'); meta.classList.remove('on'); meta.innerHTML='';
     if (prePickedB) {
-      const j = Scanner.jaccardSim(song, prePickedB);
-      $('diff-score').textContent = `${Math.round(j*100)}% similar`;
-      renderDiffCol($('diff-body-a'), song, prePickedB);
-      $('diff-body-b').innerHTML = '';
-      renderDiffCol($('diff-body-b'), prePickedB, song);
+      setDiffPair(song, prePickedB);
       $('diff-srch').value = prePickedB.name;
     } else {
       $('diff-score').textContent = '';
@@ -3113,13 +3518,8 @@ const UI = (() => {
       const item = document.createElement('div'); item.className='diff-pick-item';
       item.textContent=s.name+' — '+s.filePath;
       item.addEventListener('click', () => {
-        diffSongB = s;
         $('diff-srch').value=s.name;
-        const j = Scanner.jaccardSim(diffSongA, diffSongB);
-        $('diff-score').textContent = `${Math.round(j*100)}% similar`;
-        renderDiffCol($('diff-body-a'), diffSongA, diffSongB);
-        const bHdr = $('diff-body-b'); bHdr.innerHTML='';
-        renderDiffCol(bHdr, diffSongB, diffSongA);
+        setDiffPair(diffSongA, s);
       });
       body.appendChild(item);
     });
@@ -3130,15 +3530,30 @@ const UI = (() => {
     const otherNames = other ? new Set(other.instruments.map(i=>i.name.toLowerCase())) : null;
     if (!song.instruments.length) {
       container.innerHTML='<div style="color:var(--muted);padding:12px;font-size:12px">No instruments.</div>';
-      return;
+    } else {
+      song.instruments.forEach(i => {
+        const shared = otherNames && otherNames.has(i.name.toLowerCase());
+        const row = document.createElement('div');
+        row.className = 'diff-row' + (otherNames ? (shared?' shared':' unique') : '');
+        row.innerHTML=`<span class="tb ${i.typeName}">${i.typeName.substring(0,3)}</span> ${esc(i.name)}`;
+        container.appendChild(row);
+      });
     }
-    song.instruments.forEach(i => {
-      const shared = otherNames && otherNames.has(i.name.toLowerCase());
-      const row = document.createElement('div');
-      row.className = 'diff-row' + (otherNames ? (shared?' shared':' unique') : '');
-      row.innerHTML=`<span class="tb ${i.typeName}">${i.typeName.substring(0,3)}</span> ${esc(i.name)}`;
-      container.appendChild(row);
-    });
+    // Sample path comparison
+    if (song.samplePaths.length) {
+      const norm = p => p.toLowerCase().replace(/\\/g,'/').replace(/^\//,'');
+      const otherSamps = other ? new Set(other.samplePaths.map(norm)) : null;
+      const hdr = document.createElement('div');
+      hdr.className='diff-sec-hdr'; hdr.textContent=`Samples (${song.samplePaths.length})`;
+      container.appendChild(hdr);
+      song.samplePaths.forEach(p => {
+        const shared = otherSamps && otherSamps.has(norm(p));
+        const row = document.createElement('div');
+        row.className = 'diff-row samp' + (otherSamps ? (shared?' shared':' unique') : '');
+        row.textContent = p;
+        container.appendChild(row);
+      });
+    }
   }
 
   // ══════════════════════════════════════════════════════
@@ -3283,25 +3698,26 @@ const UI = (() => {
     </div>`;
   }
 
+  // Re-read a song file from the card and parse its pattern data.
+  // (Pattern offsets are stable across firmware 1.x-4.x — see M8 module.)
+  async function readSongPatterns(song) {
+    if (!sdHandle) return null;
+    const parts = ('Songs/' + song.filePath).replace(/\\/g,'/').split('/').filter(Boolean);
+    let dir = sdHandle;
+    for (let i = 0; i < parts.length - 1; i++) dir = await dir.getDirectoryHandle(parts[i]);
+    const fh = await dir.getFileHandle(parts[parts.length-1]);
+    const file = await fh.getFile();
+    const b = new Uint8Array(await file.arrayBuffer());
+    return M8.parseSongPatterns(b);
+  }
+
   async function loadPatternViewer(song, container) {
     container.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Reading pattern data…</div>';
     container.dataset.loaded = '1';
     if (!sdHandle) { container.innerHTML = '<div class="no-results">No SD card mounted.</div>'; return; }
-    // Grid/chain/phrase offsets below are for the 4.x file format — older
-    // files would silently render garbage, so refuse them instead.
-    if (M8.verNum(song.header.version) < 40000) {
-      container.innerHTML = `<div class="no-results">Pattern view supports songs saved with firmware 4.0+ — this file is ${esc(firmStr(song))}.</div>`;
-      return;
-    }
     try {
-      const parts = ('Songs/' + song.filePath).replace(/\\/g,'/').split('/').filter(Boolean);
-      let dir = sdHandle;
-      for (let i = 0; i < parts.length - 1; i++) dir = await dir.getDirectoryHandle(parts[i]);
-      const fh = await dir.getFileHandle(parts[parts.length-1]);
-      const file = await fh.getFile();
-      const b = new Uint8Array(await file.arrayBuffer());
-      const pat = M8.parseSongPatterns(b);
-      if (!pat) { container.innerHTML = '<div class="no-results">Could not parse pattern data (file may be too small or old firmware).</div>'; return; }
+      const pat = await readSongPatterns(song);
+      if (!pat) { container.innerHTML = '<div class="no-results">Could not parse pattern data (file truncated?).</div>'; return; }
       renderPatternGrid(container, pat, song.instruments);
     } catch(e) {
       container.innerHTML = `<div class="no-results">Could not read patterns: ${esc(e.message)}</div>`;
@@ -3314,6 +3730,8 @@ const UI = (() => {
     if (lastRow < 0) { container.innerHTML = '<div class="no-results" style="padding:16px;color:var(--muted)">Song grid is empty — no chains placed.</div>'; return; }
     const visRows = lastRow + 1;
     const N_TRACKS = 8;
+    // slot → instrument type, for resolving instrument-specific FX names
+    const slotType = new Map((songInstrs||[]).map(i => [i.slot, i.typeName]));
 
     container.innerHTML = '';
 
@@ -3338,7 +3756,7 @@ const UI = (() => {
         cell.textContent = v === 0xFF ? '--' : v.toString(16).toUpperCase().padStart(2,'0');
         if (v !== 0xFF) {
           cell.title = `Chain ${v.toString(16).toUpperCase()} — click to inspect`;
-          cell.addEventListener('click', () => showChainDetail(detailEl, v, chains[v], phrases));
+          cell.addEventListener('click', () => showChainDetail(detailEl, v, chains[v], phrases, slotType));
         }
         gridEl.appendChild(cell);
       }
@@ -3357,7 +3775,7 @@ const UI = (() => {
     container.style.display='block';
   }
 
-  function showChainDetail(container, chainNum, chainSteps, phrases) {
+  function showChainDetail(container, chainNum, chainSteps, phrases, slotType) {
     // Highlight all cells with this chain number
     document.querySelectorAll('.pv-cell.chain').forEach(c => c.classList.toggle('hi', c.textContent === chainNum.toString(16).toUpperCase().padStart(2,'0')));
     container.style.display='block';
@@ -3375,11 +3793,11 @@ const UI = (() => {
     });
     container.innerHTML = html;
     container.querySelectorAll('.cp[data-phrase]').forEach(el => {
-      el.addEventListener('click', () => showPhraseDetail(container, parseInt(el.dataset.phrase), phrases));
+      el.addEventListener('click', () => showPhraseDetail(container, parseInt(el.dataset.phrase), phrases, slotType));
     });
   }
 
-  function showPhraseDetail(container, phraseNum, phrases) {
+  function showPhraseDetail(container, phraseNum, phrases, slotType) {
     document.querySelectorAll('.pv-cell.chain.hi').forEach(c => c.classList.remove('hi'));
     const ph = phrases[phraseNum];
     if (!ph) { container.innerHTML = `<div class="pv-detail-title">Phrase ${phraseNum.toString(16).toUpperCase().padStart(2,'0')}</div><div style="color:var(--muted);font-size:11px">Phrase data unavailable.</div>`; return; }
@@ -3392,7 +3810,8 @@ const UI = (() => {
       const noteClass = s.note===0xFF?'pn empty':'pn';
       const volStr = s.vol===0xFF ? '--' : s.vol.toString(16).toUpperCase().padStart(2,'0');
       const insStr = s.instr===0xFF ? '--' : s.instr.toString(16).toUpperCase().padStart(2,'0');
-      const fxStr = s.fx.map(f => M8.fxStr(f.cmd, f.val)).join(' ');
+      const typeName = slotType?.get(s.instr);
+      const fxStr = s.fx.map(f => M8.fxStr(f.cmd, f.val, typeName)).join(' ');
       html += `<div class="pv-pstep"><span class="pi">${idx.toString(16).toUpperCase()}</span><span class="${noteClass}">${M8.noteStr(s.note)}</span><span class="pv">${volStr}</span><span class="ps">${insStr}</span><span class="pfx">${fxStr}</span></div>`;
     });
     if (activeSteps.length === 0) html += `<div style="color:var(--muted);font-size:11px;padding-top:4px">All steps empty.</div>`;
@@ -3616,7 +4035,7 @@ const UI = (() => {
         const usageKey = f.path.toLowerCase().replace(/^\//, '');
         const usage = sampleUsageMap.get(usageKey);
         const usedCount = usage ? (usage.songs.length + usage.instrFiles.length) : 0;
-        const usedTitle = usage ? `Used in: ${usage.songs.join(', ')||'—'}` : 'Not referenced by any song or instrument';
+        const usedTitle = usage ? `Used in: ${usage.songs.map(s=>s.name).join(', ')||'—'}` : 'Not referenced by any song or instrument';
         const badge = usedCount > 0
           ? `<span class="sb-badge used" title="${esc(usedTitle)}">✓ ${usedCount}</span>`
           : `<span class="sb-badge unused" title="Not referenced">unused</span>`;
@@ -3670,7 +4089,7 @@ const UI = (() => {
       return;
     }
     stat.textContent = `${renders.length} render${renders.length!==1?'s':''}`;
-    renders.forEach(r => {
+    appendChunked(el, renders, r => {
       const row = document.createElement('div'); row.className='render-row';
       const name = r.fileName.replace(/\.wav$/i,'');
       const canvas = document.createElement('canvas'); canvas.className='render-wave'; canvas.width=140; canvas.height=28;
@@ -3682,7 +4101,7 @@ const UI = (() => {
       const sizeSpan = document.createElement('span'); sizeSpan.className='render-meta'; sizeSpan.textContent=Scanner.fmtBytes(r.fileSize);
       const dateSpan = document.createElement('span'); dateSpan.className='render-meta'; dateSpan.textContent=Scanner.fmtDate(r.lastModified);
       row.append(nameSpan, sizeSpan, dateSpan, canvas);
-      el.appendChild(row);
+      return row;
     });
   }
 
@@ -3816,17 +4235,15 @@ const UI = (() => {
         <span class="di-name" style="color:var(--accent)">Open sample view →</span>
         <span class="di-meta">${esc(path)}</span>
       </div>`;
-      const songRows = (usage.songs||[]).map(n => {
-        const s = songs.find(s=>s.name===n);
-        return s ? `<div class="drill-item" data-sname="${esc(s.name)}" data-spath="${esc(s.filePath)}">
+      const songRows = (usage.songs||[]).map(s =>
+        `<div class="drill-item" data-sname="${esc(s.name)}" data-spath="${esc(s.filePath)}">
           <span class="di-name">${esc(s.name)}</span>
           <span class="di-meta">${esc(s.filePath)}</span>
-        </div>` : '';
-      }).filter(Boolean).join('');
-      const instrRows = (usage.instrFiles||[]).map(p =>
-        `<div class="drill-item">
-          <span class="di-name">${esc(p.split('(')[0].trim())}</span>
-          <span class="di-meta">instrument file</span>
+        </div>`).join('');
+      const instrRows = (usage.instrFiles||[]).map(i =>
+        `<div class="drill-item" data-iname="${esc(i.name)}">
+          <span class="di-name">${esc(i.name)}</span>
+          <span class="di-meta">${esc(i.filePath)}</span>
         </div>`).join('');
       return `<div class="drill-list">${openRow}${songRows}${instrRows}</div>`;
     }
@@ -3963,10 +4380,10 @@ const UI = (() => {
     // ── 5. Most-Used Instruments ──
     const backbone = [...usageMap.entries()].filter(([,ss])=>ss.length>0);
     if (backbone.length) {
-      const raw = backbone.map(([name,songNames])=>({label:name, val:songNames.length, key:name}));
+      const raw = backbone.map(([name,usedSongs])=>({label:name, val:usedSongs.length, key:name}));
       const {html, sortBtn} = barChart('top-instrs', raw,
         { colorFn:()=>'var(--c-found)',
-          drillFn:name=>({type:'songs', items:songs.filter(s=>(usageMap.get(name)||[]).includes(s.name))}) });
+          drillFn:name=>({type:'songs', items:usageMap.get(name)||[]}) });
       addCard('Most-Used Instruments', html, sortBtn);
     }
 
@@ -4128,14 +4545,27 @@ const UI = (() => {
     d.className='log-line '+t; d.textContent=m;
     log.appendChild(d); log.scrollTop=log.scrollHeight;
   }
+  function backupDirs() {
+    return ['Songs','Instruments','Samples','Themes','Grooves','Bundles'].filter(d=>$('inc-'+d)?.checked);
+  }
+  function setBackupBusy(b) { $('btn-backup').disabled=b; $('btn-backup-zip').disabled=b; }
   $('btn-backup').addEventListener('click', async () => {
     if (!sdHandle) return;
-    const dirs=['Songs','Instruments','Samples','Themes','Grooves','Bundles'].filter(d=>$('inc-'+d)?.checked);
+    const dirs=backupDirs();
     if (!dirs.length) { appendLog('err','✗ Nothing selected.'); return; }
-    $('backup-log').innerHTML=''; $('btn-backup').disabled=true;
+    $('backup-log').innerHTML=''; setBackupBusy(true);
     await createBackup(sdHandle, dirs, (t,m)=>appendLog(t,m),
-      (n,name)=>{ appendLog('ok',`✓ Done — ${n} files → ${name}`); $('btn-backup').disabled=false; },
-      err=>{ appendLog('err',`✗ ${err}`); $('btn-backup').disabled=false; });
+      (n,name)=>{ appendLog('ok',`✓ Done — ${n} files → ${name}`); setBackupBusy(false); },
+      err=>{ appendLog('err',`✗ ${err}`); setBackupBusy(false); });
+  });
+  $('btn-backup-zip').addEventListener('click', async () => {
+    if (!sdHandle) return;
+    const dirs=backupDirs();
+    if (!dirs.length) { appendLog('err','✗ Nothing selected.'); return; }
+    $('backup-log').innerHTML=''; setBackupBusy(true);
+    await createBackupZip(sdHandle, dirs, (t,m)=>appendLog(t,m),
+      (n,name)=>{ appendLog('ok',`✓ Done — ${n} files → ${name}`); setBackupBusy(false); },
+      err=>{ appendLog('err',`✗ ${err}`); setBackupBusy(false); });
   });
 
   // ══════════════════════════════════════════════════════

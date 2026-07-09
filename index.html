@@ -173,7 +173,7 @@
     /* SONGS — LIST ROWS */
     .song-item { border-bottom:1px solid var(--border); }
     .song-row { display:grid;
-      grid-template-columns:16px minmax(130px,1fr) minmax(70px,150px) 62px 70px 110px;
+      grid-template-columns:16px minmax(130px,1fr) minmax(70px,150px) 62px 86px 70px 110px;
       align-items:center; gap:0 12px; padding:9px 20px;
       cursor:pointer; user-select:none; transition:background .1s; }
     .song-row:hover { background:var(--surface); }
@@ -183,6 +183,7 @@
     .s-name { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .s-file { font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .s-ver  { font-size:11px; color:var(--muted); }
+    .s-bpm  { font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .s-ic   { font-size:11px; color:var(--muted); text-align:right; }
     .s-miss { font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px;
       white-space:nowrap; text-align:center; justify-self:end; }
@@ -324,6 +325,17 @@
     .schip:hover { border-color:var(--accent); color:var(--accent); }
     .dupe-warn { font-size:11px; color:#f59e0b; padding:2px 8px;
       background:#1f1200; border:1px solid #4a2e00; border-radius:4px; display:inline-flex; align-items:center; gap:5px; }
+
+    /* INSTRUMENT PARAM INSPECTION */
+    .ipwrap { display:flex; flex-wrap:wrap; gap:4px; flex:1; }
+    .ipchip { display:inline-flex; align-items:baseline; gap:5px; padding:2px 7px;
+      background:var(--surface2); border:1px solid var(--border); border-radius:4px; }
+    .ipk { font-size:9px; color:var(--muted); letter-spacing:.5px; }
+    .ipv { font-size:11px; font-family:monospace; color:var(--text); }
+    .imod { display:flex; align-items:center; gap:8px; font-size:11px; padding:2px 0; }
+    .imod-type { font-weight:600; font-size:10px; letter-spacing:.5px; color:var(--accent); width:64px; flex-shrink:0; }
+    .imod-dest { color:var(--text); width:80px; flex-shrink:0; font-size:10px; }
+    .imod-fields { color:var(--muted); font-family:monospace; font-size:10px; }
 
     /* INSTRUMENT FOLDER TREE */
     .igroup-hdr { display:flex; align-items:center; gap:8px;
@@ -522,6 +534,60 @@
     .samp-item-name { color:var(--text); font-weight:500; cursor:pointer; }
     .samp-item-name:hover { color:var(--accent); }
 
+    /* SET BUILDER */
+    .set-summary { display:flex; align-items:center; gap:14px; padding:8px 20px; flex-wrap:wrap;
+      background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; font-size:12px; }
+    .set-sum-item { color:var(--muted); }
+    .set-sum-item b { color:var(--accent); font-weight:600; }
+    .set-sum-item.warn b { color:var(--c-miss); }
+    .set-row { display:flex; align-items:center; gap:10px; padding:7px 20px;
+      border-bottom:1px solid var(--border); cursor:pointer; transition:background .1s; }
+    .set-row:hover { background:var(--surface); }
+    .set-row input[type=checkbox] { width:14px; height:14px; accent-color:var(--accent); flex-shrink:0; pointer-events:none; }
+    .set-row-name { font-size:13px; font-weight:600; flex-shrink:0; max-width:220px;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .set-row-path { font-size:11px; color:var(--muted); flex:1; min-width:0;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .set-row-meta { font-size:11px; color:var(--muted); flex-shrink:0; }
+    .set-row-meta.bad { color:var(--c-miss); }
+    .set-log { font-size:11px; color:var(--muted); width:100%; max-height:72px; overflow-y:auto; line-height:1.6; }
+    .set-log .err { color:var(--c-miss); }
+    .set-log .ok { color:var(--c-found); }
+
+    /* FIX (REPAIR) MODAL */
+    #fix-modal { position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:160;
+      display:none; align-items:center; justify-content:center; padding:20px; }
+    #fix-modal.open { display:flex; }
+    .fix-box { background:var(--surface); border:1px solid var(--border2); border-radius:10px;
+      width:min(760px,100%); max-height:85vh; display:flex; flex-direction:column; overflow:hidden; }
+    .fix-hdr { display:flex; align-items:center; gap:12px; padding:12px 16px;
+      border-bottom:1px solid var(--border); flex-shrink:0; }
+    .fix-title { font-size:14px; font-weight:700; flex:1; min-width:0;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .fix-body { overflow-y:auto; flex:1; padding:14px 16px; display:flex; flex-direction:column; gap:14px; }
+    .fix-ref { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; }
+    .fix-broken { font-size:11px; font-family:monospace; color:var(--c-miss); word-break:break-all; margin-bottom:8px; }
+    .fix-row { display:flex; align-items:center; gap:8px; }
+    .fix-arrow { color:var(--muted); flex-shrink:0; }
+    .fix-select { flex:1; min-width:0; background:var(--surface); border:1px solid var(--border2); color:var(--text);
+      padding:5px 8px; font-family:monospace; font-size:11px; border-radius:5px; outline:none; }
+    .fix-select:focus { border-color:var(--accent); }
+    .fix-nocand { font-size:11px; color:var(--muted); font-style:italic; }
+    .fix-mode { display:flex; flex-direction:column; gap:8px; padding:10px 12px;
+      background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-size:12px; }
+    .fix-mode label { display:flex; align-items:flex-start; gap:8px; cursor:pointer; }
+    .fix-mode input[type=radio] { accent-color:var(--accent); margin-top:2px; }
+    .fix-mode-sub { font-size:11px; color:var(--muted); }
+    .fix-name-input { background:var(--surface); border:1px solid var(--border2); color:var(--text);
+      padding:4px 8px; font-family:monospace; font-size:11px; border-radius:5px; outline:none; width:260px; }
+    .fix-ftr { display:flex; align-items:center; gap:10px; padding:12px 16px;
+      border-top:1px solid var(--border); flex-shrink:0; }
+    .fix-status { flex:1; font-size:12px; color:var(--muted); }
+    .fix-status.ok { color:var(--c-found); }
+    .fix-status.err { color:var(--c-miss); }
+    .btn-fix-row { flex-shrink:0; }
+    .ro-badge.rw { background:#1f1200; color:#f59e0b; border-color:#4a2e00; }
+
     /* MISC */
     .spinner-wrap { display:flex; align-items:center; gap:10px; color:var(--muted); padding:24px 20px; }
     .spinner { width:15px; height:15px; border:2px solid var(--border2); border-top-color:var(--accent);
@@ -693,6 +759,7 @@
     .sb-badge { font-size:10px; font-weight:600; padding:1px 7px; border-radius:4px; flex-shrink:0; white-space:nowrap; }
     .sb-badge.used   { background:#1c2f1c; color:var(--c-found); border:1px solid #2a4a2a; }
     .sb-badge.unused { background:var(--surface2); color:var(--border2); border:1px solid var(--border); }
+    .sb-file-row.sel { background:#1f0e00; box-shadow:inset 3px 0 0 var(--accent); }
 
     /* SONG TIMELINE */
     .tl-svg-wrap { overflow-x:auto; }
@@ -776,6 +843,7 @@
       <button class="tab-btn" data-tab="stats" title="8">STATS</button>
       <button class="tab-btn" data-tab="samples" title="9">SAMPLES</button>
       <button class="tab-btn" data-tab="bundles" title="0">BUNDLES</button>
+      <button class="tab-btn" data-tab="sets">SETS</button>
     </div>
 
     <div id="cache-bar">
@@ -803,6 +871,9 @@
           <option value="date-asc">Oldest first</option>
           <option value="missing">Most missing</option>
           <option value="instrs">Most instruments</option>
+          <option value="bpm-desc">BPM (fast first)</option>
+          <option value="bpm-asc">BPM (slow first)</option>
+          <option value="key">By key</option>
           <option value="firm-desc">Firmware (newest)</option>
           <option value="firm-asc">Firmware (oldest)</option>
         </select>
@@ -811,6 +882,7 @@
         </select>
         <button class="btn ghost sm" id="song-miss-btn">⚠ Missing</button>
         <button class="btn ghost sm" id="song-bundle-btn">📦 Unbundled</button>
+        <button class="btn ghost sm" id="btn-analyze-keys" title="Detect the key/scale of every song (reads each file once, cached)">♪ Keys</button>
         <span class="stat-chip" id="songs-stat" style="margin-left:auto"></span>
         <div class="vtog-wrap">
           <button class="vtog" id="vtog-compact" title="Compact  C">⊟</button>
@@ -863,6 +935,7 @@
     <div class="tab-pane" id="tab-themes">
       <div class="toolbar">
         <input class="search" id="theme-q" type="text" placeholder="filter themes…">
+        <button class="btn ghost sm" id="btn-theme-reset" title="Back to the default app palette">↺ Reset app theme</button>
         <span class="stat-chip" id="themes-stat" style="margin-left:auto"></span>
         <div class="vtog-wrap">
           <button class="vtog active" id="tvtog-compact" title="Compact">⊟</button>
@@ -884,6 +957,7 @@
         <button class="prob-btn" data-psec="dupes">Duplicates<span class="prob-count" id="pc-dupes"></span></button>
         <button class="prob-btn" data-psec="dupesamp">Dupe Samples<span class="prob-count" id="pc-dupesamp"></span></button>
         <button class="prob-btn" data-psec="backbone">Backbone<span class="prob-count" id="pc-backbone"></span></button>
+        <button class="prob-btn" data-psec="repairlog">Repair Log<span class="prob-count" id="pc-repairlog"></span></button>
         <button class="prob-btn" data-psec="hotsamples">Hot Samples</button>
         <button class="btn sm dim" id="btn-export-report" style="margin-left:auto">⬇ Export Report</button>
       </div>
@@ -921,7 +995,7 @@
           </div>
           <div class="backup-info">
             Creates <span style="color:var(--accent)">M8_BACKUP_YYYYMMDD_HHMM</span> in a folder you choose.<br>
-            <span style="color:var(--muted);font-size:11px">SD card opened read-only — this app cannot alter or delete your data.</span>
+            <span style="color:var(--muted);font-size:11px">The card opens read-only. Writes happen only through repairs or exports you explicitly confirm.</span>
           </div>
           <button class="btn" id="btn-backup">CREATE BACKUP</button>
           <button class="btn secondary" id="btn-backup-zip">DOWNLOAD AS ZIP</button>
@@ -965,6 +1039,20 @@
         <button class="btn ghost sm" id="btn-bb-scan" style="display:none">↺ Rescan</button>
       </div>
       <div class="scroll-area"><div id="bb-list"></div></div>
+    </div>
+
+    <!-- ── SET BUILDER ── -->
+    <div class="tab-pane" id="tab-sets">
+      <div class="toolbar">
+        <input class="search" id="set-q" type="text" placeholder="filter songs…">
+        <input class="search" id="set-name" type="text" placeholder="set name…" style="width:150px">
+        <select class="sorter" id="set-saved"><option value="">— saved sets —</option></select>
+        <button class="btn ghost sm" id="btn-set-save">💾 Save set</button>
+        <button class="btn ghost sm" id="btn-set-delete" title="Delete selected saved set">🗑</button>
+        <span class="stat-chip" id="set-stat" style="margin-left:auto"></span>
+      </div>
+      <div id="set-summary" class="set-summary"></div>
+      <div class="scroll-area"><div id="set-list"></div></div>
     </div>
 
   </div><!-- #main -->
@@ -1023,6 +1111,22 @@
   </div>
 </div>
 
+<!-- Fix (repair) modal -->
+<div id="fix-modal">
+  <div class="fix-box">
+    <div class="fix-hdr">
+      <span class="fix-title" id="fix-title"></span>
+      <button class="btn ghost sm" id="btn-fix-close">✕</button>
+    </div>
+    <div class="fix-body" id="fix-body"></div>
+    <div class="fix-ftr">
+      <span class="fix-status" id="fix-status"></span>
+      <button class="btn ghost sm" id="btn-fix-cancel">Cancel</button>
+      <button class="btn" id="btn-fix-apply" disabled>Apply Repair</button>
+    </div>
+  </div>
+</div>
+
 <!-- Global search overlay -->
 <div id="search-overlay">
   <div class="srch-box">
@@ -1044,11 +1148,14 @@
 const M8 = (() => {
   const KIND = {
     0x00:'WAVSYNTH', 0x01:'MACROSYNTH', 0x02:'SAMPLER',
-    0x03:'MIDIOUT',  0x04:'FMSYNTH',   0xFF:'NONE',
+    0x03:'MIDIOUT',  0x04:'FMSYNTH',
+    0x05:'HYPERSYNTH', 0x06:'EXTERNALINST', // firmware 3.0+
+    0xFF:'NONE',
   };
   const KIND_SHORT = {
     'WAVSYNTH':'WAV','MACROSYNTH':'MAC','SAMPLER':'SAM',
-    'MIDIOUT':'MID','FMSYNTH':'FM','NONE':'—',
+    'MIDIOUT':'MID','FMSYNTH':'FM',
+    'HYPERSYNTH':'HYP','EXTERNALINST':'EXT','NONE':'—',
   };
   const THEME_COLORS = ['background','text','play','cursor','selection','deselect','view','marker'];
 
@@ -1103,9 +1210,13 @@ const M8 = (() => {
     if (!h || h.fileType !== 0x10) return null;
     const base=14, kind=b[base];
     const typeName = KIND[kind]||`0x${kind.toString(16)}`;
+    let params = null;
+    if (b.length >= base + ISIZE) {
+      try { params = decodeInstrParams(b, base, h.version); } catch(e) { console.warn('decodeInstrParams:', e); }
+    }
     return { header:h, kind, typeName, kindShort:KIND_SHORT[typeName]||typeName,
       name:readStr(b,base+1,12).trim()||'UNNAMED',
-      samplePath:kind===0x02?readStr(b,base+SAMP_OFF,127).trim():'' };
+      samplePath:kind===0x02?readStr(b,base+SAMP_OFF,127).trim():'', params };
   }
 
   function parseTheme(b) {
@@ -1137,6 +1248,186 @@ const M8 = (() => {
   function fmtVer(v) { return `v${v.major}.${v.minor}.${v.patch}`; }
   function verNum(v) { return v.major*10000 + v.minor*100 + v.patch; }
 
+  // ── Instrument parameter decoder ────────────────────────
+  // Byte layout verified against AlexCharlton/m8-files (3.x/4.x) and
+  // whitlockjc/m8-js (1.x/2.x): kind(1) name(12) transpose(1) tick(1)
+  // [vol pitch fine](3, non-MIDI) kind-params(varies) filter(3) amp(2)
+  // mixer(5). Modulators sit at a FIXED base+0x3F for 3.0+ (4 typed slots
+  // × 6 bytes, ending exactly at the base+0x57 sample path); pre-3.0 uses
+  // 2 AHD envelopes + 2 LFOs immediately after the mixer block.
+  const PLAY_MODES  = ['FWD','REV','FWDLOOP','REVLOOP','FWD PP','REV PP','OSC','OSC REV','OSC PP'];
+  const FILTERS     = ['OFF','LOWPASS','HIGHPAS','BANDPAS','BANDSTP','LP>HP','ZDF LP','ZDF HP'];
+  const FILTERS_WAV = [...FILTERS,'WAV LP','WAV HP','WAV BP','WAV BS'];
+  const LIMIT_TYPES = ['CLIP','SIN','FOLD','WRAP','POST','POSTAD','POST:W1','POST:W2'];
+  const LFO_SHAPES  = ['TRI','SIN','RAMP DN','RAMP UP','EXP DN','EXP UP','SQR DN','SQR UP',
+                       'RANDOM','DRUNK','TRI T','SIN T','RAMPD T','RAMPU T','EXPD T','EXPU T','SQ.D T','SQ.U T','RAND T'];
+  const MOD_TYPES   = ['AHD ENV','ADSR ENV','DRUM ENV','LFO','TRIG ENV','TRACK ENV'];
+  const MOD_DESTS   = ['OFF','VOLUME','PITCH','CUTOFF','RES','AMP','PAN','DEGRADE','MOD AMT','MOD RATE','MOD BOTH','MOD BINV'];
+  const hx = n => n.toString(16).toUpperCase().padStart(2,'0');
+  const lbl = (arr, v) => arr[v] ?? hx(v);
+
+  function decodeInstrParams(b, base, version) {
+    const kind = b[base];
+    if (kind === 0xFF || KIND[kind] === undefined) return null;
+    const vn = verNum(version);
+    const v3 = vn >= 30000;
+    const p = { kindName: KIND[kind] };
+    p.transpose = v3 ? (b[base+13] & 1) : b[base+13];
+    p.tableTick = b[base+14];
+    let kp = base + 15;
+    if (kind !== 0x03) { p.volume=b[kp]; p.pitch=b[kp+1]; p.fineTune=b[kp+2]; kp += 3; }
+    const K = {};
+    let hasSynthBlock = true;
+    if (kind === 0x00) {        // WAVSYNTH
+      K.SHAPE=hx(b[kp]); K.SIZE=hx(b[kp+1]); K.MULT=hx(b[kp+2]); K.WARP=hx(b[kp+3]); K.MIRROR=hx(b[kp+4]);
+      kp += 5;
+    } else if (kind === 0x01) { // MACROSYNTH
+      K.SHAPE=hx(b[kp]); K.TIMBRE=hx(b[kp+1]); K.COLOR=hx(b[kp+2]); K.DEGRADE=hx(b[kp+3]); K.REDUX=hx(b[kp+4]);
+      kp += 5;
+    } else if (kind === 0x02) { // SAMPLER
+      K.PLAY=lbl(PLAY_MODES, b[kp]); K.SLICE=b[kp+1]===0?'OFF':String(b[kp+1]);
+      K.START=hx(b[kp+2]); K['LOOP ST']=hx(b[kp+3]); K.LENGTH=hx(b[kp+4]); K.DEGRADE=hx(b[kp+5]);
+      kp += 6;
+    } else if (kind === 0x04) { // FMSYNTH
+      K.ALGO=hx(b[kp]);
+      const hasShapes = vn >= 10400;
+      const shapes = hasShapes ? [b[kp+1],b[kp+2],b[kp+3],b[kp+4]] : null;
+      const rBase = kp + 1 + (hasShapes ? 4 : 0);
+      for (let o = 0; o < 4; o++) {
+        K[`OP${o+1}`] = `R ${hx(b[rBase+o*2])}.${hx(b[rBase+o*2+1])} · L ${hx(b[rBase+8+o*2])} FB ${hx(b[rBase+8+o*2+1])}`
+          + (shapes ? ` · SHP ${hx(shapes[o])}` : '');
+      }
+      K.MODS = `${hx(b[rBase+16])} ${hx(b[rBase+17])} ${hx(b[rBase+18])} ${hx(b[rBase+19])} → ${hx(b[rBase+24])} ${hx(b[rBase+25])} ${hx(b[rBase+26])} ${hx(b[rBase+27])}`;
+      kp += 1 + (hasShapes ? 4 : 0) + 8 + 8 + 4 + 4 + 4;
+    } else if (kind === 0x03) { // MIDIOUT — no filter/amp/mixer block
+      K.PORT=hx(b[kp]); K.CHANNEL=String(b[kp+1]+1); K.BANK=b[kp+2]===0xFF?'OFF':hx(b[kp+2]); K.PROGRAM=b[kp+3]===0xFF?'OFF':hx(b[kp+3]);
+      const ccs = [];
+      for (let c = 0; c < 10; c++) {
+        const num = b[kp+7+c*2], val = b[kp+8+c*2];
+        if (num !== 0xFF && num !== 0x00) ccs.push(`CC${String.fromCharCode(65+c)}:${num}=${hx(val)}`);
+      }
+      if (ccs.length) K.CCS = ccs.join(' ');
+      hasSynthBlock = false;
+    } else if (kind === 0x05) { // HYPERSYNTH
+      K.CHORD = [...Array(7)].map((_,i)=>hx(b[kp+i])).join(' ');
+      K.SCALE=hx(b[kp+7]); K.SHIFT=hx(b[kp+8]); K.SWARM=hx(b[kp+9]); K.WIDTH=hx(b[kp+10]); K.SUBOSC=hx(b[kp+11]);
+      kp += 12;
+    } else if (kind === 0x06) { // EXTERNAL INST — partial decode
+      K.PORT=hx(b[kp]); K.CHANNEL=String(b[kp+1]+1); K.BANK=b[kp+2]===0xFF?'OFF':hx(b[kp+2]); K.PROGRAM=b[kp+3]===0xFF?'OFF':hx(b[kp+3]);
+      hasSynthBlock = false;
+    }
+    p.kindParams = K;
+    if (hasSynthBlock) {
+      const ftab = kind === 0x00 ? FILTERS_WAV : FILTERS;
+      p.filter = { name:lbl(ftab, b[kp]), cutoff:b[kp+1], res:b[kp+2] };
+      p.amp    = { amp:b[kp+3], limit:lbl(LIMIT_TYPES, b[kp+4]) };
+      p.mixer  = { pan:b[kp+5], dry:b[kp+6], chorus:b[kp+7], delay:b[kp+8], reverb:b[kp+9] };
+    }
+    // Modulators
+    p.mods = [];
+    if (v3) {
+      for (let m = 0; m < 4; m++) {
+        const mo = base + 0x3F + m * 6;
+        const ty = b[mo] >> 4, dest = b[mo] & 0x0F;
+        const f = [b[mo+1], b[mo+2], b[mo+3], b[mo+4], b[mo+5]];
+        const mod = { type:lbl(MOD_TYPES, ty), dest:lbl(MOD_DESTS, dest), amount:f[0] };
+        if (ty === 0)      Object.assign(mod, {attack:f[1], hold:f[2], decay:f[3], env:[f[1],f[2],f[3]]});
+        else if (ty === 1) Object.assign(mod, {attack:f[1], decay:f[2], sustain:f[3], release:f[4]});
+        else if (ty === 2) Object.assign(mod, {peak:f[1], body:f[2], decay:f[3]});
+        else if (ty === 3) Object.assign(mod, {shape:lbl(LFO_SHAPES, f[1]), trigger:f[2], freq:f[3], retrigger:f[4]});
+        else if (ty === 4) Object.assign(mod, {attack:f[1], hold:f[2], decay:f[3], src:f[4], env:[f[1],f[2],f[3]]});
+        else if (ty === 5) Object.assign(mod, {src:f[1], lval:f[2], hval:f[3]});
+        p.mods.push(mod);
+      }
+    } else if (hasSynthBlock) {
+      // 1.x/2.x: 2 AHD envs then 2 LFOs directly after the mixer block
+      const mo = kp + 10;
+      for (let e = 0; e < 2; e++) {
+        const o = mo + e * 6;
+        p.mods.push({ type:'AHD ENV', dest:lbl(MOD_DESTS, b[o]), amount:b[o+1],
+          attack:b[o+2], hold:b[o+3], decay:b[o+4], env:[b[o+2],b[o+3],b[o+4]] });
+      }
+      for (let l = 0; l < 2; l++) {
+        const o = mo + 12 + l * 6;
+        p.mods.push({ type:'LFO', shape:lbl(LFO_SHAPES, b[o]), dest:lbl(MOD_DESTS, b[o+1]),
+          trigger:b[o+2], freq:b[o+3], amount:b[o+4], retrigger:b[o+5] });
+      }
+    }
+    return p;
+  }
+
+  // ── Sample path writer (repair mode) ────────────────────
+  // The path field is 128 bytes at base+0x57: content + zero fill.
+  function writeSamplePath(b, base, path) {
+    const bytes = new TextEncoder().encode(path);
+    if (bytes.length > 127) throw new Error(`Path too long (${bytes.length} bytes, max 127): ${path}`);
+    b.fill(0x00, base + SAMP_OFF, base + SAMP_OFF + 128);
+    b.set(bytes, base + SAMP_OFF);
+  }
+
+  // ── WAV header parser ───────────────────────────────────
+  // Reads RIFF/fmt from a head slice; duration falls back to an estimate
+  // from total file size when the data chunk is not in the slice.
+  function parseWavHeader(u8, totalSize) {
+    if (u8.length < 36) return null;
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    const tag = o => String.fromCharCode(u8[o],u8[o+1],u8[o+2],u8[o+3]);
+    if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return null;
+    let off = 12, fmt = null, dataSize = null;
+    while (off + 8 <= u8.length) {
+      const id = tag(off), size = dv.getUint32(off + 4, true);
+      if (id === 'fmt ' && off + 24 <= u8.length) {
+        fmt = {
+          channels: dv.getUint16(off + 10, true),
+          sampleRate: dv.getUint32(off + 12, true),
+          byteRate: dv.getUint32(off + 16, true),
+          bits: dv.getUint16(off + 22, true),
+        };
+      } else if (id === 'data') { dataSize = size; }
+      off += 8 + size + (size % 2);
+    }
+    if (!fmt || !fmt.sampleRate || !fmt.byteRate) return null;
+    const bytes = dataSize ?? (totalSize != null ? Math.max(0, totalSize - 44) : null);
+    return { channels:fmt.channels, sampleRate:fmt.sampleRate, bits:fmt.bits,
+      duration: bytes != null ? bytes / fmt.byteRate : null };
+  }
+
+  // ── Scale detection (shared by histogram UI and key analysis) ──
+  const SCALES = [
+    {n:'Major',       iv:[0,2,4,5,7,9,11]},
+    {n:'Nat. Minor',  iv:[0,2,3,5,7,8,10]},
+    {n:'Harm. Minor', iv:[0,2,3,5,7,8,11]},
+    {n:'Dorian',      iv:[0,2,3,5,7,9,10]},
+    {n:'Mixolydian',  iv:[0,2,4,5,7,9,10]},
+    {n:'Phrygian',    iv:[0,1,3,5,7,8,10]},
+    {n:'Lydian',      iv:[0,2,4,6,7,9,11]},
+    {n:'Pentat. Maj', iv:[0,2,4,7,9]},
+    {n:'Pentat. Min', iv:[0,3,5,7,10]},
+  ];
+  function detectScales(phrases) {
+    const bins = new Array(12).fill(0);
+    let total = 0;
+    for (const ph of phrases)
+      for (const s of ph)
+        if (s.note !== 0xFF) { bins[s.note % 12]++; total++; }
+    if (total === 0) return { bins, total, candidates: [] };
+    const maxBin = Math.max(...bins, 1);
+    const norm = bins.map(v => v / maxBin);
+    const candidates = [];
+    for (const {n, iv} of SCALES) {
+      for (let root = 0; root < 12; root++) {
+        const mask = new Array(12).fill(0);
+        for (const i of iv) mask[(root+i)%12] = 1;
+        const inScore  = iv.reduce((s,i) => s + norm[(root+i)%12], 0) / iv.length;
+        const outCount = 12 - iv.length;
+        const outScore = outCount > 0 ? norm.reduce((s,v,i) => mask[i] ? s : s+v, 0) / outCount : 0;
+        candidates.push({root:NOTES[root], scale:n, label:`${NOTES[root]} ${n}`, score: inScore - outScore*0.6});
+      }
+    }
+    candidates.sort((a,b) => b.score - a.score);
+    return { bins, total, candidates };
+  }
+
   // ── Pattern parser ──────────────────────────────────────
   // Offsets from AlexCharlton/m8-files V4_OFFSETS. The core layout
   // (grid → phrases → chains → tables → instruments) is sequential and
@@ -1167,17 +1458,19 @@ const M8 = (() => {
     'VT7','VT8','DJF','IVO','ICH','IDE','IRE','IV2','IC2','ID2','IR2','USB',
   ];
   const INSTR_FX_COMMON = ['VOL','PIT','FIN']; // 0x80-0x82 for all synth types
-  const INSTR_FX_TAIL = [ // 0x88-0xA1 shared across synth types
-    'FIL','CUT','RES','AMP','LIM','PAN','DRY','SCH','SDL','SRV',
+  const fxTail = flt => [ // 0x88-0xA1 shared block (filter cmd name varies)
+    flt,'CUT','RES','AMP','LIM','PAN','DRY','SCH','SDL','SRV',
     'EA1','AT1','HO1','DE1','ET1','EA2','AT2','HO2','DE2','ET2',
     'LA1','LF1','LT1','LA2','LF2','LT2',
   ];
   const INSTR_FX_CMDS = {
-    WAVSYNTH:   [...INSTR_FX_COMMON,'OSC','SIZ','MUL','WRP','MIR',...INSTR_FX_TAIL],
-    MACROSYNTH: [...INSTR_FX_COMMON,'OSC','TBR','COL','DEG','RED',...INSTR_FX_TAIL,'TRG'],
-    SAMPLER:    [...INSTR_FX_COMMON,'PLY','STA','LOP','LEN','DEG',...INSTR_FX_TAIL,'SLI'],
-    FMSYNTH:    [...INSTR_FX_COMMON,'ALG','FM1','FM2','FM3','FM4',...INSTR_FX_TAIL,'FMP'],
-    MIDIOUT:    ['MPG','MPB','ADD','CHD','CCA','CCB','CCC','CCD','CCE','CCF','CCG','CCH','CCI','CCJ'],
+    WAVSYNTH:     [...INSTR_FX_COMMON,'OSC','SIZ','MUL','WRP','MIR',...fxTail('FIL')],
+    MACROSYNTH:   [...INSTR_FX_COMMON,'OSC','TBR','COL','DEG','RED',...fxTail('FIL'),'TRG'],
+    SAMPLER:      [...INSTR_FX_COMMON,'PLY','STA','LOP','LEN','DEG',...fxTail('FLT'),'SLI'],
+    FMSYNTH:      [...INSTR_FX_COMMON,'ALG','FM1','FM2','FM3','FM4',...fxTail('FIL'),'FMP'],
+    MIDIOUT:      ['MPG','MPB','ADD','CHD','CCA','CCB','CCC','CCD','CCE','CCF','CCG','CCH','CCI','CCJ'],
+    HYPERSYNTH:   [...INSTR_FX_COMMON,'CRD','SHF','SWM','WID','SUB',...fxTail('FLT')],
+    EXTERNALINST: ['VOL','PIT','MPB','MPG','CCA','CCB','CCC','CCD',...fxTail('FLT'),'ADD','CHD'],
   };
   function fxName(cmd, typeName) {
     if (cmd === 0xFF || cmd == null) return null;
@@ -1232,7 +1525,9 @@ const M8 = (() => {
 
   return { parseSong, parseInstrFile, parseTheme, parseGroove,
     parseSongPatterns, noteStr, fxStr, fxName,
-    rgbHex, fmtVer, verNum, THEME_COLORS };
+    decodeInstrParams, writeSamplePath, parseWavHeader, detectScales,
+    rgbHex, fmtVer, verNum, THEME_COLORS,
+    OFFSETS: { INSTR_TABLE, ISIZE, SAMP_OFF } };
 })();
 
 
@@ -1269,12 +1564,12 @@ const Cache = (() => {
   async function load(key) {
     try {
       const data = await tx(LIB, 'readonly', s => s.get(key));
-      if (!data || data.cacheVer !== 3) return null;
+      if (!data || data.cacheVer !== 4) return null;
       return data;
     } catch { return null; }
   }
   async function save(data) {
-    try { await tx(LIB, 'readwrite', s => s.put({...data, cacheVer:3})); }
+    try { await tx(LIB, 'readwrite', s => s.put({...data, cacheVer:4})); }
     catch(e) { console.warn('Cache.save:', e); }
   }
   async function remove(key) {
@@ -1488,7 +1783,7 @@ const Scanner = (() => {
   }
 
   async function catalogueSamples(sdRoot, onCount) {
-    const known = new Set(), rels = [], sizes = [];
+    const known = new Set(), rels = [], sizes = [], realRels = [];
     let total = 0;
     async function walkAndIndex(dir, prefix) {
       const subtasks = [];
@@ -1500,8 +1795,9 @@ const Scanner = (() => {
           const lc = rel.toLowerCase();
           let size = 0;
           try { size = (await handle.getFile()).size; } catch {}
-          // rels/sizes pushed together synchronously to stay aligned
-          rels.push(lc); sizes.push(size); known.add(lc); known.add('/'+lc);
+          // rels/sizes/realRels pushed together synchronously to stay aligned
+          rels.push(lc); sizes.push(size); realRels.push(rel);
+          known.add(lc); known.add('/'+lc);
           if (total % 25 === 0) onCount?.(total);
         }
       }
@@ -1511,7 +1807,7 @@ const Scanner = (() => {
       let dir; try { dir = await sdRoot.getDirectoryHandle(dirName); } catch { return; }
       await walkAndIndex(dir, dirName);
     }));
-    return { known, rels, sizes, count:total };
+    return { known, rels, sizes, realRels, count:total };
   }
 
   function sampleFound(path, known) {
@@ -1921,7 +2217,12 @@ const UI = (() => {
   let sampIndexed=false;
   let skippedFiles=[];              // unreadable/unparseable files from last scan
   let sampleSizeMap=new Map();      // lowercase wav rel path → bytes (from catalogue)
+  let sampleRealMap=new Map();      // lowercase wav rel path → original-case path
   let dupeSampGroups=null;          // content-duplicate scan results (null = not run)
+  let songKeys={};                  // filePath → {key, mtime} from key analysis
+  let writeEnabled=false;           // repair mode permission granted
+  // Set builder
+  let setSelection=new Set();       // selected song filePaths
   // Renders (lazy-scanned when tab first visited)
   let renders=[], rendersScanned=false;
   // Stats
@@ -2004,6 +2305,8 @@ const UI = (() => {
       if (sdHandle && !bundleBrScanned) scanBundleBrowser();
       else if (bundleBrScanned) renderBundleBrowser();
       else $('bb-list').innerHTML = '<div class="no-results">Open an SD card first.</div>';
+    } else if (name === 'sets') {
+      renderSets();
     }
   }
   function kickLazyTab() {
@@ -2030,6 +2333,21 @@ const UI = (() => {
 
   function firmStr(song) { return M8.fmtVer(song.header.version); }
   function firmNum(song) { return M8.verNum(song.header.version); }
+  function bpmOf(song)   { return song.tempo != null && !isNaN(song.tempo) && song.tempo > 0 ? song.tempo : 0; }
+  const KEY_SHORT = {'Major':'maj','Nat. Minor':'min','Harm. Minor':'hmin','Dorian':'dor',
+    'Mixolydian':'mix','Phrygian':'phr','Lydian':'lyd','Pentat. Maj':'pmaj','Pentat. Min':'pmin'};
+  function keyOf(song) { return songKeys[song.filePath]?.key || ''; }
+  function keyShort(song) {
+    const k = keyOf(song);
+    if (!k) return '';
+    const sp = k.indexOf(' ');
+    return k.slice(0, sp) + ' ' + (KEY_SHORT[k.slice(sp+1)] || k.slice(sp+1));
+  }
+  function bpmKeyLabel(song) {
+    const bpm = bpmOf(song), k = keyShort(song);
+    if (!bpm && !k) return '';
+    return `${bpm ? Math.round(bpm) : ''}${bpm && k ? ' · ' : ''}${k}`;
+  }
 
   // ── Cache bar ──────────────────────────────────────────
   function setCacheBar(state, ts, stats) {
@@ -2142,7 +2460,8 @@ const UI = (() => {
     $('main').classList.add('visible');
     sampIndexed=false; known=new Set(); dirCounts={};
     renders=[]; rendersScanned=false;
-    skippedFiles=[]; sampleSizeMap=new Map(); dupeSampGroups=null;
+    skippedFiles=[]; sampleSizeMap=new Map(); sampleRealMap=new Map(); dupeSampGroups=null;
+    songKeys={}; writeEnabled=false; setSelection=new Set();
     setCatNotice('idle');
 
     const cached = await Cache.load(cacheKey);
@@ -2151,11 +2470,13 @@ const UI = (() => {
       themes=cached.themes||[]; grooves=cached.grooves||[];
       dirCounts=cached.dirCounts||{};
       skippedFiles=cached.skipped||[];
+      songKeys=cached.songKeys||{};
       rebuildMaps();
       if (cached.sampIndexed && cached.sampleRels?.length) {
         known=Cache.rebuildKnown(cached.sampleRels);
         sampIndexed=true;
-        sampleSizeMap=buildSampleSizeMap(cached.sampleRels, cached.sampleSizes);
+        sampleSizeMap=buildAlignedMap(cached.sampleRels, cached.sampleSizes);
+        sampleRealMap=buildAlignedMap(cached.sampleRels, cached.sampleRealRels||[]);
         setCatNotice('cached', dirCounts.Samples||cached.sampleRels.length);
       }
       renderAll(); setCacheBar('cached', cached.ts);
@@ -2172,16 +2493,18 @@ const UI = (() => {
       rebuildMaps();
       const ts=Date.now();
       await Cache.save({key:cacheKey, ts, songs, instrs, themes, grooves,
-        sampleRels:[], sampleSizes:[], sampIndexed:false, dirCounts, skipped:skippedFiles});
+        sampleRels:[], sampleSizes:[], sampleRealRels:[], sampIndexed:false,
+        dirCounts, skipped:skippedFiles, songKeys:{}});
       renderAll(); setCacheBar('fresh', ts, r.stats);
     }
     kickLazyTab(); // restored active tab may be a lazy-scanned one
   }
 
-  function buildSampleSizeMap(rels, sizes) {
+  // Build a Map from two aligned arrays (keys, values)
+  function buildAlignedMap(keys, vals) {
     const m = new Map();
-    if (rels && sizes && rels.length === sizes.length)
-      for (let i = 0; i < rels.length; i++) m.set(rels[i], sizes[i]);
+    if (keys && vals && keys.length === vals.length)
+      for (let i = 0; i < keys.length; i++) m.set(keys[i], vals[i]);
     return m;
   }
 
@@ -2191,6 +2514,7 @@ const UI = (() => {
     renderProblems(); renderGrooves(); renderBackupCounts();
     renderHealthBar();
     renderStats();
+    renderSets();
     // Renders tab re-checks if already scanned
     if (rendersScanned) renderRendersTab();
     if (sampbrScanned) renderSampBrowser();
@@ -2235,6 +2559,7 @@ const UI = (() => {
     const prevCache = await Cache.load(cacheKey);
     const prevRels    = (prevCache?.sampIndexed && prevCache?.sampleRels?.length) ? prevCache.sampleRels : [];
     const prevSizes   = prevRels.length ? (prevCache.sampleSizes||[]) : [];
+    const prevReal    = prevRels.length ? (prevCache.sampleRealRels||[]) : [];
     const prevIndexed = prevRels.length > 0;
     songs=[]; instrs=[]; themes=[]; grooves=[];
     if (!prevIndexed) { known=new Set(); sampIndexed=false; setCatNotice('idle'); }
@@ -2250,10 +2575,12 @@ const UI = (() => {
     rebuildMaps();
     const ts=Date.now();
     await Cache.save({key:cacheKey, ts, songs, instrs, themes, grooves,
-      sampleRels:prevRels, sampleSizes:prevSizes, sampIndexed:prevIndexed, dirCounts, skipped:skippedFiles});
+      sampleRels:prevRels, sampleSizes:prevSizes, sampleRealRels:prevReal,
+      sampIndexed:prevIndexed, dirCounts, skipped:skippedFiles, songKeys});
     if (prevIndexed) {
       known=Cache.rebuildKnown(prevRels); sampIndexed=true;
-      sampleSizeMap=buildSampleSizeMap(prevRels, prevSizes);
+      sampleSizeMap=buildAlignedMap(prevRels, prevSizes);
+      sampleRealMap=buildAlignedMap(prevRels, prevReal);
       setCatNotice('cached', dirCounts.Samples||prevRels.length);
     }
     renderAll(); setCacheBar('fresh', ts, r.stats);
@@ -2265,7 +2592,8 @@ const UI = (() => {
     setCatNotice('running');
     const r = await Scanner.catalogueSamples(sdHandle, n=>setCatNotice('running',`${n} found…`));
     known=r.known; sampIndexed=true;
-    sampleSizeMap=buildSampleSizeMap(r.rels, r.sizes);
+    sampleSizeMap=buildAlignedMap(r.rels, r.sizes);
+    sampleRealMap=buildAlignedMap(r.rels, r.realRels);
     sampleUsageMap = Scanner.buildSampleUsageMap(songs, instrs);
     setCatNotice('done', r.count);
     dirCounts={...dirCounts, Samples:r.count};
@@ -2275,7 +2603,8 @@ const UI = (() => {
     await Cache.save({ts:Date.now(), ...cached, key:cacheKey,
       songs:cached.songs||songs, instrs:cached.instrs||instrs,
       themes:cached.themes||themes, grooves:cached.grooves||grooves,
-      sampleRels:r.rels, sampleSizes:r.sizes, sampIndexed:true, dirCounts, skipped:skippedFiles});
+      sampleRels:r.rels, sampleSizes:r.sizes, sampleRealRels:r.realRels,
+      sampIndexed:true, dirCounts, skipped:skippedFiles, songKeys});
     renderAll();
   });
 
@@ -2287,6 +2616,33 @@ const UI = (() => {
   $('song-firm-filter').addEventListener('change', e=>{ songFirmFilter=e.target.value; renderSongs(); saveUiState(); });
   $('song-miss-btn').addEventListener('click', ()=>{ songMissOnly=!songMissOnly; $('song-miss-btn').classList.toggle('on',songMissOnly); renderSongs(); });
   $('song-bundle-btn').addEventListener('click', ()=>{ songBundleFilter=!songBundleFilter; $('song-bundle-btn').classList.toggle('on',songBundleFilter); renderSongs(); });
+
+  // Key analysis: reads each song's pattern data once, caches by mtime
+  $('btn-analyze-keys').addEventListener('click', async () => {
+    if (!sdHandle || !songs.length) return;
+    const btn = $('btn-analyze-keys');
+    btn.disabled = true;
+    let done = 0;
+    for (const s of songs) {
+      done++;
+      const prev = songKeys[s.filePath];
+      if (prev && prev.mtime === s.lastModified) continue;
+      try {
+        const pat = await readSongPatterns(s);
+        let key = null;
+        if (pat) {
+          const {total, candidates} = M8.detectScales(pat.phrases);
+          if (total >= 8 && candidates.length) key = candidates[0].label;
+        }
+        songKeys[s.filePath] = {key, mtime: s.lastModified};
+      } catch(e) { console.warn('key analysis:', s.filePath, e); }
+      if (done % 5 === 0) $('songs-stat').textContent = `Analyzing keys… ${done}/${songs.length}`;
+    }
+    await persistLibrary();
+    btn.disabled = false;
+    btn.classList.add('on');
+    renderSongs();
+  });
 
   ['compact','list','grid'].forEach(v => $('vtog-'+v).addEventListener('click', () => {
     songView=v;
@@ -2310,6 +2666,9 @@ const UI = (() => {
       if (songSort==='date-asc')   return (a.lastModified||0)-(b.lastModified||0);
       if (songSort==='missing')    return (songMissCount(b)-songMissCount(a))||a.name.localeCompare(b.name);
       if (songSort==='instrs')     return (b.instruments.length-a.instruments.length)||a.name.localeCompare(b.name);
+      if (songSort==='bpm-desc')   return (bpmOf(b)-bpmOf(a))||a.name.localeCompare(b.name);
+      if (songSort==='bpm-asc')    return ((bpmOf(a)||9999)-(bpmOf(b)||9999))||a.name.localeCompare(b.name);
+      if (songSort==='key')        return (keyOf(a)||'~~').localeCompare(keyOf(b)||'~~')||a.name.localeCompare(b.name);
       if (songSort==='firm-desc')  return (firmNum(b)-firmNum(a))||a.name.localeCompare(b.name);
       if (songSort==='firm-asc')   return (firmNum(a)-firmNum(b))||a.name.localeCompare(b.name);
       return a.name.localeCompare(b.name);
@@ -2410,6 +2769,7 @@ const UI = (() => {
       <span class="s-name">${esc(song.name)}</span>
       <span class="s-file">${esc(song.fileName)}${bundleTip}</span>
       <span class="s-ver">${firmStr(song)}</span>
+      <span class="s-bpm" title="${esc(keyOf(song))}">${esc(bpmKeyLabel(song))}</span>
       <span class="s-ic">${song.instruments.length} instr</span>
       <span class="s-miss ${mi.cls}">${mi.lbl}</span>
       <button class="btn ghost sm btn-diff-row" data-sname="${esc(song.name)}" data-spath="${esc(song.filePath)}" title="Compare with…" style="padding:2px 7px;font-size:12px;flex-shrink:0;margin-left:4px">⇌</button>
@@ -2448,7 +2808,7 @@ const UI = (() => {
           <div class="sc-name">${esc(song.name)}</div>
           <div class="sc-file">${esc(song.filePath)}</div>
           <div class="sc-foot">
-            <span class="sc-ic">${song.instruments.length} instr</span>
+            <span class="sc-ic">${song.instruments.length} instr${bpmKeyLabel(song) ? ' · ' + esc(bpmKeyLabel(song)) : ''}</span>
             <span class="sc-ver">${firmStr(song)}</span>
             ${song.hasBundle?'<span class="sc-bundle" title="Bundle">📦</span>':''}
             <span class="sc-badge ${mi.cls}">${mi.lbl}</span>
@@ -2574,7 +2934,8 @@ const UI = (() => {
     const bpm = song.tempo != null && !isNaN(song.tempo) && song.tempo > 0
       ? ` · ${song.tempo.toFixed(1)} BPM` : '';
     $('modal-title').textContent = song.name;
-    $('modal-meta').textContent  = `${song.filePath} · ${firmStr(song)}${bpm}${song.hasBundle?' · 📦':''}`;
+    const keyStr = keyOf(song) ? ` · ${keyOf(song)}` : '';
+    $('modal-meta').textContent  = `${song.filePath} · ${firmStr(song)}${bpm}${keyStr}${song.hasBundle?' · 📦':''}`;
     // Nav buttons
     const hasNav = _modalSongList.length > 1 && _modalSongIdx >= 0;
     $('btn-modal-prev').style.display = hasNav ? '' : 'none';
@@ -2794,6 +3155,7 @@ const UI = (() => {
       dh += `<div class="drow"><span class="dlabel">Used in</span><span class="dval dim">Not in any scanned song</span></div>`;
     }
     dh += `<div class="drow"><span class="dlabel">File</span><span class="dval dim">${esc(instr.filePath)} · ${M8.fmtVer(instr.header.version)}</span></div>`;
+    if (instr.params) dh += buildInstrParamsHtml(instr.params);
 
     const item = document.createElement('div');
     item.className = 'instr-item';
@@ -2831,6 +3193,47 @@ const UI = (() => {
       });
     });
     return item;
+  }
+
+  // ── Instrument parameter inspection ────────────────────
+  function envSvg(env, color) {
+    // env = [attack, hold, decay] 0-255 each; draws a mini AHD curve
+    const [a, h, d] = env.map(v => Math.max(v, 2));
+    const total = a + h + d;
+    const W = 64, H = 18, sx = v => (v / total * W).toFixed(1);
+    const xa = +sx(a), xh = xa + +sx(h);
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="flex-shrink:0">
+      <polyline points="0,${H-1} ${xa},1 ${xh},1 ${W},${H-1}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
+  function buildInstrParamsHtml(p) {
+    const chip = (k, v) => `<span class="ipchip"><span class="ipk">${esc(k)}</span><span class="ipv">${esc(String(v))}</span></span>`;
+    const hx2 = v => v.toString(16).toUpperCase().padStart(2,'0');
+    let html = '';
+    const kp = Object.entries(p.kindParams || {});
+    if (kp.length)
+      html += `<div class="drow"><span class="dlabel">Synth</span><div class="ipwrap">${kp.map(([k,v])=>chip(k,v)).join('')}</div></div>`;
+    if (p.filter)
+      html += `<div class="drow"><span class="dlabel">Filter</span><div class="ipwrap">${
+        chip('TYPE', p.filter.name)}${chip('CUT', hx2(p.filter.cutoff))}${chip('RES', hx2(p.filter.res))}</div></div>`;
+    if (p.amp && p.mixer)
+      html += `<div class="drow"><span class="dlabel">Amp/Mix</span><div class="ipwrap">${
+        chip('AMP', hx2(p.amp.amp))}${chip('LIM', p.amp.limit)}${chip('PAN', hx2(p.mixer.pan))}${chip('DRY', hx2(p.mixer.dry))}${
+        chip('CHO', hx2(p.mixer.chorus))}${chip('DEL', hx2(p.mixer.delay))}${chip('REV', hx2(p.mixer.reverb))}</div></div>`;
+    const activeMods = (p.mods || []).filter(m => m.dest !== 'OFF' || (m.amount ?? 0) > 0);
+    if (activeMods.length) {
+      const rows = activeMods.map(m => {
+        const fields = Object.entries(m)
+          .filter(([k]) => !['type','dest','env'].includes(k))
+          .map(([k,v]) => `${k.toUpperCase().slice(0,4)} ${typeof v === 'number' ? hx2(v) : esc(String(v))}`)
+          .join(' · ');
+        const curve = m.env ? envSvg(m.env, 'var(--accent)') : '';
+        return `<div class="imod">${curve}<span class="imod-type">${esc(m.type)}</span><span class="imod-dest">→ ${esc(m.dest)}</span><span class="imod-fields">${fields}</span></div>`;
+      }).join('');
+      html += `<div class="drow"><span class="dlabel">Mods</span><div style="flex:1;display:flex;flex-direction:column;gap:3px">${rows}</div></div>`;
+    }
+    return html;
   }
 
   function countMatchingInstrs(node) {
@@ -2899,7 +3302,33 @@ const UI = (() => {
   // ══════════════════════════════════════════════════════
   // THEMES
   // ══════════════════════════════════════════════════════
+  // ── Theme skinning: apply an .m8t palette to the app itself ──
+  const mixRgb = (a, b, t) => ({ r:Math.round(a.r+(b.r-a.r)*t), g:Math.round(a.g+(b.g-a.g)*t), b:Math.round(a.b+(b.b-a.b)*t) });
+  const cssRgb = c => `rgb(${c.r},${c.g},${c.b})`;
+  function applyAppTheme(colors, save = true) {
+    if (!colors?.background || !colors?.text) return;
+    const bg = colors.background, tx = colors.text;
+    const accent = colors.cursor || colors.play || tx;
+    const rs = document.documentElement.style;
+    rs.setProperty('--bg', cssRgb(bg));
+    rs.setProperty('--surface',  cssRgb(mixRgb(bg, tx, 0.05)));
+    rs.setProperty('--surface2', cssRgb(mixRgb(bg, tx, 0.10)));
+    rs.setProperty('--border',   cssRgb(mixRgb(bg, tx, 0.16)));
+    rs.setProperty('--border2',  cssRgb(mixRgb(bg, tx, 0.26)));
+    rs.setProperty('--text', cssRgb(tx));
+    rs.setProperty('--muted', cssRgb(mixRgb(bg, tx, 0.55)));
+    rs.setProperty('--accent', cssRgb(accent));
+    if (save) { try { localStorage.setItem('m8lib-apptheme', JSON.stringify(colors)); } catch {} }
+  }
+  function resetAppTheme() {
+    ['--bg','--surface','--surface2','--border','--border2','--text','--muted','--accent']
+      .forEach(v => document.documentElement.style.removeProperty(v));
+    try { localStorage.removeItem('m8lib-apptheme'); } catch {}
+  }
+  try { const t = JSON.parse(localStorage.getItem('m8lib-apptheme')||'null'); if (t) applyAppTheme(t, false); } catch {}
+
   $('theme-q').addEventListener('input', e => { themeFilter=e.target.value.toLowerCase(); renderThemes(); });
+  $('btn-theme-reset').addEventListener('click', resetAppTheme);
   $('tvtog-compact').addEventListener('click', () => { themeExpanded=false; $('tvtog-compact').classList.add('active'); $('tvtog-expanded').classList.remove('active'); renderThemes(); saveUiState(); });
   $('tvtog-expanded').addEventListener('click', () => { themeExpanded=true; $('tvtog-expanded').classList.add('active'); $('tvtog-compact').classList.remove('active'); renderThemes(); saveUiState(); });
 
@@ -2943,8 +3372,10 @@ const UI = (() => {
       const card = document.createElement('div');
       card.className = themeExpanded ? 'theme-card expanded' : 'theme-card';
       card.innerHTML = `${buildThemePreview(theme.colors)}
-        <div class="theme-info"><span class="theme-name">${esc(name)}</span><span class="theme-meta">${M8.fmtVer(theme.header.version)}</span></div>
+        <div class="theme-info"><span class="theme-name">${esc(name)}</span><span class="theme-meta">${M8.fmtVer(theme.header.version)}</span>
+          <button class="btn ghost sm theme-apply" title="Use this palette for the app UI">Use</button></div>
         <div class="theme-swatches">${buildThemeSwatches(theme.colors)}</div>`;
+      card.querySelector('.theme-apply').addEventListener('click', () => applyAppTheme(theme.colors));
       grid.appendChild(card);
     });
   }
@@ -3014,6 +3445,7 @@ const UI = (() => {
     $('pc-dupes').textContent = dupeKeys.length || '';
     $('pc-dupesamp').textContent = dupeSampGroups?.length || '';
     $('pc-backbone').textContent = backboneInstrs.length || '';
+    $('pc-repairlog').textContent = auditEntries().length || '';
 
     // Activate the current section button
     document.querySelectorAll('.prob-btn[data-psec]').forEach(b =>
@@ -3060,7 +3492,11 @@ const UI = (() => {
               <div class="prob-name">${esc(i.name)}</div>
               <div class="prob-sub">${esc(i.samplePath)}</div>
             </div>
+            <button class="btn sm dim btn-fix-row">🔧 Fix</button>
             <span class="prob-right">${esc(i.filePath)}</span>`;
+          row.querySelector('.btn-fix-row').addEventListener('click', e => {
+            e.stopPropagation(); openFixModal({type:'instr', obj:i});
+          });
           row.addEventListener('click', () => {
             instrFilter=i.name.toLowerCase(); $('instr-q').value=instrFilter;
             switchTab('instruments'); renderInstrs();
@@ -3086,7 +3522,11 @@ const UI = (() => {
               <div class="prob-name">${esc(song.name)}</div>
               <div class="prob-sub">${bi.map(i=>esc(i.name)).join(', ')}</div>
             </div>
+            <button class="btn sm dim btn-fix-row">🔧 Fix</button>
             <span class="prob-right">${bi.length} missing</span>`;
+          row.querySelector('.btn-fix-row').addEventListener('click', e => {
+            e.stopPropagation(); openFixModal({type:'song', obj:song});
+          });
           row.addEventListener('click', () => openSongModal(song));
           el.appendChild(row);
         }
@@ -3273,6 +3713,30 @@ const UI = (() => {
       });
     }
 
+    else if (problemsSection==='repairlog') {
+      const entries = auditEntries();
+      if (!entries.length) {
+        el.innerHTML='<div class="prob-empty">No repairs made yet.<br>Repairs appear on broken items as 🔧 Fix buttons (Catalogue Samples first).</div>';
+        return;
+      }
+      const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
+      hdr.textContent=`${entries.length} repair${entries.length!==1?'s':''} · also mirrored to M8Librarian_Backups/audit-log.txt on the card`;
+      el.appendChild(hdr);
+      [...entries].reverse().forEach(e2 => {
+        const row = document.createElement('div'); row.className='prob-row';
+        row.style.cursor='default';
+        const when = new Date(e2.ts).toLocaleString();
+        const refs = (e2.refs||[]).map(r=>`${esc(r.from)} → ${esc(r.to)}`).join('<br>');
+        row.innerHTML=`<span class="prob-icon" style="color:${e2.verified?'var(--c-found)':'var(--c-miss)'}">${e2.verified?'✓':'✗'}</span>
+          <div class="prob-main">
+            <div class="prob-name">${esc(e2.file)}${e2.output && e2.output!==e2.file ? ' → '+esc(e2.output) : ''} <span style="color:var(--muted);font-weight:400">(${esc(e2.mode)})</span></div>
+            <div class="prob-sub" style="font-family:monospace;white-space:normal">${refs}${e2.error?'<br>Error: '+esc(e2.error):''}</div>
+          </div>
+          <span class="prob-right">${esc(when)}</span>`;
+        el.appendChild(row);
+      });
+    }
+
     else if (problemsSection==='hotsamples') {
       if (!sampleUsageMap.size) {
         el.innerHTML='<div class="prob-empty">Run Catalogue Samples first to see sample usage data.</div>';
@@ -3430,6 +3894,284 @@ const UI = (() => {
   function closeSampModal() { $('samp-modal').classList.remove('open'); }
   $('btn-samp-close').addEventListener('click', closeSampModal);
   $('samp-modal').addEventListener('click', e => { if (e.target===$('samp-modal')) closeSampModal(); });
+
+  // ══════════════════════════════════════════════════════
+  // REPAIR MODE — relink broken sample references
+  // ══════════════════════════════════════════════════════
+  // Never writes without explicit confirmation. Default is save-as-copy;
+  // overwrite mode backs the original up to M8Librarian_Backups/ first.
+  // Every write is verified by re-reading and re-parsing the file, and
+  // recorded in an audit log (localStorage + audit-log.txt on the card).
+
+  const normPath = p => p.toLowerCase().replace(/\\/g,'/').replace(/^\//,'');
+
+  async function resolveFileHandle(root, path, opts = {}) {
+    const parts = path.replace(/\\/g,'/').replace(/^\//,'').split('/').filter(Boolean);
+    let dir = root;
+    for (let i = 0; i < parts.length - 1; i++)
+      dir = await dir.getDirectoryHandle(parts[i], {create: !!opts.createDirs});
+    return dir.getFileHandle(parts[parts.length - 1], {create: !!opts.createFile});
+  }
+
+  async function ensureWriteAccess() {
+    if (writeEnabled) return true;
+    try {
+      const perm = await sdHandle.requestPermission({mode:'readwrite'});
+      writeEnabled = perm === 'granted';
+    } catch(e) { console.warn('ensureWriteAccess:', e); }
+    updateRoBadge();
+    return writeEnabled;
+  }
+
+  function updateRoBadge() {
+    const b = $('ro-badge');
+    if (writeEnabled) { b.textContent = '🔓 REPAIR MODE'; b.classList.add('rw'); }
+    else { b.textContent = '🔒 READ ONLY'; b.classList.remove('rw'); }
+  }
+
+  // Rank catalogued WAVs as relink candidates for a broken path:
+  // exact basename match first, then stem containment.
+  function repairCandidates(brokenPath) {
+    const base = normPath(brokenPath).split('/').pop();
+    const stem = base.replace(/\.wav$/, '');
+    const out = [];
+    for (const [lc, real] of sampleRealMap) {
+      const b = lc.split('/').pop();
+      let score = 0;
+      if (b === base) score = 100;
+      else {
+        const bs = b.replace(/\.wav$/, '');
+        if (bs.includes(stem) || stem.includes(bs)) score = 50;
+      }
+      if (score) out.push({real, score});
+    }
+    out.sort((a,b) => b.score - a.score || a.real.localeCompare(b.real));
+    return out.slice(0, 40);
+  }
+
+  // ── Audit log ──────────────────────────────────────────
+  function auditEntries() {
+    try { return JSON.parse(localStorage.getItem('m8lib-audit') || '[]'); } catch { return []; }
+  }
+  async function auditLog(entry) {
+    const entries = auditEntries();
+    entries.push(entry);
+    try { localStorage.setItem('m8lib-audit', JSON.stringify(entries.slice(-500))); } catch {}
+    // Best-effort mirror to the card so the log travels with it
+    try {
+      const fh = await resolveFileHandle(sdHandle, 'M8Librarian_Backups/audit-log.txt', {createDirs:true, createFile:true});
+      const w = await fh.createWritable();
+      const lines = entries.map(e =>
+        `${e.ts}  ${e.mode.toUpperCase()}  ${e.file}${e.output && e.output!==e.file ? ' → '+e.output : ''}${e.backup ? '  (backup: '+e.backup+')' : ''}\n`
+        + e.refs.map(r => `    ${r.instr}: ${r.from}  →  ${r.to}\n`).join('')
+      );
+      await w.write(new TextEncoder().encode('M8 Librarian repair log\n\n' + lines.join('\n')));
+      await w.close();
+    } catch(e) { console.warn('audit file write:', e); }
+  }
+
+  // ── Fix modal ──────────────────────────────────────────
+  let _fixTarget = null; // {type:'song'|'instr', obj}
+
+  function brokenRefsFor(target) {
+    if (target.type === 'instr') {
+      const i = target.obj;
+      return (i.samplePath && Scanner.sampleFound(i.samplePath, known) === false) ? [i.samplePath] : [];
+    }
+    return target.obj.samplePaths.filter(p => Scanner.sampleFound(p, known) === false);
+  }
+
+  function openFixModal(target) {
+    if (!sampIndexed || !sampleRealMap.size) {
+      alert('Run Catalogue Samples first — repair needs the sample index to suggest replacements.');
+      return;
+    }
+    _fixTarget = target;
+    const obj = target.obj;
+    const isSong = target.type === 'song';
+    const srcRel = (isSong ? 'Songs/' : 'Instruments/') + obj.filePath;
+    const refs = brokenRefsFor(target);
+    $('fix-title').textContent = `Repair ${isSong ? 'song' : 'instrument'}: ${obj.name}`;
+    $('fix-status').textContent = ''; $('fix-status').className = 'fix-status';
+    const body = $('fix-body'); body.innerHTML = '';
+
+    // Source file line
+    body.insertAdjacentHTML('beforeend',
+      `<div style="font-size:11px;color:var(--muted)">File: <span style="font-family:monospace">${esc(srcRel)}</span> · ${refs.length} broken reference${refs.length!==1?'s':''}. Nothing is written until you press Apply.</div>`);
+
+    // One block per broken path
+    refs.forEach((from, idx) => {
+      const cands = repairCandidates(from);
+      const lead = from.startsWith('/') ? '/' : '';
+      const options = cands.map(c =>
+        `<option value="${esc(lead + c.real)}"${c.score===100?' data-exact="1"':''}>${esc(lead + c.real)}${c.score===100?'  (same filename)':''}</option>`).join('');
+      const div = document.createElement('div');
+      div.className = 'fix-ref';
+      div.innerHTML = `
+        <div class="fix-broken">✗ ${esc(from)}</div>
+        <div class="fix-row">
+          <span class="fix-arrow">→</span>
+          ${cands.length
+            ? `<select class="fix-select" data-from="${esc(from)}">
+                 <option value="">— skip this one —</option>${options}
+               </select>
+               <button class="play-btn fix-preview" title="Preview selected">▶</button>`
+            : `<span class="fix-nocand">No matching WAV found on card (searched ${sampleRealMap.size} files)</span>`}
+        </div>`;
+      const sel = div.querySelector('.fix-select');
+      if (sel) {
+        // Preselect when there's exactly one exact-basename match
+        const exact = cands.filter(c => c.score === 100);
+        if (exact.length === 1) sel.value = lead + exact[0].real;
+        sel.addEventListener('change', updateFixApply);
+        div.querySelector('.fix-preview').addEventListener('click', e => {
+          if (sel.value) AudioPlayer.playPath(sdHandle, sel.value, e.target);
+        });
+      }
+      body.appendChild(div);
+    });
+
+    // Save mode
+    const ext = isSong ? '.m8s' : '.m8i';
+    const baseName = obj.fileName.replace(/\.(m8s|m8i)$/i, '');
+    body.insertAdjacentHTML('beforeend', `
+      <div class="fix-mode">
+        <label><input type="radio" name="fix-mode" value="copy" checked>
+          <span>Save as a new copy <span class="fix-mode-sub">(original untouched — recommended)</span><br>
+          <input class="fix-name-input" id="fix-copy-name" value="${esc(baseName + '_FIX' + ext)}" spellcheck="false"></span></label>
+        <label><input type="radio" name="fix-mode" value="overwrite">
+          <span>Overwrite the original <span class="fix-mode-sub">(a backup copy is saved to M8Librarian_Backups/ first)</span></span></label>
+      </div>`);
+
+    updateFixApply();
+    $('fix-modal').classList.add('open');
+  }
+
+  function fixSelections() {
+    return [...$('fix-body').querySelectorAll('.fix-select')]
+      .filter(s => s.value)
+      .map(s => ({from: s.dataset.from, to: s.value}));
+  }
+  function updateFixApply() { $('btn-fix-apply').disabled = fixSelections().length === 0; }
+  function closeFixModal() { $('fix-modal').classList.remove('open'); _fixTarget = null; }
+  $('btn-fix-close').addEventListener('click', closeFixModal);
+  $('btn-fix-cancel').addEventListener('click', closeFixModal);
+  $('fix-modal').addEventListener('click', e => { if (e.target === $('fix-modal')) closeFixModal(); });
+
+  $('btn-fix-apply').addEventListener('click', async () => {
+    if (!_fixTarget || !sdHandle) return;
+    const target = _fixTarget, obj = target.obj, isSong = target.type === 'song';
+    const sels = fixSelections();
+    if (!sels.length) return;
+    const status = $('fix-status');
+    const setStatus = (msg, cls) => { status.textContent = msg; status.className = 'fix-status' + (cls ? ' ' + cls : ''); };
+    const mode = document.querySelector('input[name="fix-mode"]:checked')?.value || 'copy';
+    $('btn-fix-apply').disabled = true;
+    try {
+      setStatus('Requesting write access…');
+      if (!await ensureWriteAccess()) { setStatus('Write access denied — nothing was changed.', 'err'); return; }
+
+      // Read the source file
+      const srcRel = (isSong ? 'Songs/' : 'Instruments/') + obj.filePath;
+      const srcFh = await resolveFileHandle(sdHandle, srcRel);
+      const buf = new Uint8Array(await (await srcFh.getFile()).arrayBuffer());
+
+      // Apply path rewrites in the buffer
+      const applied = [];
+      for (const {from, to} of sels) {
+        if (isSong) {
+          for (const inst of obj.instruments) {
+            if (inst.samplePath && normPath(inst.samplePath) === normPath(from)) {
+              M8.writeSamplePath(buf, M8.OFFSETS.INSTR_TABLE + inst.slot * M8.OFFSETS.ISIZE, to);
+              applied.push({instr: `${inst.name} (slot ${inst.slot})`, from, to});
+            }
+          }
+        } else {
+          M8.writeSamplePath(buf, 14, to);
+          applied.push({instr: obj.name, from, to});
+        }
+      }
+      if (!applied.length) { setStatus('No matching instrument slots found — nothing written.', 'err'); return; }
+
+      // Decide output location
+      const stamp = (() => { const d = new Date(), p = n => String(n).padStart(2,'0');
+        return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; })();
+      let outRel, backupRel = null;
+      if (mode === 'copy') {
+        let name = ($('fix-copy-name')?.value || '').trim();
+        const ext = isSong ? '.m8s' : '.m8i';
+        if (!name.toLowerCase().endsWith(ext)) name += ext;
+        const dir = obj.filePath.includes('/') ? obj.filePath.slice(0, obj.filePath.lastIndexOf('/') + 1) : '';
+        outRel = (isSong ? 'Songs/' : 'Instruments/') + dir + name;
+        // refuse to clobber an existing file
+        let exists = false;
+        try { await resolveFileHandle(sdHandle, outRel); exists = true; } catch {}
+        if (exists) { setStatus(`"${name}" already exists — choose a different name.`, 'err'); return; }
+      } else {
+        // Back up the original first
+        backupRel = `M8Librarian_Backups/${stamp}/${srcRel}`;
+        setStatus('Writing backup…');
+        const bfh = await resolveFileHandle(sdHandle, backupRel, {createDirs:true, createFile:true});
+        const bw = await bfh.createWritable();
+        await bw.write(await (await srcFh.getFile()).arrayBuffer());
+        await bw.close();
+        outRel = srcRel;
+      }
+
+      // Write
+      setStatus('Writing…');
+      const outFh = await resolveFileHandle(sdHandle, outRel, mode === 'copy' ? {createDirs:false, createFile:true} : {});
+      const w = await outFh.createWritable();
+      await w.write(buf);
+      await w.close();
+
+      // Verify: re-read and re-parse
+      setStatus('Verifying…');
+      const vfile = await (await resolveFileHandle(sdHandle, outRel)).getFile();
+      const vbuf = new Uint8Array(await vfile.arrayBuffer());
+      const parsed = isSong ? M8.parseSong(vbuf) : M8.parseInstrFile(vbuf);
+      if (!parsed) throw new Error('Verification failed: rewritten file did not parse');
+      const wanted = new Set(sels.map(s => normPath(s.to)));
+      const got = new Set((isSong ? parsed.samplePaths : [parsed.samplePath]).map(normPath));
+      for (const p of wanted) if (!got.has(p)) throw new Error(`Verification failed: ${p} not found in rewritten file`);
+
+      // Update in-memory library
+      const outPath = outRel.replace(/^(Songs|Instruments)\//, '');
+      const outName = outPath.split('/').pop();
+      const rec = {...parsed, fileName: outName, filePath: outPath,
+        fileSize: vfile.size, lastModified: vfile.lastModified,
+        ...(isSong ? {hasBundle: obj.hasBundle && mode === 'overwrite'} : {})};
+      const list = isSong ? songs : instrs;
+      const existingIdx = list.findIndex(x => x.filePath === outPath);
+      if (existingIdx >= 0) list[existingIdx] = rec; else list.push(rec);
+      list.sort((a,b) => a.filePath.localeCompare(b.filePath));
+      rebuildMaps();
+      await persistLibrary();
+
+      // Audit
+      await auditLog({ ts: new Date().toISOString(), mode, file: srcRel, output: outRel,
+        backup: backupRel, refs: applied, verified: true });
+
+      renderAll();
+      setStatus(`✓ Repaired ${applied.length} reference${applied.length!==1?'s':''} → ${outRel}${backupRel ? ' (backup saved)' : ''}`, 'ok');
+      $('btn-fix-apply').textContent = 'Done';
+      setTimeout(() => { closeFixModal(); $('btn-fix-apply').textContent = 'Apply Repair'; updateFixApply(); }, 1600);
+    } catch(e) {
+      console.error('applyFix:', e);
+      setStatus(`✗ ${e.message} — nothing further was changed.`, 'err');
+      await auditLog({ ts: new Date().toISOString(), mode, file: (isSong?'Songs/':'Instruments/')+obj.filePath,
+        output: null, backup: null, refs: sels.map(s=>({instr:'?', ...s})), verified: false, error: e.message });
+    } finally {
+      $('btn-fix-apply').disabled = fixSelections().length === 0;
+    }
+  });
+
+  // Persist the current in-memory library into the cache record
+  async function persistLibrary() {
+    const cached = await Cache.load(cacheKey) || {};
+    await Cache.save({ts: Date.now(), ...cached, key: cacheKey, songs, instrs, themes, grooves,
+      dirCounts, skipped: skippedFiles, songKeys});
+  }
 
   // ══════════════════════════════════════════════════════
   // DIFF MODAL
@@ -3639,41 +4381,9 @@ const UI = (() => {
 
   function buildNoteHistogram(phrases) {
     const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-    const bins = new Array(12).fill(0);
-    let total = 0;
-    for (const ph of phrases) {
-      for (const s of ph) {
-        if (s.note !== 0xFF) { bins[s.note % 12]++; total++; }
-      }
-    }
+    const { bins, total, candidates } = M8.detectScales(phrases);
     if (total === 0) return '';
     const maxBin = Math.max(...bins, 1);
-
-    // Scale detection: dot-product of normalised histogram vs scale mask
-    const SCALES = [
-      {n:'Major',       iv:[0,2,4,5,7,9,11]},
-      {n:'Nat. Minor',  iv:[0,2,3,5,7,8,10]},
-      {n:'Harm. Minor', iv:[0,2,3,5,7,8,11]},
-      {n:'Dorian',      iv:[0,2,3,5,7,9,10]},
-      {n:'Mixolydian',  iv:[0,2,4,5,7,9,10]},
-      {n:'Phrygian',    iv:[0,1,3,5,7,8,10]},
-      {n:'Lydian',      iv:[0,2,4,6,7,9,11]},
-      {n:'Pentat. Maj', iv:[0,2,4,7,9]},
-      {n:'Pentat. Min', iv:[0,3,5,7,10]},
-    ];
-    const norm = bins.map(b => b / maxBin);
-    const candidates = [];
-    for (const {n, iv} of SCALES) {
-      for (let root = 0; root < 12; root++) {
-        const mask = new Array(12).fill(0);
-        for (const i of iv) mask[(root+i)%12] = 1;
-        const inScore  = iv.reduce((s,i) => s + norm[(root+i)%12], 0) / iv.length;
-        const outCount = 12 - iv.length;
-        const outScore = outCount > 0 ? norm.reduce((s,v,i) => mask[i] ? s : s+v, 0) / outCount : 0;
-        candidates.push({label:`${NOTES[root]} ${n}`, score: inScore - outScore*0.6});
-      }
-    }
-    candidates.sort((a,b) => b.score - a.score);
     const top5 = candidates.slice(0, 5);
 
     const SHARP_IDX = new Set([1,3,6,8,10]);
@@ -3732,8 +4442,39 @@ const UI = (() => {
     const N_TRACKS = 8;
     // slot → instrument type, for resolving instrument-specific FX names
     const slotType = new Map((songInstrs||[]).map(i => [i.slot, i.typeName]));
+    // Stable color per chain id (golden-angle hue spacing)
+    const chainColor = v => `hsl(${(v * 137) % 360} 65% 55%)`;
 
     container.innerHTML = '';
+
+    // ── Arrangement map: tracks as lanes, song rows as time ──
+    const uniqueChains = new Set();
+    for (let r = 0; r < visRows; r++) for (const v of grid[r]) if (v !== 0xFF) uniqueChains.add(v);
+    {
+      const CW = 7, CH = 9, LX = 24;
+      const svgW = LX + visRows * CW + 4, svgH = 8 * CH + 4;
+      let rects = '';
+      for (let r = 0; r < visRows; r++)
+        for (let t = 0; t < 8; t++) {
+          const v = grid[r][t];
+          if (v === 0xFF) continue;
+          const hexV = v.toString(16).toUpperCase().padStart(2,'0');
+          rects += `<rect x="${LX + r*CW}" y="${t*CH + 2}" width="${CW-1}" height="${CH-1}" rx="1.5" fill="${chainColor(v)}" data-chain="${v}" style="cursor:pointer"><title>Row ${r.toString(16).toUpperCase().padStart(2,'0')} · T${t+1} · chain ${hexV}</title></rect>`;
+        }
+      const trackLbls = [...Array(8)].map((_,t) =>
+        `<text x="2" y="${t*CH + 2 + CH - 2}" fill="#737373" font-size="7" font-family="monospace">T${t+1}</text>`).join('');
+      const mapEl = document.createElement('div');
+      mapEl.className = 'pv-grid-wrap';
+      mapEl.innerHTML = `<div class="pv-detail-title" style="margin-bottom:4px">Arrangement · ${visRows} row${visRows!==1?'s':''} · ${uniqueChains.size} chain${uniqueChains.size!==1?'s':''}</div>
+        <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin-bottom:10px">${trackLbls}${rects}</svg>`;
+      mapEl.addEventListener('click', e => {
+        const rect = e.target.closest('rect[data-chain]');
+        if (!rect) return;
+        const v = +rect.dataset.chain;
+        showChainDetail(detailEl, v, chains[v], phrases, slotType);
+      });
+      container.appendChild(mapEl);
+    }
 
     // Column labels row
     const wrap = document.createElement('div'); wrap.className = 'pv-grid-wrap';
@@ -3755,6 +4496,7 @@ const UI = (() => {
         cell.className = v === 0xFF ? 'pv-cell' : 'pv-cell chain';
         cell.textContent = v === 0xFF ? '--' : v.toString(16).toUpperCase().padStart(2,'0');
         if (v !== 0xFF) {
+          cell.style.color = chainColor(v); // match the arrangement map
           cell.title = `Chain ${v.toString(16).toUpperCase()} — click to inspect`;
           cell.addEventListener('click', () => showChainDetail(detailEl, v, chains[v], phrases, slotType));
         }
@@ -3952,6 +4694,221 @@ const UI = (() => {
   $('btn-bb-scan').addEventListener('click', () => { bundleBrScanned=false; bundleBrData=[]; scanBundleBrowser(); });
 
   // ══════════════════════════════════════════════════════
+  // SET BUILDER — pick songs, export a lean self-contained card
+  // ══════════════════════════════════════════════════════
+  let setFilter = '';
+
+  function computeSetDeps() {
+    const songsSel = songs.filter(s => setSelection.has(s.filePath));
+    const sampleSet = new Map(); // lc → real-case path
+    const missing = new Set();
+    for (const s of songsSel)
+      for (const p of s.samplePaths) {
+        const k = normPath(p);
+        const real = sampleRealMap.get(k);
+        if (real) sampleSet.set(k, real);
+        else if (sampIndexed) missing.add(p);
+      }
+    const samples = [...sampleSet.entries()].map(([lc, real]) => ({real, size: sampleSizeMap.get(lc)||0}));
+    const totalBytes = songsSel.reduce((n,s)=>n+(s.fileSize||0), 0) + samples.reduce((n,x)=>n+x.size, 0);
+    return { songsSel, samples, missing:[...missing].sort(), totalBytes };
+  }
+
+  function setLog(cls, msg) {
+    const log = $('set-log'); if (!log) return;
+    const d = document.createElement('div'); d.className = cls; d.textContent = msg;
+    log.appendChild(d); log.scrollTop = log.scrollHeight;
+  }
+
+  function renderSetSummary() {
+    const el = $('set-summary');
+    const deps = computeSetDeps();
+    const n = deps.songsSel.length;
+    if (!n) {
+      el.innerHTML = '<span class="set-sum-item">Tick songs below to build a set — dependencies resolve automatically.</span>';
+      return;
+    }
+    const sizeStr = sampIndexed ? ` · <span class="set-sum-item"><b>${Scanner.fmtBytes(deps.totalBytes)}</b> total</span>` : '';
+    const missStr = deps.missing.length
+      ? ` · <span class="set-sum-item warn" title="${esc(deps.missing.join('\n'))}"><b>${deps.missing.length}</b> missing (excluded)</span>` : '';
+    const catNote = !sampIndexed ? ' · <span class="set-sum-item warn">Run Catalogue Samples to resolve sample files</span>' : '';
+    el.innerHTML = `
+      <span class="set-sum-item"><b>${n}</b> song${n!==1?'s':''}</span> ·
+      <span class="set-sum-item"><b>${deps.samples.length}</b> samples</span>${sizeStr}${missStr}${catNote}
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--muted)">
+        <input type="checkbox" id="set-inc-bundles" checked style="accent-color:var(--accent)"> bundles</label>
+      <button class="btn sm secondary" id="btn-set-folder" ${!sampIndexed?'disabled title="Catalogue first"':''}>⬇ Export folder</button>
+      <button class="btn sm secondary" id="btn-set-zip" ${!sampIndexed?'disabled title="Catalogue first"':''}>⬇ Export ZIP</button>
+      <button class="btn ghost sm" id="btn-set-clear">✕ Clear</button>
+      <div class="set-log" id="set-log"></div>`;
+    $('btn-set-clear').addEventListener('click', () => { setSelection.clear(); renderSets(); });
+    $('btn-set-folder')?.addEventListener('click', () => exportSet('folder'));
+    $('btn-set-zip')?.addEventListener('click', () => exportSet('zip'));
+  }
+
+  function renderSets() {
+    const el = $('set-list'); if (!el) return;
+    renderSetSummary();
+    el.innerHTML = '';
+    if (!songs.length) { el.innerHTML = '<div class="no-results">Open an SD card first.</div>'; $('set-stat').textContent=''; return; }
+    const visible = sortSongsArr(songs.filter(s =>
+      !setFilter || s.name.toLowerCase().includes(setFilter) || s.filePath.toLowerCase().includes(setFilter)));
+    $('set-stat').textContent = `${setSelection.size} selected · ${visible.length}/${songs.length} shown`;
+    appendChunked(el, visible, s => {
+      const checked = setSelection.has(s.filePath);
+      const miss = sampIndexed ? songMissCount(s) : 0;
+      const row = document.createElement('div');
+      row.className = 'set-row';
+      row.innerHTML = `<input type="checkbox" ${checked?'checked':''}>
+        <span class="set-row-name">${esc(s.name)}</span>
+        <span class="set-row-path">${esc(s.filePath)}</span>
+        <span class="set-row-meta ${miss?'bad':''}">${s.samplePaths.length} samp${miss?' · '+miss+' missing':''}</span>`;
+      row.addEventListener('click', () => {
+        if (setSelection.has(s.filePath)) setSelection.delete(s.filePath);
+        else setSelection.add(s.filePath);
+        row.querySelector('input').checked = setSelection.has(s.filePath);
+        renderSetSummary();
+        $('set-stat').textContent = `${setSelection.size} selected · ${visible.length}/${songs.length} shown`;
+      });
+      return row;
+    });
+  }
+
+  // Which Bundles/ directories belong to the selected songs
+  async function bundleDirsFor(songsSel) {
+    const out = [];
+    let bd; try { bd = await sdHandle.getDirectoryHandle('Bundles'); } catch { return out; }
+    const wanted = new Set();
+    for (const s of songsSel) {
+      wanted.add(s.name.toLowerCase());
+      wanted.add(s.fileName.toLowerCase().replace(/\.m8s$/, ''));
+    }
+    for await (const [name, h] of bd)
+      if (h.kind === 'directory' && wanted.has(name.toLowerCase())) out.push(name);
+    return out;
+  }
+
+  async function* walkRelPaths(dir, prefix) {
+    for await (const [name, h] of dir) {
+      if (h.kind === 'directory') yield* walkRelPaths(h, `${prefix}/${name}`);
+      else yield `${prefix}/${name}`;
+    }
+  }
+
+  async function exportSet(kind) {
+    if (!sdHandle) return;
+    const deps = computeSetDeps();
+    if (!deps.songsSel.length) return;
+    const includeBundles = $('set-inc-bundles')?.checked;
+    const stamp = (() => { const d = new Date(), p = n => String(n).padStart(2,'0');
+      return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}`; })();
+    const setName = ($('set-name').value.trim() || 'M8_SET').replace(/[\\/:*?"<>|]/g, '_');
+
+    // Build the full card-relative file list
+    const rels = deps.songsSel.map(s => 'Songs/' + s.filePath).concat(deps.samples.map(x => x.real));
+    if (includeBundles) {
+      for (const bname of await bundleDirsFor(deps.songsSel)) {
+        let dir; try { dir = await (await sdHandle.getDirectoryHandle('Bundles')).getDirectoryHandle(bname); } catch { continue; }
+        for await (const rel of walkRelPaths(dir, 'Bundles/' + bname)) rels.push(rel);
+      }
+    }
+
+    if (kind === 'folder') {
+      let dest;
+      try { dest = await window.showDirectoryPicker({mode:'readwrite'}); }
+      catch(e) { if (e.name !== 'AbortError') setLog('err', '✗ ' + e.message); return; }
+      try {
+        const rel = await sdHandle.resolve(dest);
+        if (rel !== null) { setLog('err', '✗ Destination is on the SD card — pick a folder on your computer.'); return; }
+      } catch {}
+      try {
+        const root = await dest.getDirectoryHandle(`${setName}_${stamp}`, {create:true});
+        let n = 0;
+        for (const rel of rels) {
+          const src = await resolveFileHandle(sdHandle, rel);
+          const out = await resolveFileHandle(root, rel, {createDirs:true, createFile:true});
+          const w = await out.createWritable();
+          await w.write(await (await src.getFile()).arrayBuffer());
+          await w.close();
+          if (++n % 10 === 0) setLog('', `${n}/${rels.length} files…`);
+        }
+        setLog('ok', `✓ Exported ${n} files → ${setName}_${stamp}/${deps.missing.length ? ` · ${deps.missing.length} missing samples were skipped` : ''}`);
+      } catch(e) { setLog('err', '✗ ' + e.message); }
+    } else {
+      let writable, blobParts = null;
+      if (window.showSaveFilePicker) {
+        let fh;
+        try {
+          fh = await window.showSaveFilePicker({suggestedName:`${setName}_${stamp}.zip`,
+            types:[{description:'ZIP archive', accept:{'application/zip':['.zip']}}]});
+        } catch(e) { if (e.name !== 'AbortError') setLog('err', '✗ ' + e.message); return; }
+        writable = await fh.createWritable();
+      } else {
+        blobParts = [];
+        writable = { write: async u8 => { blobParts.push(u8); }, close: async () => {} };
+      }
+      try {
+        const zip = new Zip.Writer(writable);
+        let n = 0;
+        for (const rel of rels) {
+          const file = await (await resolveFileHandle(sdHandle, rel)).getFile();
+          await zip.add(rel, new Uint8Array(await file.arrayBuffer()), file.lastModified);
+          if (++n % 10 === 0) setLog('', `${n}/${rels.length} files…`);
+        }
+        await zip.finish();
+        await writable.close();
+        if (blobParts) {
+          const blob = new Blob(blobParts, {type:'application/zip'});
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob); a.download = `${setName}_${stamp}.zip`;
+          a.click(); URL.revokeObjectURL(a.href);
+        }
+        setLog('ok', `✓ ZIP with ${n} files ready${deps.missing.length ? ` · ${deps.missing.length} missing samples were skipped` : ''}`);
+      } catch(e) { try { await writable.close(); } catch {} setLog('err', '✗ ' + e.message); }
+    }
+  }
+
+  // Saved sets (localStorage)
+  function loadSavedSets() {
+    try { return JSON.parse(localStorage.getItem('m8lib-sets') || '{}'); } catch { return {}; }
+  }
+  function refreshSavedSetsUI() {
+    const sel = $('set-saved');
+    const sets = loadSavedSets();
+    sel.innerHTML = '<option value="">— saved sets —</option>' +
+      Object.keys(sets).sort().map(n => `<option value="${esc(n)}">${esc(n)} (${sets[n].length})</option>`).join('');
+  }
+  $('btn-set-save').addEventListener('click', () => {
+    const name = $('set-name').value.trim();
+    if (!name) { alert('Give the set a name first.'); return; }
+    if (!setSelection.size) { alert('Select some songs first.'); return; }
+    const sets = loadSavedSets();
+    sets[name] = [...setSelection];
+    try { localStorage.setItem('m8lib-sets', JSON.stringify(sets)); } catch {}
+    refreshSavedSetsUI();
+    $('set-saved').value = name;
+  });
+  $('btn-set-delete').addEventListener('click', () => {
+    const name = $('set-saved').value;
+    if (!name) return;
+    const sets = loadSavedSets();
+    delete sets[name];
+    try { localStorage.setItem('m8lib-sets', JSON.stringify(sets)); } catch {}
+    refreshSavedSetsUI();
+  });
+  $('set-saved').addEventListener('change', e => {
+    const sets = loadSavedSets();
+    const paths = sets[e.target.value];
+    if (paths) {
+      setSelection = new Set(paths.filter(p => songs.some(s => s.filePath === p)));
+      $('set-name').value = e.target.value;
+      renderSets();
+    }
+  });
+  $('set-q').addEventListener('input', debounce(e => { setFilter = e.target.value.toLowerCase(); renderSets(); }));
+  refreshSavedSetsUI();
+
+  // ══════════════════════════════════════════════════════
   // SAMPLE BROWSER
   // ══════════════════════════════════════════════════════
   async function scanSampBrowser() {
@@ -3975,6 +4932,17 @@ const UI = (() => {
         for (const s of subdirs) await walk(s.h, s.path);
       }
       await walk(samplesDir, 'Samples');
+      // WAV header metadata (duration / rate / bits) via small head reads
+      let done = 0;
+      for (const f of sampbrData) {
+        try {
+          const file = await f.handle.getFile();
+          f.size = file.size;
+          const head = new Uint8Array(await file.slice(0, 512).arrayBuffer());
+          f.meta = M8.parseWavHeader(head, file.size);
+        } catch {}
+        if (++done % 100 === 0) $('sampbr-stat').textContent = `Reading WAV headers… ${done}/${sampbrData.length}`;
+      }
     } catch(e) {
       if (!found) {
         $('sampbr-list').innerHTML = '<div class="no-results">No Samples/ folder found on this SD card.</div>';
@@ -3988,8 +4956,23 @@ const UI = (() => {
     renderSampBrowser();
   }
 
+  // Flat ordered list of rendered sample rows, for arrow-key audition
+  let sampbrRows = [], sampbrSel = -1;
+
+  function fmtWavMeta(f) {
+    const m = f.meta;
+    if (!m) return f.size ? Scanner.fmtBytes(f.size) : '';
+    const dur = m.duration == null ? '' :
+      m.duration < 10 ? m.duration.toFixed(1) + 's' :
+      m.duration < 60 ? Math.round(m.duration) + 's' :
+      `${Math.floor(m.duration/60)}:${String(Math.round(m.duration%60)).padStart(2,'0')}`;
+    const rate = (m.sampleRate / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    return `${dur} · ${rate}/${m.bits}${m.channels === 2 ? ' st' : m.channels > 2 ? ' ' + m.channels + 'ch' : ''}`;
+  }
+
   function renderSampBrowser() {
     const el = $('sampbr-list'); el.innerHTML = '';
+    sampbrRows = []; sampbrSel = -1;
     const q = sampbrFilter;
     const visible = q
       ? sampbrData.filter(f => f.path.toLowerCase().includes(q) || f.name.toLowerCase().includes(q))
@@ -4049,8 +5032,12 @@ const UI = (() => {
         const nameSpan = document.createElement('span');
         nameSpan.className = 'sb-fname'; nameSpan.textContent = f.name; nameSpan.title = f.path;
         row.appendChild(nameSpan);
+        const metaSpan = document.createElement('span');
+        metaSpan.className = 'sb-fmeta'; metaSpan.textContent = fmtWavMeta(f);
+        row.appendChild(metaSpan);
         row.insertAdjacentHTML('beforeend', badge);
         container.appendChild(row);
+        sampbrRows.push({row, path: f.path, btn: playBtn});
       }
     }
 
@@ -4500,6 +5487,20 @@ const UI = (() => {
 
     if (inInput) return;
 
+    // Arrow-key audition in the sample browser
+    const curTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+    if (curTab === 'samples' && sampbrRows.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      sampbrSel = e.key === 'ArrowDown'
+        ? Math.min(sampbrSel + 1, sampbrRows.length - 1)
+        : Math.max(sampbrSel - 1, 0);
+      sampbrRows.forEach((r, i) => r.row.classList.toggle('sel', i === sampbrSel));
+      const cur = sampbrRows[sampbrSel];
+      cur.row.scrollIntoView({block:'nearest'});
+      AudioPlayer.playPath(sdHandle, cur.path, cur.btn);
+      return;
+    }
+
     // Cmd/Ctrl+K or / → open search
     if ((e.key==='/' || (e.key==='k' && (e.metaKey||e.ctrlKey))) && !$('search-overlay').classList.contains('open')) {
       e.preventDefault();
@@ -4572,6 +5573,10 @@ const UI = (() => {
   // INIT
   // ══════════════════════════════════════════════════════
   loadUiState();
+
+  // Test hook: lets the automated test harness load a mock card handle.
+  // Harmless in normal use (the File System Access API still gates real cards).
+  window.__m8 = { loadSDHandle };
 
 })(); // end UI IIFE
 </script>

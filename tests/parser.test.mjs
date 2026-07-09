@@ -264,3 +264,155 @@ test('empty name falls back to UNTITLED', () => {
   b.fill(0x00, 148, 160);
   assert.equal(M8.parseSong(b).name, 'UNTITLED');
 });
+
+// ── Instrument kinds (3.0+ additions) ──────────────────────
+test('HyperSynth and External kinds are recognised', () => {
+  const b = makeInstrFile();
+  b[10] = 0x00; b[11] = 0x03; // v3.0.0
+  b[14] = 0x05;
+  assert.equal(M8.parseInstrFile(b).typeName, 'HYPERSYNTH');
+  b[14] = 0x06;
+  assert.equal(M8.parseInstrFile(b).typeName, 'EXTERNALINST');
+});
+
+// ── decodeInstrParams ──────────────────────────────────────
+test('decodeInstrParams reads a 3.x sampler (mods at +0x3F)', () => {
+  const b = new Uint8Array(14 + ISIZE);
+  // header not needed; decode directly at base 14 with a fake version
+  const base = 14;
+  b[base] = 0x02;                       // SAMPLER
+  writeStr(b, base + 1, 'KICK');
+  b[base + 13] = 1;                     // transpose on
+  b[base + 14] = 0x01;                  // table tick
+  b[base + 15] = 0x60;                  // volume
+  b[base + 16] = 0x80;                  // pitch
+  b[base + 17] = 0x80;                  // fine
+  b[base + 18] = 2;                     // play mode FWDLOOP
+  b[base + 19] = 0;                     // slice OFF
+  b[base + 20] = 0x10;                  // start
+  b[base + 21] = 0x20;                  // loop start
+  b[base + 22] = 0xFF;                  // length
+  b[base + 23] = 0x00;                  // degrade
+  b[base + 24] = 1;                     // filter LOWPASS
+  b[base + 25] = 0x40; b[base + 26] = 0x30; // cutoff/res
+  b[base + 27] = 0x00; b[base + 28] = 0x00; // amp, limit CLIP
+  b[base + 29] = 0x80;                  // pan
+  // modulator slot 0 at +0x3F: AHD env (type 0) → dest 1 (VOLUME)
+  const m0 = base + 0x3F;
+  b[m0] = 0x01;                         // type 0, dest 1
+  b[m0+1] = 0xFF;                       // amount
+  b[m0+2] = 0x08; b[m0+3] = 0x00; b[m0+4] = 0x40; // A H D
+  // modulator slot 1: LFO (type 3) → dest 3 (CUTOFF)
+  const m1 = base + 0x3F + 6;
+  b[m1] = 0x33;
+  b[m1+1] = 0x80; b[m1+2] = 1; b[m1+3] = 0; b[m1+4] = 0x20;
+  const p = M8.decodeInstrParams(b, base, {major:3, minor:0, patch:0});
+  assert.equal(p.kindName, 'SAMPLER');
+  assert.equal(p.volume, 0x60);
+  assert.equal(p.kindParams.PLAY, 'FWDLOOP');
+  assert.equal(p.kindParams.SLICE, 'OFF');
+  assert.equal(p.filter.name, 'LOWPASS');
+  assert.equal(p.filter.cutoff, 0x40);
+  assert.equal(p.amp.limit, 'CLIP');
+  assert.equal(p.mixer.pan, 0x80);
+  assert.equal(p.mods[0].type, 'AHD ENV');
+  assert.equal(p.mods[0].dest, 'VOLUME');
+  assert.equal(p.mods[0].amount, 0xFF);
+  assert.deepEqual(p.mods[0].env, [0x08, 0x00, 0x40]);
+  assert.equal(p.mods[1].type, 'LFO');
+  assert.equal(p.mods[1].dest, 'CUTOFF');
+  assert.equal(p.mods[1].shape, 'SIN');
+});
+
+test('decodeInstrParams returns null for empty slots', () => {
+  const b = new Uint8Array(300).fill(0xFF);
+  assert.equal(M8.decodeInstrParams(b, 14, {major:4, minor:0, patch:0}), null);
+});
+
+// ── writeSamplePath (repair mode) ──────────────────────────
+test('writeSamplePath round-trips through parseSong', () => {
+  const b = makeSong();
+  const newPath = '/Samples/NewKit/kick_v2.wav';
+  M8.writeSamplePath(b, INSTR_TABLE, newPath);           // slot 0
+  M8.writeSamplePath(b, INSTR_TABLE + 2 * ISIZE, newPath); // slot 2
+  const s = M8.parseSong(b);
+  assert.equal(s.instruments[0].samplePath, newPath);
+  assert.equal(s.instruments[2].samplePath, newPath);
+  assert.deepEqual(s.samplePaths, [newPath]);
+  // unrelated instrument untouched
+  assert.equal(s.instruments[1].name, 'LEAD');
+});
+
+test('writeSamplePath zero-fills the old longer path', () => {
+  const b = makeSong();
+  M8.writeSamplePath(b, INSTR_TABLE, '/a.wav'); // much shorter than original
+  const s = M8.parseSong(b);
+  assert.equal(s.instruments[0].samplePath, '/a.wav');
+});
+
+test('writeSamplePath rejects paths over 127 bytes', () => {
+  const b = makeSong();
+  assert.throws(() => M8.writeSamplePath(b, INSTR_TABLE, '/Samples/' + 'x'.repeat(130) + '.wav'));
+});
+
+// ── parseWavHeader ─────────────────────────────────────────
+function makeWav({rate = 44100, bits = 16, channels = 2, dataBytes = 44100 * 4} = {}) {
+  const b = new Uint8Array(44 + 16);
+  const dv = new DataView(b.buffer);
+  writeStr(b, 0, 'RIFF'); dv.setUint32(4, 36 + dataBytes, true); writeStr(b, 8, 'WAVE');
+  writeStr(b, 12, 'fmt '); dv.setUint32(16, 16, true);
+  dv.setUint16(20, 1, true);                      // PCM
+  dv.setUint16(22, channels, true);
+  dv.setUint32(24, rate, true);
+  dv.setUint32(28, rate * channels * bits / 8, true); // byteRate
+  dv.setUint16(32, channels * bits / 8, true);
+  dv.setUint16(34, bits, true);
+  writeStr(b, 36, 'data'); dv.setUint32(40, dataBytes, true);
+  return b;
+}
+
+test('parseWavHeader reads fmt and duration', () => {
+  const w = M8.parseWavHeader(makeWav({rate:44100, bits:16, channels:2, dataBytes:44100*4}));
+  assert.ok(w);
+  assert.equal(w.sampleRate, 44100);
+  assert.equal(w.bits, 16);
+  assert.equal(w.channels, 2);
+  assert.ok(Math.abs(w.duration - 1.0) < 0.001); // 1 second stereo 16-bit
+});
+
+test('parseWavHeader estimates duration when data chunk is out of slice', () => {
+  const head = makeWav().slice(0, 36); // fmt only, no data chunk
+  const w = M8.parseWavHeader(head, 44 + 88200); // mono 16-bit 44.1k → ~1s
+  assert.ok(w);
+  assert.ok(w.duration > 0);
+});
+
+test('parseWavHeader rejects non-WAV data', () => {
+  assert.equal(M8.parseWavHeader(new Uint8Array(100)), null);
+  assert.equal(M8.parseWavHeader(makeSong().slice(0, 200), 1000), null);
+});
+
+// ── detectScales ───────────────────────────────────────────
+test('detectScales identifies C major from its scale tones', () => {
+  // phrases shaped like parseSongPatterns output: steps with .note
+  const notes = [0,2,4,5,7,9,11, 12,14,16,17,19,21,23, 0,4,7,12]; // C D E F G A B across octaves
+  const steps = notes.map(n => ({note: n, vol: 0xFF, instr: 0xFF, fx: []}));
+  while (steps.length < 16) steps.push({note: 0xFF, vol: 0xFF, instr: 0xFF, fx: []});
+  const { total, candidates } = M8.detectScales([steps]);
+  assert.equal(total, notes.length);
+  assert.ok(candidates.length > 0);
+  assert.equal(candidates[0].root, 'C');
+  assert.match(candidates[0].label, /^C /);
+});
+
+test('detectScales returns empty for empty phrases', () => {
+  const { total, candidates } = M8.detectScales([]);
+  assert.equal(total, 0);
+  assert.deepEqual(candidates, []);
+});
+
+// ── FX names for new kinds ─────────────────────────────────
+test('fxStr resolves HyperSynth and External commands', () => {
+  assert.equal(M8.fxStr(0x83, 0x01, 'HYPERSYNTH'), 'CRD 01');
+  assert.equal(M8.fxStr(0x82, 0x01, 'EXTERNALINST'), 'MPB 01');
+});

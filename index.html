@@ -1066,6 +1066,7 @@
       <span class="song-modal-title" id="modal-title"></span>
       <span class="song-modal-meta" id="modal-meta"></span>
       <button class="btn ghost sm" id="btn-modal-patterns" style="margin-right:4px">▦ Patterns</button>
+      <button class="btn ghost sm" id="btn-modal-midi" style="margin-right:4px" title="Export as a Standard MIDI File">⬇ MIDI</button>
       <button class="btn ghost sm" id="btn-modal-diff" style="margin-right:4px">⇌ Compare</button>
       <button class="modal-nav-btn" id="btn-modal-next" title="Next song (→)" style="display:none">›</button>
       <button class="btn ghost sm" id="btn-modal-close">✕</button>
@@ -1163,7 +1164,7 @@ const M8 = (() => {
     const bytes = [];
     for (let i = 0; i < len; i++) {
       const c = b[off + i];
-      if (c === 0 || c === 0xFF) break;
+      if (c === undefined || c === 0 || c === 0xFF) break; // undefined = past end of buffer
       bytes.push(c);
     }
     if (!bytes.length) return '';
@@ -1187,7 +1188,7 @@ const M8 = (() => {
     if (!h || h.fileType !== 0x00 || b.length < INSTR_TABLE + 128 * ISIZE) return null;
     const name = readStr(b, SONG_NAME_OFF, 12).trim() || 'UNTITLED';
     // Song settings (anchored from SONG_NAME_OFF=0x94)
-    const dv = new DataView(b.buffer, b.byteOffset);
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
     const tempo     = b.length > TEMPO_OFF + 3 ? dv.getFloat32(TEMPO_OFF, true) : null;
     const transpose = b.length > TRANSPOSE_OFF  ? dv.getInt8(TRANSPOSE_OFF)     : 0;
     const quantize  = b.length > QUANTIZE_OFF   ? b[QUANTIZE_OFF]               : 0;
@@ -1211,12 +1212,15 @@ const M8 = (() => {
     const base=14, kind=b[base];
     const typeName = KIND[kind]||`0x${kind.toString(16)}`;
     let params = null;
-    if (b.length >= base + ISIZE) {
+    const fullSlot = b.length >= base + ISIZE;
+    if (fullSlot) {
       try { params = decodeInstrParams(b, base, h.version); } catch(e) { console.warn('decodeInstrParams:', e); }
     }
+    // samplePath only read when the full slot is present — a truncated file
+    // would otherwise yield a phantom NUL-filled "missing sample" reference
     return { header:h, kind, typeName, kindShort:KIND_SHORT[typeName]||typeName,
       name:readStr(b,base+1,12).trim()||'UNNAMED',
-      samplePath:kind===0x02?readStr(b,base+SAMP_OFF,127).trim():'', params };
+      samplePath:(kind===0x02 && fullSlot)?readStr(b,base+SAMP_OFF,127).trim():'', params };
   }
 
   function parseTheme(b) {
@@ -1361,6 +1365,8 @@ const M8 = (() => {
   function writeSamplePath(b, base, path) {
     const bytes = new TextEncoder().encode(path);
     if (bytes.length > 127) throw new Error(`Path too long (${bytes.length} bytes, max 127): ${path}`);
+    if (base + SAMP_OFF + 128 > b.length)
+      throw new Error('File too short to hold a sample path at this offset (truncated file?)');
     b.fill(0x00, base + SAMP_OFF, base + SAMP_OFF + 128);
     b.set(bytes, base + SAMP_OFF);
   }
@@ -1488,8 +1494,17 @@ const M8 = (() => {
     return n ? `${n} ${v}` : `${cmd.toString(16).toUpperCase().padStart(2,'0')}? ${v}`;
   }
 
+  const GROOVE_OFF = 0xEE; // 32 grooves × 16 step bytes, straight after settings
+
   function parseSongPatterns(b) {
     if (b.length < CHAIN_OFF + N_CHAINS * 32) return null;
+    // Grooves (needed for MIDI timing)
+    const grooves = [];
+    for (let g = 0; g < 32; g++) {
+      const steps = [];
+      for (let s = 0; s < 16; s++) steps.push(b[GROOVE_OFF + g * 16 + s]);
+      grooves.push(steps);
+    }
     const grid = [];
     for (let row = 0; row < N_ROWS; row++) {
       const tracks = [];
@@ -1509,7 +1524,7 @@ const M8 = (() => {
       }
       chains.push(steps);
     }
-    if (b.length < PHRASE_OFF + N_PHRASES * 16 * STEP_SZ) return { grid, chains, phrases:[], lastRow };
+    if (b.length < PHRASE_OFF + N_PHRASES * 16 * STEP_SZ) return { grid, chains, phrases:[], lastRow, grooves };
     const phrases = [];
     for (let p = 0; p < N_PHRASES; p++) {
       const steps = [];
@@ -1520,11 +1535,102 @@ const M8 = (() => {
       }
       phrases.push(steps);
     }
-    return { grid, chains, phrases, lastRow };
+    return { grid, chains, phrases, lastRow, grooves };
+  }
+
+  // ── MIDI export ─────────────────────────────────────────
+  // Standard MIDI File type 1 at 24 PPQ — M8's native resolution: a default
+  // groove step is 6 ticks and 4 steps make one quarter note. Groove 0's
+  // step lengths drive timing (per-phrase GRV commands are not applied).
+  // Each M8 track becomes a MIDI track on its own channel; tracks are
+  // modelled independently (M8 song columns advance independently, so
+  // cross-track alignment assumes conventionally equal chain lengths).
+  // Chain transpose is applied per step; a note ends at the next note or a
+  // KIL command on the same track (tracker semantics). M8 note 0 = C-1
+  // display = MIDI note 24.
+  function midiVlq(n) {
+    const out = [n & 0x7F];
+    while ((n >>= 7) > 0) out.unshift((n & 0x7F) | 0x80);
+    return out;
+  }
+  function buildMidi(song, pat) {
+    const { grid, chains, phrases, lastRow } = pat;
+    if (lastRow < 0 || !phrases.length) return null;
+    // Groove 0 step lengths (cycle); 0xFF ends the groove
+    let gSteps = [];
+    for (const v of (pat.grooves?.[0] || [])) { if (v === 0xFF) break; if (v > 0 && v <= 0x80) gSteps.push(v); }
+    if (!gSteps.length) gSteps = [6];
+
+    const KIL = 0x05;
+    const tracks = [];
+    for (let t = 0; t < 8; t++) {
+      const ev = [];
+      let tick = 0, stepIdx = 0, open = null;
+      const noteOff = at => { if (open !== null) { ev.push({tick: at, data: [0x80 | t, open, 0x40]}); open = null; } };
+      for (let row = 0; row <= lastRow; row++) {
+        const c = grid[row][t];
+        if (c === 0xFF || !chains[c]) continue; // empty column slot — track just has nothing here
+        for (const st of chains[c]) {
+          if (st.phrase === 0xFF || !phrases[st.phrase]) continue;
+          const tr = st.transpose > 127 ? st.transpose - 256 : st.transpose;
+          for (const step of phrases[st.phrase]) {
+            const dur = gSteps[stepIdx % gSteps.length];
+            if (step.fx?.some(f => f.cmd === KIL)) noteOff(tick);
+            if (step.note !== 0xFF && step.note <= 0x7F) {
+              const note = step.note + 24 + tr;
+              if (note >= 0 && note <= 127) {
+                noteOff(tick);
+                const vel = step.vol === 0xFF ? 100 : Math.max(1, Math.min(127, step.vol >> 1));
+                ev.push({tick, data: [0x90 | t, note, vel]});
+                open = note;
+              }
+            }
+            tick += dur;
+            stepIdx++;
+          }
+        }
+      }
+      noteOff(tick);
+      if (ev.length) tracks.push({idx: t, ev});
+    }
+    if (!tracks.length) return null;
+
+    const enc = new TextEncoder();
+    function chunk(tag, bodyBytes) {
+      const out = [...enc.encode(tag),
+        (bodyBytes.length >>> 24) & 0xFF, (bodyBytes.length >>> 16) & 0xFF,
+        (bodyBytes.length >>> 8) & 0xFF, bodyBytes.length & 0xFF, ...bodyBytes];
+      return out;
+    }
+    function meta(type, dataBytes) { return [0xFF, type, ...midiVlq(dataBytes.length), ...dataBytes]; }
+    function trackChunk(events) {
+      const body = [];
+      let last = 0;
+      for (const e of events) { body.push(...midiVlq(e.tick - last), ...e.data); last = e.tick; }
+      body.push(...midiVlq(0), 0xFF, 0x2F, 0x00); // end of track
+      return chunk('MTrk', body);
+    }
+    // Track 0: name, tempo, 4/4 time signature
+    const bpm = song.tempo != null && !isNaN(song.tempo) && song.tempo > 0 ? song.tempo : 120;
+    const usPerQ = Math.round(60000000 / bpm);
+    const t0 = [
+      {tick: 0, data: meta(0x03, [...enc.encode(song.name || 'M8 SONG')])},
+      {tick: 0, data: meta(0x51, [(usPerQ >> 16) & 0xFF, (usPerQ >> 8) & 0xFF, usPerQ & 0xFF])},
+      {tick: 0, data: meta(0x58, [4, 2, 24, 8])},
+    ];
+    // MThd body: format 1, ntrks, division 24
+    const ntrks = 1 + tracks.length;
+    const head = chunk('MThd', [0, 1, (ntrks >> 8) & 0xFF, ntrks & 0xFF, 0, 24]);
+    const out = [...head, ...trackChunk(t0)];
+    for (const tr of tracks) {
+      const nameEv = {tick: 0, data: meta(0x03, [...enc.encode(`M8 T${tr.idx + 1}`)])};
+      out.push(...trackChunk([nameEv, ...tr.ev]));
+    }
+    return new Uint8Array(out);
   }
 
   return { parseSong, parseInstrFile, parseTheme, parseGroove,
-    parseSongPatterns, noteStr, fxStr, fxName,
+    parseSongPatterns, noteStr, fxStr, fxName, buildMidi,
     decodeInstrParams, writeSamplePath, parseWavHeader, detectScales,
     rgbHex, fmtVer, verNum, THEME_COLORS,
     OFFSETS: { INSTR_TABLE, ISIZE, SAMP_OFF } };
@@ -1941,7 +2047,10 @@ async function createBackup(sdHandle, dirs, onLog, onDone, onError) {
   try {
     const rel = await sdHandle.resolve(dest);
     if (rel !== null) { onError?.('Backup destination is inside the SD card — choose a folder on your computer instead.'); return; }
-  } catch {}
+  } catch {
+    // resolve() unsupported/failed — fall back to a root identity check
+    try { if (await sdHandle.isSameEntry(dest)) { onError?.('Backup destination is the SD card itself — choose a folder on your computer.'); return; } } catch {}
+  }
   const now=new Date(), p=n=>String(n).padStart(2,'0');
   const bname=`M8_BACKUP_${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}_${p(now.getHours())}${p(now.getMinutes())}`;
   try {
@@ -1993,7 +2102,10 @@ const Zip = (() => {
       const nameBytes = new TextEncoder().encode(name);
       const crc = crc32(data);
       const {time, date} = dosDateTime(mtimeMs);
-      if (this.offset + data.length + 128 > LIMIT || this.entries.length >= 0xFFFF)
+      // Exact budget: 30-byte local header + name + data, plus the central
+      // directory entry (46 + name) this file will add at finish()
+      const cdBudget = this.entries.reduce((n,e)=>n+46+e.nameBytes.length, 0) + 46 + nameBytes.length + 22;
+      if (this.offset + 30 + nameBytes.length + data.length + cdBudget > LIMIT || this.entries.length >= 0xFFFF)
         throw new Error('Backup too large for ZIP (4GB / 65k file limit) — use the folder backup instead.');
       const hdrOffset = this.offset;
       const parts = [
@@ -2008,6 +2120,7 @@ const Zip = (() => {
     }
     async finish() {
       const cdStart = this.offset;
+      if (cdStart > LIMIT) throw new Error('ZIP exceeded 4GB — archive would be corrupt, refusing to finalise.');
       for (const e of this.entries) {
         const parts = [
           this._u32(0x02014B50), this._u16(20), this._u16(20), this._u16(0x0800), this._u16(0),
@@ -2046,7 +2159,7 @@ async function createBackupZip(sdHandle, dirs, onLog, onDone, onError) {
   } else {
     // Fallback: build in memory and trigger a download (heavier on RAM)
     blobParts = [];
-    writable = { write: async u8 => { blobParts.push(u8); }, close: async () => {} };
+    writable = { write: async u8 => { blobParts.push(u8); }, close: async () => {}, abort: async () => { blobParts = null; } };
     onLog?.('log', 'No save dialog support — building ZIP in memory.');
   }
   const zip = new Zip.Writer(writable);
@@ -2081,7 +2194,9 @@ async function createBackupZip(sdHandle, dirs, onLog, onDone, onError) {
     }
     onDone?.(count, `M8_BACKUP_${stamp}.zip`);
   } catch(e) {
-    try { await writable.close(); } catch {}
+    // abort() discards the swap file, leaving any previously chosen file
+    // intact — close() would COMMIT a truncated, corrupt archive over it
+    try { await (writable.abort ? writable.abort() : writable.close()); } catch {}
     onError?.(e.message);
   }
 }
@@ -2201,6 +2316,9 @@ const UI = (() => {
         sentinel.style.cssText = 'height:1px;grid-column:1/-1';
         container.appendChild(sentinel);
         const obs = new IntersectionObserver(entries => {
+          // A re-render may have cleared the container between the intersection
+          // being recorded and this callback firing — never append stale rows
+          if (!sentinel.isConnected) { obs.disconnect(); return; }
           if (entries.some(e => e.isIntersecting)) { obs.disconnect(); sentinel.remove(); renderMore(); }
         }, {root: container.closest('.scroll-area'), rootMargin: '800px'});
         obs.observe(sentinel);
@@ -2210,6 +2328,11 @@ const UI = (() => {
 
   // ── State ──────────────────────────────────────────────
   let sdHandle=null, cacheKey='';
+  // Card generation: bumped on every loadSDHandle. Long-running async work
+  // captures the value at start and bails if a new card loaded meanwhile,
+  // so stale results can never write into the new card's state or cache.
+  let loadGen=0;
+  let libBusy=false; // serialises rescan/catalogue against each other
   let songs=[], instrs=[], themes=[], grooves=[];
   let known=new Set(), usageMap=new Map();
   let sampleUsageMap=new Map(), instrDupeMap=new Map();
@@ -2427,6 +2550,9 @@ const UI = (() => {
     const vmap = new Map();
     songs.forEach(s => { if (!vmap.has(firmStr(s))) vmap.set(firmStr(s), firmNum(s)); });
     const versions = [...vmap.keys()].sort((a,b) => vmap.get(b) - vmap.get(a));
+    // A restored filter for a version this card doesn't have would silently
+    // hide the whole library behind a dropdown that reads "All firmware"
+    if (songFirmFilter !== 'all' && !vmap.has(songFirmFilter)) songFirmFilter = 'all';
     sel.innerHTML = '<option value="all">All firmware</option>' +
       versions.map(v=>`<option value="${v}"${v===songFirmFilter?'selected':''}>${v}</option>`).join('');
     sel.style.display = versions.length > 1 ? '' : 'none';
@@ -2441,10 +2567,18 @@ const UI = (() => {
 
   // ── Load SD handle ─────────────────────────────────────
   // Cache key mixes the volume name with a fingerprint of the top-level
-  // entries, so two cards sharing a name (e.g. "NO NAME") don't collide.
+  // entries PLUS the first level of Songs/, because M8 cards share an
+  // identical top-level template (Songs, Samples, System, …) and FAT
+  // volumes commonly share the default name "NO NAME".
   async function computeCacheKey(h) {
     const names = [];
-    try { for await (const [name] of h) names.push(name); } catch {}
+    try {
+      for await (const [name, hh] of h) names.push(name + (hh.kind === 'directory' ? '/' : ''));
+      try {
+        const sd = await h.getDirectoryHandle('Songs');
+        for await (const [n] of sd) names.push('Songs/' + n);
+      } catch {}
+    } catch {}
     names.sort();
     let hash = 0;
     for (const ch of names.join('|')) hash = ((hash << 5) - hash + ch.charCodeAt(0)) | 0;
@@ -2452,7 +2586,10 @@ const UI = (() => {
   }
 
   async function loadSDHandle(h) {
-    sdHandle=h; cacheKey=await computeCacheKey(h);
+    const gen = ++loadGen;
+    const key = await computeCacheKey(h);
+    if (gen !== loadGen) return; // a newer card load superseded this one
+    sdHandle=h; cacheKey=key;
     $('sd-label').textContent=h.name;
     $('ro-badge').style.display='inline-flex';
     $('btn-search').style.display='';
@@ -2462,9 +2599,18 @@ const UI = (() => {
     renders=[]; rendersScanned=false;
     skippedFiles=[]; sampleSizeMap=new Map(); sampleRealMap=new Map(); dupeSampGroups=null;
     songKeys={}; writeEnabled=false; setSelection=new Set();
+    // Lazy-tab state belongs to the previous card
+    sampbrData=[]; sampbrScanned=false; sampbrRows=[]; sampbrSel=-1;
+    bundleBrData=[]; bundleBrScanned=false;
+    // Close anything showing the previous card's objects
+    closeSongModal(); closeDiffModal(); closeSampModal(); closeFixModal(); closeSearch();
+    _modalSongList=[]; _modalSongIdx=-1;
+    diffPendingA=null; updateDiffPickMode();
+    updateRoBadge();
     setCatNotice('idle');
 
     const cached = await Cache.load(cacheKey);
+    if (gen !== loadGen) return;
     if (cached) {
       songs=cached.songs||[]; instrs=cached.instrs||[];
       themes=cached.themes||[]; grooves=cached.grooves||[];
@@ -2486,8 +2632,9 @@ const UI = (() => {
       $('instrs-list').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
       $('themes-grid').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
       const r = await Scanner.scanFast(h, msg => {
-        $('songs-list').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>${esc(msg)}</div>`;
+        if (gen === loadGen) $('songs-list').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>${esc(msg)}</div>`;
       });
+      if (gen !== loadGen) return; // never write another card's scan into this state/cache
       songs=r.songs; instrs=r.instrs; themes=r.themes; grooves=r.grooves; dirCounts=r.dirCounts;
       skippedFiles=r.skipped;
       rebuildMaps();
@@ -2554,58 +2701,72 @@ const UI = (() => {
 
   // ── Full rescan ────────────────────────────────────────
   $('btn-rescan').addEventListener('click', async () => {
-    if (!sdHandle) return;
-    // Incremental: unchanged files (same mtime+size) reuse their cached parse
-    const prevCache = await Cache.load(cacheKey);
-    const prevRels    = (prevCache?.sampIndexed && prevCache?.sampleRels?.length) ? prevCache.sampleRels : [];
-    const prevSizes   = prevRels.length ? (prevCache.sampleSizes||[]) : [];
-    const prevReal    = prevRels.length ? (prevCache.sampleRealRels||[]) : [];
-    const prevIndexed = prevRels.length > 0;
-    songs=[]; instrs=[]; themes=[]; grooves=[];
-    if (!prevIndexed) { known=new Set(); sampIndexed=false; setCatNotice('idle'); }
-    setCacheBar('scanning');
-    $('songs-list').innerHTML='<div class="spinner-wrap"><div class="spinner"></div>Scanning…</div>';
-    $('instrs-list').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
-    $('themes-grid').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
-    const r = await Scanner.scanFast(sdHandle, msg => {
-      $('songs-list').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>${esc(msg)}</div>`;
-    }, prevCache || undefined);
-    songs=r.songs; instrs=r.instrs; themes=r.themes; grooves=r.grooves; dirCounts=r.dirCounts;
-    skippedFiles=r.skipped;
-    rebuildMaps();
-    const ts=Date.now();
-    await Cache.save({key:cacheKey, ts, songs, instrs, themes, grooves,
-      sampleRels:prevRels, sampleSizes:prevSizes, sampleRealRels:prevReal,
-      sampIndexed:prevIndexed, dirCounts, skipped:skippedFiles, songKeys});
-    if (prevIndexed) {
-      known=Cache.rebuildKnown(prevRels); sampIndexed=true;
-      sampleSizeMap=buildAlignedMap(prevRels, prevSizes);
-      sampleRealMap=buildAlignedMap(prevRels, prevReal);
-      setCatNotice('cached', dirCounts.Samples||prevRels.length);
-    }
-    renderAll(); setCacheBar('fresh', ts, r.stats);
+    if (!sdHandle || libBusy) return;
+    libBusy = true;
+    const gen = loadGen;
+    try {
+      // Incremental: unchanged files (same mtime+size) reuse their cached parse
+      const prevCache = await Cache.load(cacheKey);
+      if (gen !== loadGen) return;
+      const prevRels    = (prevCache?.sampIndexed && prevCache?.sampleRels?.length) ? prevCache.sampleRels : [];
+      const prevSizes   = prevRels.length ? (prevCache.sampleSizes||[]) : [];
+      const prevReal    = prevRels.length ? (prevCache.sampleRealRels||[]) : [];
+      const prevIndexed = prevRels.length > 0;
+      songs=[]; instrs=[]; themes=[]; grooves=[];
+      if (!prevIndexed) { known=new Set(); sampIndexed=false; setCatNotice('idle'); }
+      setCacheBar('scanning');
+      $('songs-list').innerHTML='<div class="spinner-wrap"><div class="spinner"></div>Scanning…</div>';
+      $('instrs-list').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
+      $('themes-grid').innerHTML='<div class="spinner-wrap"><div class="spinner"></div></div>';
+      const r = await Scanner.scanFast(sdHandle, msg => {
+        if (gen === loadGen) $('songs-list').innerHTML=`<div class="spinner-wrap"><div class="spinner"></div>${esc(msg)}</div>`;
+      }, prevCache || undefined);
+      if (gen !== loadGen) return; // card changed mid-rescan
+      songs=r.songs; instrs=r.instrs; themes=r.themes; grooves=r.grooves;
+      // preserve the sample count — scanFast doesn't walk Samples/
+      dirCounts={...r.dirCounts, Samples: prevIndexed ? (prevCache?.dirCounts?.Samples ?? prevRels.length) : null};
+      skippedFiles=r.skipped;
+      rebuildMaps();
+      const ts=Date.now();
+      await Cache.save({key:cacheKey, ts, songs, instrs, themes, grooves,
+        sampleRels:prevRels, sampleSizes:prevSizes, sampleRealRels:prevReal,
+        sampIndexed:prevIndexed, dirCounts, skipped:skippedFiles, songKeys});
+      if (prevIndexed) {
+        known=Cache.rebuildKnown(prevRels); sampIndexed=true;
+        sampleSizeMap=buildAlignedMap(prevRels, prevSizes);
+        sampleRealMap=buildAlignedMap(prevRels, prevReal);
+        setCatNotice('cached', dirCounts.Samples||prevRels.length);
+      }
+      renderAll(); setCacheBar('fresh', ts, r.stats);
+    } finally { libBusy = false; }
   });
 
   // ── Catalogue samples ──────────────────────────────────
   $('btn-catalogue').addEventListener('click', async () => {
-    if (!sdHandle) return;
-    setCatNotice('running');
-    const r = await Scanner.catalogueSamples(sdHandle, n=>setCatNotice('running',`${n} found…`));
-    known=r.known; sampIndexed=true;
-    sampleSizeMap=buildAlignedMap(r.rels, r.sizes);
-    sampleRealMap=buildAlignedMap(r.rels, r.realRels);
-    sampleUsageMap = Scanner.buildSampleUsageMap(songs, instrs);
-    setCatNotice('done', r.count);
-    dirCounts={...dirCounts, Samples:r.count};
-    // Merge with in-memory state so a missing/evicted cache record doesn't
-    // persist sampIndexed:true with an empty library.
-    const cached=await Cache.load(cacheKey)||{};
-    await Cache.save({ts:Date.now(), ...cached, key:cacheKey,
-      songs:cached.songs||songs, instrs:cached.instrs||instrs,
-      themes:cached.themes||themes, grooves:cached.grooves||grooves,
-      sampleRels:r.rels, sampleSizes:r.sizes, sampleRealRels:r.realRels,
-      sampIndexed:true, dirCounts, skipped:skippedFiles, songKeys});
-    renderAll();
+    if (!sdHandle || libBusy) return;
+    libBusy = true;
+    const gen = loadGen;
+    try {
+      setCatNotice('running');
+      const r = await Scanner.catalogueSamples(sdHandle, n=>{ if (gen === loadGen) setCatNotice('running',`${n} found…`); });
+      if (gen !== loadGen) return; // card changed mid-catalogue
+      known=r.known; sampIndexed=true;
+      sampleSizeMap=buildAlignedMap(r.rels, r.sizes);
+      sampleRealMap=buildAlignedMap(r.rels, r.realRels);
+      sampleUsageMap = Scanner.buildSampleUsageMap(songs, instrs);
+      setCatNotice('done', r.count);
+      dirCounts={...dirCounts, Samples:r.count};
+      // Merge with in-memory state so a missing/evicted cache record doesn't
+      // persist sampIndexed:true with an empty library.
+      const cached=await Cache.load(cacheKey)||{};
+      if (gen !== loadGen) return;
+      await Cache.save({...cached, key:cacheKey, ts:Date.now(),
+        songs:cached.songs||songs, instrs:cached.instrs||instrs,
+        themes:cached.themes||themes, grooves:cached.grooves||grooves,
+        sampleRels:r.rels, sampleSizes:r.sizes, sampleRealRels:r.realRels,
+        sampIndexed:true, dirCounts, skipped:skippedFiles, songKeys});
+      renderAll();
+    } finally { libBusy = false; setCatNotice(sampIndexed ? 'done' : 'idle', dirCounts.Samples || 0); }
   });
 
   // ══════════════════════════════════════════════════════
@@ -2621,27 +2782,31 @@ const UI = (() => {
   $('btn-analyze-keys').addEventListener('click', async () => {
     if (!sdHandle || !songs.length) return;
     const btn = $('btn-analyze-keys');
+    const gen = loadGen;
     btn.disabled = true;
-    let done = 0;
-    for (const s of songs) {
-      done++;
-      const prev = songKeys[s.filePath];
-      if (prev && prev.mtime === s.lastModified) continue;
-      try {
-        const pat = await readSongPatterns(s);
-        let key = null;
-        if (pat) {
-          const {total, candidates} = M8.detectScales(pat.phrases);
-          if (total >= 8 && candidates.length) key = candidates[0].label;
-        }
-        songKeys[s.filePath] = {key, mtime: s.lastModified};
-      } catch(e) { console.warn('key analysis:', s.filePath, e); }
-      if (done % 5 === 0) $('songs-stat').textContent = `Analyzing keys… ${done}/${songs.length}`;
-    }
-    await persistLibrary();
-    btn.disabled = false;
-    btn.classList.add('on');
-    renderSongs();
+    try {
+      let done = 0;
+      for (const s of [...songs]) {
+        if (gen !== loadGen) return; // card changed — stop, don't pollute its songKeys
+        done++;
+        const prev = songKeys[s.filePath];
+        if (prev && prev.mtime === s.lastModified) continue;
+        try {
+          const pat = await readSongPatterns(s);
+          if (gen !== loadGen) return;
+          let key = null;
+          if (pat) {
+            const {total, candidates} = M8.detectScales(pat.phrases);
+            if (total >= 8 && candidates.length) key = candidates[0].label;
+          }
+          songKeys[s.filePath] = {key, mtime: s.lastModified};
+        } catch(e) { console.warn('key analysis:', s.filePath, e); }
+        if (done % 5 === 0) $('songs-stat').textContent = `Analyzing keys… ${done}/${songs.length}`;
+      }
+      await persistLibrary();
+      btn.classList.add('on');
+      renderSongs();
+    } finally { btn.disabled = false; }
   });
 
   ['compact','list','grid'].forEach(v => $('vtog-'+v).addEventListener('click', () => {
@@ -2729,7 +2894,7 @@ const UI = (() => {
       <span class="s-cfile">${esc(song.fileName)}</span>
       <span class="s-cver">${firmStr(song)}</span>
       <span class="s-cmiss ${mi.cls}">${mi.lbl}</span>
-      <button class="btn ghost sm btn-diff-row" data-sname="${esc(song.name)}" data-spath="${esc(song.filePath)}" title="Compare with…" style="padding:2px 7px;font-size:12px;flex-shrink:0">⇌</button>
+      <button class="btn ghost sm btn-diff-row${isPickA(song)?' on':''}" data-sname="${esc(song.name)}" data-spath="${esc(song.filePath)}" title="Compare with…" style="padding:2px 7px;font-size:12px;flex-shrink:0">⇌</button>
     </div>`;
     item.querySelector('.s-crow').addEventListener('click', () => openSongModal(song, navList||null));
     item.querySelector('.btn-diff-row').addEventListener('click', e => handleDiffRowBtn(e, song));
@@ -2772,7 +2937,7 @@ const UI = (() => {
       <span class="s-bpm" title="${esc(keyOf(song))}">${esc(bpmKeyLabel(song))}</span>
       <span class="s-ic">${song.instruments.length} instr</span>
       <span class="s-miss ${mi.cls}">${mi.lbl}</span>
-      <button class="btn ghost sm btn-diff-row" data-sname="${esc(song.name)}" data-spath="${esc(song.filePath)}" title="Compare with…" style="padding:2px 7px;font-size:12px;flex-shrink:0;margin-left:4px">⇌</button>
+      <button class="btn ghost sm btn-diff-row${isPickA(song)?' on':''}" data-sname="${esc(song.name)}" data-spath="${esc(song.filePath)}" title="Compare with…" style="padding:2px 7px;font-size:12px;flex-shrink:0;margin-left:4px">⇌</button>
       </div>
       <div class="song-detail">${buildSongDetail(song, false)}</div>`;
     const detailEl = item.querySelector('.song-detail');
@@ -2812,7 +2977,7 @@ const UI = (() => {
             <span class="sc-ver">${firmStr(song)}</span>
             ${song.hasBundle?'<span class="sc-bundle" title="Bundle">📦</span>':''}
             <span class="sc-badge ${mi.cls}">${mi.lbl}</span>
-            <button class="btn ghost sm btn-diff-row" data-sname="${esc(song.name)}" data-spath="${esc(song.filePath)}" title="Compare with…" style="padding:1px 6px;font-size:11px;flex-shrink:0;margin-left:auto">⇌</button>
+            <button class="btn ghost sm btn-diff-row${isPickA(song)?' on':''}" data-sname="${esc(song.name)}" data-spath="${esc(song.filePath)}" title="Compare with…" style="padding:1px 6px;font-size:11px;flex-shrink:0;margin-left:auto">⇌</button>
           </div>
         </div>`;
       card.addEventListener('click', e => { if (!e.target.closest('.btn-diff-row')) openSongModal(song, sorted); });
@@ -2959,6 +3124,7 @@ const UI = (() => {
   }
   function closeSongModal() { $('song-modal').style.display='none'; _modalSong=null; }
   function navModal(delta) {
+    if (_modalSongIdx < 0) return; // current song isn't part of the nav list
     const idx = _modalSongIdx + delta;
     if (idx < 0 || idx >= _modalSongList.length) return;
     openSongModal(_modalSongList[idx]);
@@ -2969,6 +3135,24 @@ const UI = (() => {
   $('song-modal').addEventListener('click', e => { if (e.target===$('song-modal')) closeSongModal(); });
   $('btn-modal-diff').addEventListener('click', () => {
     if (_modalSong) { closeSongModal(); openDiffModal(_modalSong); }
+  });
+  $('btn-modal-midi').addEventListener('click', async () => {
+    if (!_modalSong || !sdHandle) return;
+    const btn = $('btn-modal-midi');
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      const pat = await readSongPatterns(_modalSong);
+      const mid = pat && M8.buildMidi(_modalSong, pat);
+      if (!mid) { alert('Nothing to export — the song grid is empty.'); return; }
+      const blob = new Blob([mid], {type: 'audio/midi'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${_modalSong.name || 'm8-song'}.mid`;
+      a.click(); URL.revokeObjectURL(a.href);
+    } catch(e) {
+      console.warn('MIDI export:', e);
+      alert('MIDI export failed: ' + e.message);
+    } finally { btn.disabled = false; btn.textContent = '⬇ MIDI'; }
   });
   $('btn-modal-patterns').addEventListener('click', () => {
     const btn = $('btn-modal-patterns');
@@ -2985,6 +3169,8 @@ const UI = (() => {
   });
 
   // ── Diff pick mode (⇌ buttons on song rows) ───────────
+  // Row builders call this so chunk-rendered rows get the highlight too
+  function isPickA(s) { return !!diffPendingA && diffPendingA.name===s.name && diffPendingA.filePath===s.filePath; }
   function updateDiffPickMode() {
     const banner = $('diff-pick-banner');
     banner.style.display = diffPendingA ? 'flex' : 'none';
@@ -3481,6 +3667,15 @@ const UI = (() => {
         el.insertAdjacentHTML('beforeend', '<div class="prob-empty"><b>✓</b>No broken sample references found.</div>');
         return;
       }
+      // Batch repair entry point — shown whenever anything is broken
+      {
+        const bar = document.createElement('div');
+        bar.style.cssText='padding:10px 20px;border-bottom:1px solid var(--border)';
+        bar.innerHTML=`<button class="btn sm" id="btn-batch-fix">🔧 Fix all exact matches</button>
+          <span style="font-size:11px;color:var(--muted);margin-left:10px">repairs every broken reference whose filename has exactly one match on the card</span>`;
+        el.appendChild(bar);
+        $('btn-batch-fix').addEventListener('click', openBatchFixModal);
+      }
       if (brokenInstrs.length) {
         const hdr = document.createElement('div'); hdr.className='prob-group-hdr';
         hdr.textContent=`Standalone instruments (${brokenInstrs.length})`;
@@ -3771,6 +3966,7 @@ const UI = (() => {
   // candidates with SHA-256, so most files are never read.
   async function runDupeSampleScan() {
     if (!sdHandle) return;
+    const gen = loadGen;
     const el = $('prob-content');
     el.innerHTML='<div class="prob-empty"><div class="spinner-wrap" style="justify-content:center"><div class="spinner"></div><span id="dupesamp-prog">Listing samples…</span></div></div>';
     const prog = msg => { const p=$('dupesamp-prog'); if (p) p.textContent=msg; };
@@ -3811,12 +4007,14 @@ const UI = (() => {
           groups.get(key).paths.push(f.path);
         } catch(e) { console.warn('dupe scan:', f.path, e); }
       }
+      if (gen !== loadGen) return; // card changed mid-scan — results belong to the old card
       dupeSampGroups = [...groups.values()]
         .filter(g => g.paths.length > 1)
         .map(g => ({...g, paths:g.paths.sort()}))
         .sort((a,b) => b.size*(b.paths.length-1) - a.size*(a.paths.length-1));
     } catch(e) {
       console.warn('runDupeSampleScan:', e);
+      if (gen !== loadGen) return;
       dupeSampGroups = [];
     }
     renderProblems();
@@ -3950,28 +4148,45 @@ const UI = (() => {
   }
 
   // ── Audit log ──────────────────────────────────────────
+  // localStorage entries are scoped per card (cacheKey); the on-card file is
+  // APPEND-based — its existing content is preserved even if this browser has
+  // never seen the card before, so the card-resident history survives browser
+  // data clearing, other machines, and private windows.
+  function auditKey() { return 'm8lib-audit:' + cacheKey; }
   function auditEntries() {
-    try { return JSON.parse(localStorage.getItem('m8lib-audit') || '[]'); } catch { return []; }
+    try {
+      const scoped = localStorage.getItem(auditKey());
+      if (scoped) return JSON.parse(scoped);
+      return JSON.parse(localStorage.getItem('m8lib-audit') || '[]'); // legacy unscoped fallback
+    } catch { return []; }
+  }
+  function auditEntryText(e) {
+    return `${e.ts}  ${e.mode.toUpperCase()}  ${e.file}${e.output && e.output!==e.file ? ' → '+e.output : ''}${e.backup ? '  (backup: '+e.backup+')' : ''}\n`
+      + e.refs.map(r => `    ${r.instr}: ${r.from}  →  ${r.to}\n`).join('')
+      + (e.error ? `    ERROR: ${e.error}\n` : '');
   }
   async function auditLog(entry) {
     const entries = auditEntries();
     entries.push(entry);
-    try { localStorage.setItem('m8lib-audit', JSON.stringify(entries.slice(-500))); } catch {}
-    // Best-effort mirror to the card so the log travels with it
+    try { localStorage.setItem(auditKey(), JSON.stringify(entries.slice(-500))); } catch {}
+    // Append to the card-resident log (read existing content first)
     try {
+      let existing = '';
+      try {
+        const fh0 = await resolveFileHandle(sdHandle, 'M8Librarian_Backups/audit-log.txt');
+        existing = await (await fh0.getFile()).text();
+      } catch {}
+      if (!existing) existing = 'M8 Librarian repair log\n';
       const fh = await resolveFileHandle(sdHandle, 'M8Librarian_Backups/audit-log.txt', {createDirs:true, createFile:true});
       const w = await fh.createWritable();
-      const lines = entries.map(e =>
-        `${e.ts}  ${e.mode.toUpperCase()}  ${e.file}${e.output && e.output!==e.file ? ' → '+e.output : ''}${e.backup ? '  (backup: '+e.backup+')' : ''}\n`
-        + e.refs.map(r => `    ${r.instr}: ${r.from}  →  ${r.to}\n`).join('')
-      );
-      await w.write(new TextEncoder().encode('M8 Librarian repair log\n\n' + lines.join('\n')));
+      await w.write(new TextEncoder().encode(existing + '\n' + auditEntryText(entry)));
       await w.close();
     } catch(e) { console.warn('audit file write:', e); }
   }
 
   // ── Fix modal ──────────────────────────────────────────
   let _fixTarget = null; // {type:'song'|'instr', obj}
+  let _fixGen = 0;       // bumped on every open/close; stale async completions check it
 
   function brokenRefsFor(target) {
     if (target.type === 'instr') {
@@ -3987,6 +4202,8 @@ const UI = (() => {
       return;
     }
     _fixTarget = target;
+    _fixGen++;
+    $('btn-fix-apply').textContent = 'Apply Repair'; // batch mode may have relabelled it
     const obj = target.obj;
     const isSong = target.type === 'song';
     const srcRel = (isSong ? 'Songs/' : 'Instruments/') + obj.filePath;
@@ -4052,125 +4269,321 @@ const UI = (() => {
       .filter(s => s.value)
       .map(s => ({from: s.dataset.from, to: s.value}));
   }
-  function updateFixApply() { $('btn-fix-apply').disabled = fixSelections().length === 0; }
-  function closeFixModal() { $('fix-modal').classList.remove('open'); _fixTarget = null; }
+  function updateFixApply() {
+    if (_fixTarget?.type === 'batch') { $('btn-fix-apply').disabled = false; return; }
+    $('btn-fix-apply').disabled = fixSelections().length === 0;
+  }
+  function closeFixModal() { $('fix-modal').classList.remove('open'); _fixTarget = null; _fixGen++; }
   $('btn-fix-close').addEventListener('click', closeFixModal);
   $('btn-fix-cancel').addEventListener('click', closeFixModal);
   $('fix-modal').addEventListener('click', e => { if (e.target === $('fix-modal')) closeFixModal(); });
 
+  // ── Core repair engine (shared by single fix and batch fix) ─────
+  // Freshness-checks against the disk, patches a copy of the fresh bytes,
+  // writes, verifies by re-parse, rolls back on failure, updates the
+  // in-memory library and the audit log. No UI and no persistence here —
+  // callers rebuildMaps() + persistLibrary() + renderAll() when done.
+  function repairStamp() {
+    const d = new Date(), p = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  }
+  async function repairFile(target, mappings, mode, opts = {}) {
+    const obj = target.obj, isSong = target.type === 'song';
+    const myLoadGen = loadGen;
+    const srcRel = (isSong ? 'Songs/' : 'Instruments/') + obj.filePath;
+    const srcFh = await resolveFileHandle(sdHandle, srcRel);
+    const srcFile = await srcFh.getFile();
+    // The write offsets come from a parse of these exact bytes — refuse if
+    // the file changed on disk since the library scanned it.
+    if (obj.lastModified && srcFile.lastModified !== obj.lastModified)
+      throw new Error('changed on disk since it was scanned — Rescan the library first');
+    const origBytes = new Uint8Array(await srcFile.arrayBuffer());
+    const buf = origBytes.slice(); // patch a copy; origBytes stays pristine for backup/rollback
+    const freshParse = isSong ? M8.parseSong(buf) : M8.parseInstrFile(buf);
+    if (!freshParse) throw new Error('no longer parses as a valid M8 file');
+
+    // Patch — slots matched against the FRESH parse, never the cached object
+    const applied = [];
+    for (const {from, to} of mappings) {
+      if (isSong) {
+        for (const inst of freshParse.instruments) {
+          if (inst.samplePath && normPath(inst.samplePath) === normPath(from)) {
+            M8.writeSamplePath(buf, M8.OFFSETS.INSTR_TABLE + inst.slot * M8.OFFSETS.ISIZE, to);
+            applied.push({instr: `${inst.name} (slot ${inst.slot})`, from, to});
+          }
+        }
+      } else {
+        if (!freshParse.samplePath || normPath(freshParse.samplePath) !== normPath(from))
+          throw new Error('sample path in the file no longer matches — Rescan first');
+        M8.writeSamplePath(buf, 14, to);
+        applied.push({instr: obj.name, from, to});
+      }
+    }
+    if (!applied.length) throw new Error('no matching instrument slots in the current file — Rescan first');
+    if (myLoadGen !== loadGen) throw new Error('card changed — aborted before writing');
+
+    // Output location
+    const stamp = opts.stamp || repairStamp();
+    const ext = isSong ? '.m8s' : '.m8i';
+    const dir = obj.filePath.includes('/') ? obj.filePath.slice(0, obj.filePath.lastIndexOf('/') + 1) : '';
+    let outRel, backupRel = null;
+    if (mode === 'copy') {
+      let name = opts.copyName || null;
+      if (name) {
+        let exists = false;
+        try { await resolveFileHandle(sdHandle, (isSong ? 'Songs/' : 'Instruments/') + dir + name); exists = true; } catch {}
+        if (exists) throw new Error(`"${name}" already exists — choose a different name`);
+      } else {
+        // batch mode: auto-name with collision avoidance
+        const base = obj.fileName.replace(/\.(m8s|m8i)$/i, '');
+        for (const sfx of ['_FIX','_FIX2','_FIX3','_FIX4','_FIX5']) {
+          const cand = base + sfx + ext;
+          let exists = false;
+          try { await resolveFileHandle(sdHandle, (isSong ? 'Songs/' : 'Instruments/') + dir + cand); exists = true; } catch {}
+          if (!exists) { name = cand; break; }
+        }
+        if (!name) throw new Error('no free _FIX name available');
+      }
+      outRel = (isSong ? 'Songs/' : 'Instruments/') + dir + name;
+    } else {
+      // Back up the pristine original first
+      backupRel = `M8Librarian_Backups/${stamp}/${srcRel}`;
+      const bfh = await resolveFileHandle(sdHandle, backupRel, {createDirs:true, createFile:true});
+      const bw = await bfh.createWritable();
+      await bw.write(origBytes);
+      await bw.close();
+      outRel = srcRel;
+    }
+
+    // Write
+    const outFh = await resolveFileHandle(sdHandle, outRel, mode === 'copy' ? {createDirs:false, createFile:true} : {});
+    const w = await outFh.createWritable();
+    await w.write(buf);
+    await w.close();
+
+    // Verify by re-read + re-parse; roll back on failure so the card is
+    // never left carrying a bad file
+    let parsed, vfile;
+    try {
+      vfile = await (await resolveFileHandle(sdHandle, outRel)).getFile();
+      const vbuf = new Uint8Array(await vfile.arrayBuffer());
+      parsed = isSong ? M8.parseSong(vbuf) : M8.parseInstrFile(vbuf);
+      if (!parsed) throw new Error('rewritten file did not parse');
+      const wanted = new Set(mappings.map(m => normPath(m.to)));
+      const got = new Set((isSong ? parsed.samplePaths : [parsed.samplePath]).map(normPath));
+      for (const p of wanted) if (!got.has(p)) throw new Error(`${p} not found in rewritten file`);
+    } catch(verr) {
+      let rollback = '';
+      try {
+        if (mode === 'overwrite') {
+          const rw = await (await resolveFileHandle(sdHandle, srcRel)).createWritable();
+          await rw.write(origBytes); await rw.close();
+          rollback = ' — the original was restored from backup';
+        } else {
+          const parts = outRel.split('/');
+          let dh = sdHandle;
+          for (let i = 0; i < parts.length - 1; i++) dh = await dh.getDirectoryHandle(parts[i]);
+          await dh.removeEntry(parts[parts.length - 1]);
+          rollback = ' — the bad copy was removed';
+        }
+      } catch(rerr) {
+        rollback = mode === 'overwrite'
+          ? ` — AUTOMATIC RESTORE FAILED, recover it manually from ${backupRel}`
+          : ` — could not remove the bad copy at ${outRel}`;
+      }
+      throw new Error(`verification failed: ${verr.message}${rollback}`);
+    }
+
+    // Update the in-memory library
+    const outPath = outRel.replace(/^(Songs|Instruments)\//, '');
+    const outName = outPath.split('/').pop();
+    const rec = {...parsed, fileName: outName, filePath: outPath,
+      fileSize: vfile.size, lastModified: vfile.lastModified,
+      ...(isSong ? {hasBundle: obj.hasBundle && mode === 'overwrite'} : {})};
+    const list = isSong ? songs : instrs;
+    const existingIdx = list.findIndex(x => x.filePath === outPath);
+    if (existingIdx >= 0) list[existingIdx] = rec; else list.push(rec);
+    list.sort((a,b) => a.filePath.localeCompare(b.filePath));
+
+    await auditLog({ ts: new Date().toISOString(), mode, file: srcRel, output: outRel,
+      backup: backupRel, refs: applied, verified: true });
+    return { outRel, backupRel, applied };
+  }
+
   $('btn-fix-apply').addEventListener('click', async () => {
     if (!_fixTarget || !sdHandle) return;
+    if (_fixTarget.type === 'batch') return runBatchFix();
     const target = _fixTarget, obj = target.obj, isSong = target.type === 'song';
+    const myFixGen = _fixGen;   // ties completion back to THIS modal instance
     const sels = fixSelections();
     if (!sels.length) return;
     const status = $('fix-status');
-    const setStatus = (msg, cls) => { status.textContent = msg; status.className = 'fix-status' + (cls ? ' ' + cls : ''); };
+    const setStatus = (msg, cls) => {
+      if (myFixGen !== _fixGen) return; // a different fix modal owns the status line now
+      status.textContent = msg; status.className = 'fix-status' + (cls ? ' ' + cls : '');
+    };
     const mode = document.querySelector('input[name="fix-mode"]:checked')?.value || 'copy';
+
+    // Validate the copy name BEFORE requesting write access
+    let copyName = null;
+    if (mode === 'copy') {
+      copyName = ($('fix-copy-name')?.value || '').trim();
+      const ext = isSong ? '.m8s' : '.m8i';
+      if (!copyName.toLowerCase().endsWith(ext)) copyName += ext;
+      if (copyName === ext || /[\/\\]/.test(copyName) || copyName.startsWith('.')) {
+        setStatus('Invalid file name — needs a name with no slashes, not starting with a dot.', 'err');
+        return;
+      }
+    }
+
     $('btn-fix-apply').disabled = true;
     try {
       setStatus('Requesting write access…');
       if (!await ensureWriteAccess()) { setStatus('Write access denied — nothing was changed.', 'err'); return; }
-
-      // Read the source file
-      const srcRel = (isSong ? 'Songs/' : 'Instruments/') + obj.filePath;
-      const srcFh = await resolveFileHandle(sdHandle, srcRel);
-      const buf = new Uint8Array(await (await srcFh.getFile()).arrayBuffer());
-
-      // Apply path rewrites in the buffer
-      const applied = [];
-      for (const {from, to} of sels) {
-        if (isSong) {
-          for (const inst of obj.instruments) {
-            if (inst.samplePath && normPath(inst.samplePath) === normPath(from)) {
-              M8.writeSamplePath(buf, M8.OFFSETS.INSTR_TABLE + inst.slot * M8.OFFSETS.ISIZE, to);
-              applied.push({instr: `${inst.name} (slot ${inst.slot})`, from, to});
-            }
-          }
-        } else {
-          M8.writeSamplePath(buf, 14, to);
-          applied.push({instr: obj.name, from, to});
-        }
-      }
-      if (!applied.length) { setStatus('No matching instrument slots found — nothing written.', 'err'); return; }
-
-      // Decide output location
-      const stamp = (() => { const d = new Date(), p = n => String(n).padStart(2,'0');
-        return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; })();
-      let outRel, backupRel = null;
-      if (mode === 'copy') {
-        let name = ($('fix-copy-name')?.value || '').trim();
-        const ext = isSong ? '.m8s' : '.m8i';
-        if (!name.toLowerCase().endsWith(ext)) name += ext;
-        const dir = obj.filePath.includes('/') ? obj.filePath.slice(0, obj.filePath.lastIndexOf('/') + 1) : '';
-        outRel = (isSong ? 'Songs/' : 'Instruments/') + dir + name;
-        // refuse to clobber an existing file
-        let exists = false;
-        try { await resolveFileHandle(sdHandle, outRel); exists = true; } catch {}
-        if (exists) { setStatus(`"${name}" already exists — choose a different name.`, 'err'); return; }
-      } else {
-        // Back up the original first
-        backupRel = `M8Librarian_Backups/${stamp}/${srcRel}`;
-        setStatus('Writing backup…');
-        const bfh = await resolveFileHandle(sdHandle, backupRel, {createDirs:true, createFile:true});
-        const bw = await bfh.createWritable();
-        await bw.write(await (await srcFh.getFile()).arrayBuffer());
-        await bw.close();
-        outRel = srcRel;
-      }
-
-      // Write
       setStatus('Writing…');
-      const outFh = await resolveFileHandle(sdHandle, outRel, mode === 'copy' ? {createDirs:false, createFile:true} : {});
-      const w = await outFh.createWritable();
-      await w.write(buf);
-      await w.close();
-
-      // Verify: re-read and re-parse
-      setStatus('Verifying…');
-      const vfile = await (await resolveFileHandle(sdHandle, outRel)).getFile();
-      const vbuf = new Uint8Array(await vfile.arrayBuffer());
-      const parsed = isSong ? M8.parseSong(vbuf) : M8.parseInstrFile(vbuf);
-      if (!parsed) throw new Error('Verification failed: rewritten file did not parse');
-      const wanted = new Set(sels.map(s => normPath(s.to)));
-      const got = new Set((isSong ? parsed.samplePaths : [parsed.samplePath]).map(normPath));
-      for (const p of wanted) if (!got.has(p)) throw new Error(`Verification failed: ${p} not found in rewritten file`);
-
-      // Update in-memory library
-      const outPath = outRel.replace(/^(Songs|Instruments)\//, '');
-      const outName = outPath.split('/').pop();
-      const rec = {...parsed, fileName: outName, filePath: outPath,
-        fileSize: vfile.size, lastModified: vfile.lastModified,
-        ...(isSong ? {hasBundle: obj.hasBundle && mode === 'overwrite'} : {})};
-      const list = isSong ? songs : instrs;
-      const existingIdx = list.findIndex(x => x.filePath === outPath);
-      if (existingIdx >= 0) list[existingIdx] = rec; else list.push(rec);
-      list.sort((a,b) => a.filePath.localeCompare(b.filePath));
+      const res = await repairFile(target, sels, mode, {copyName});
       rebuildMaps();
       await persistLibrary();
-
-      // Audit
-      await auditLog({ ts: new Date().toISOString(), mode, file: srcRel, output: outRel,
-        backup: backupRel, refs: applied, verified: true });
-
       renderAll();
-      setStatus(`✓ Repaired ${applied.length} reference${applied.length!==1?'s':''} → ${outRel}${backupRel ? ' (backup saved)' : ''}`, 'ok');
-      $('btn-fix-apply').textContent = 'Done';
-      setTimeout(() => { closeFixModal(); $('btn-fix-apply').textContent = 'Apply Repair'; updateFixApply(); }, 1600);
+      setStatus(`✓ Repaired ${res.applied.length} reference${res.applied.length!==1?'s':''} → ${res.outRel}${res.backupRel ? ' (backup saved)' : ''}`, 'ok');
+      if (myFixGen === _fixGen) {
+        $('btn-fix-apply').textContent = 'Done';
+        setTimeout(() => {
+          if (myFixGen !== _fixGen) return; // a different fix modal is open now
+          closeFixModal(); $('btn-fix-apply').textContent = 'Apply Repair'; updateFixApply();
+        }, 1600);
+      }
     } catch(e) {
       console.error('applyFix:', e);
-      setStatus(`✗ ${e.message} — nothing further was changed.`, 'err');
+      setStatus(`✗ ${e.message}`, 'err');
       await auditLog({ ts: new Date().toISOString(), mode, file: (isSong?'Songs/':'Instruments/')+obj.filePath,
         output: null, backup: null, refs: sels.map(s=>({instr:'?', ...s})), verified: false, error: e.message });
     } finally {
-      $('btn-fix-apply').disabled = fixSelections().length === 0;
+      if (myFixGen === _fixGen) $('btn-fix-apply').disabled = fixSelections().length === 0;
     }
   });
 
-  // Persist the current in-memory library into the cache record
+  // ── Batch repair: fix every broken ref that has exactly ONE exact-filename match ──
+  function computeBatchPlan() {
+    const plan = [];
+    const lead = from => from.startsWith('/') ? '/' : '';
+    for (const s of songs) {
+      const broken = s.samplePaths.filter(p => Scanner.sampleFound(p, known) === false);
+      const mappings = [];
+      for (const from of broken) {
+        const exact = repairCandidates(from).filter(c => c.score === 100);
+        if (exact.length === 1) mappings.push({from, to: lead(from) + exact[0].real});
+      }
+      if (mappings.length) plan.push({target:{type:'song', obj:s}, mappings});
+    }
+    for (const i of instrs) {
+      if (!(i.samplePath && Scanner.sampleFound(i.samplePath, known) === false)) continue;
+      const exact = repairCandidates(i.samplePath).filter(c => c.score === 100);
+      if (exact.length === 1)
+        plan.push({target:{type:'instr', obj:i}, mappings:[{from:i.samplePath, to: lead(i.samplePath) + exact[0].real}]});
+    }
+    return plan;
+  }
+
+  function openBatchFixModal() {
+    if (!sampIndexed || !sampleRealMap.size) {
+      alert('Run Catalogue Samples first — repair needs the sample index.');
+      return;
+    }
+    const plan = computeBatchPlan();
+    if (!plan.length) {
+      alert('No broken references with exactly one exact-filename match found.\nAmbiguous or unmatched refs need the per-file Fix dialog.');
+      return;
+    }
+    _fixTarget = {type:'batch', plan};
+    _fixGen++;
+    $('fix-title').textContent = `Batch repair — ${plan.length} file${plan.length!==1?'s':''}`;
+    $('fix-status').textContent = ''; $('fix-status').className = 'fix-status';
+    const body = $('fix-body'); body.innerHTML = '';
+    body.insertAdjacentHTML('beforeend',
+      `<div style="font-size:11px;color:var(--muted)">Only references with exactly one exact-filename match are included — anything ambiguous stays for the per-file Fix dialog. Nothing is written until you press the button below.</div>`);
+    for (const {target, mappings} of plan) {
+      const obj = target.obj;
+      const rows = mappings.map(m =>
+        `<div class="fix-row" style="font-family:monospace;font-size:11px;flex-wrap:wrap">
+           <span style="color:var(--c-miss)">${esc(m.from)}</span>
+           <span class="fix-arrow">→</span>
+           <span style="color:var(--c-found)">${esc(m.to)}</span>
+         </div>`).join('');
+      body.insertAdjacentHTML('beforeend', `<div class="fix-ref">
+        <div style="font-size:12px;font-weight:600;margin-bottom:6px">${esc(obj.name)} <span style="color:var(--muted);font-weight:400">${esc(obj.filePath)}</span></div>
+        ${rows}</div>`);
+    }
+    body.insertAdjacentHTML('beforeend', `
+      <div class="fix-mode">
+        <label><input type="radio" name="fix-mode" value="copy" checked>
+          <span>Save each as a new copy <span class="fix-mode-sub">(auto-named NAME_FIX — originals untouched, recommended)</span></span></label>
+        <label><input type="radio" name="fix-mode" value="overwrite">
+          <span>Overwrite the originals <span class="fix-mode-sub">(each backed up to one M8Librarian_Backups/ folder first)</span></span></label>
+      </div>`);
+    $('btn-fix-apply').disabled = false;
+    $('btn-fix-apply').textContent = `Repair ${plan.length} file${plan.length!==1?'s':''}`;
+    $('fix-modal').classList.add('open');
+  }
+
+  async function runBatchFix() {
+    const plan = _fixTarget.plan;
+    const myFixGen = _fixGen, myLoadGen = loadGen;
+    const status = $('fix-status');
+    const setStatus = (msg, cls) => {
+      if (myFixGen !== _fixGen) return;
+      status.textContent = msg; status.className = 'fix-status' + (cls ? ' ' + cls : '');
+    };
+    const mode = document.querySelector('input[name="fix-mode"]:checked')?.value || 'copy';
+    $('btn-fix-apply').disabled = true;
+    const stamp = repairStamp();
+    let ok = 0; const fails = [];
+    try {
+      setStatus('Requesting write access…');
+      if (!await ensureWriteAccess()) { setStatus('Write access denied — nothing was changed.', 'err'); return; }
+      for (let i = 0; i < plan.length; i++) {
+        if (myLoadGen !== loadGen) { fails.push({file:'(remaining files)', error:'card changed — stopped'}); break; }
+        const {target, mappings} = plan[i];
+        setStatus(`Repairing ${i+1}/${plan.length}: ${target.obj.name}…`);
+        try {
+          await repairFile(target, mappings, mode, {stamp});
+          ok++;
+        } catch(e) {
+          console.warn('batch repair:', target.obj.filePath, e);
+          fails.push({file: target.obj.filePath, error: e.message});
+          await auditLog({ ts: new Date().toISOString(), mode,
+            file: (target.type==='song'?'Songs/':'Instruments/')+target.obj.filePath,
+            output: null, backup: null, refs: mappings.map(m=>({instr:'?', ...m})),
+            verified: false, error: e.message });
+        }
+      }
+      rebuildMaps();
+      await persistLibrary();
+      renderAll();
+      if (!fails.length) {
+        setStatus(`✓ Repaired ${ok} file${ok!==1?'s':''}${mode==='overwrite' ? ` — backups in M8Librarian_Backups/${stamp}/` : ' as _FIX copies'}`, 'ok');
+        if (myFixGen === _fixGen) {
+          $('btn-fix-apply').textContent = 'Done';
+          setTimeout(() => {
+            if (myFixGen !== _fixGen) return;
+            closeFixModal(); $('btn-fix-apply').textContent = 'Apply Repair'; updateFixApply();
+          }, 2500);
+        }
+      } else {
+        setStatus(`Repaired ${ok}, failed ${fails.length}: ${fails.map(f=>`${f.file} (${f.error})`).join('; ')}`, 'err');
+      }
+    } finally {
+      if (myFixGen === _fixGen && fails.length) $('btn-fix-apply').disabled = false;
+    }
+  }
+
+  // Persist the current in-memory library into the cache record.
+  // ts is deliberately kept from the cached record: it means "when was this
+  // card last scanned", not "last touched" — repairs/key analysis don't reset it.
   async function persistLibrary() {
     const cached = await Cache.load(cacheKey) || {};
-    await Cache.save({ts: Date.now(), ...cached, key: cacheKey, songs, instrs, themes, grooves,
-      dirCounts, skipped: skippedFiles, songKeys});
+    await Cache.save({...cached, key: cacheKey, songs, instrs, themes, grooves,
+      dirCounts, skipped: skippedFiles, songKeys, ts: cached.ts || Date.now()});
   }
 
   // ══════════════════════════════════════════════════════
@@ -4566,32 +4979,43 @@ const UI = (() => {
   async function scanBundleBrowser() {
     if (!sdHandle) return;
     bundleBrScanned = true; // set early so concurrent activations don't double-scan
+    const gen = loadGen;
     $('bb-stat').textContent = 'Scanning…';
     $('bb-list').innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Scanning Bundles/…</div>';
     bundleBrData = [];
-    let bundlesDir;
-    try { bundlesDir = await sdHandle.getDirectoryHandle('Bundles'); }
-    catch {
-      $('bb-list').innerHTML = '<div class="no-results">No Bundles/ folder found on this SD card.</div>';
-      $('bb-stat').textContent = '0 bundles';
-      bundleBrScanned = true; return;
-    }
-    // Each top-level dir in Bundles/ is one bundle
-    for await (const [name, h] of bundlesDir) {
-      if (h.kind !== 'directory') continue;
-      const files = [];
-      for await (const [fname, fh] of h) {
-        if (fh.kind !== 'file') continue;
-        const ext = fname.split('.').pop().toLowerCase();
-        files.push({ name: fname, handle: fh, ext });
+    try {
+      let bundlesDir;
+      try { bundlesDir = await sdHandle.getDirectoryHandle('Bundles'); }
+      catch {
+        if (gen !== loadGen) return;
+        $('bb-list').innerHTML = '<div class="no-results">No Bundles/ folder found on this SD card.</div>';
+        $('bb-stat').textContent = '0 bundles';
+        return;
       }
-      // Sort: songs → instrs → wavs → other
-      const extOrder = { m8s:0, m8i:1, wav:2 };
-      files.sort((a,b) => ((extOrder[a.ext]??9)-(extOrder[b.ext]??9)) || a.name.localeCompare(b.name));
-      bundleBrData.push({ name, dirHandle:h, files });
+      // Each top-level dir in Bundles/ is one bundle
+      for await (const [name, h] of bundlesDir) {
+        if (h.kind !== 'directory') continue;
+        const files = [];
+        for await (const [fname, fh] of h) {
+          if (fh.kind !== 'file') continue;
+          const ext = fname.split('.').pop().toLowerCase();
+          files.push({ name: fname, handle: fh, ext });
+        }
+        // Sort: songs → instrs → wavs → other
+        const extOrder = { m8s:0, m8i:1, wav:2 };
+        files.sort((a,b) => ((extOrder[a.ext]??9)-(extOrder[b.ext]??9)) || a.name.localeCompare(b.name));
+        bundleBrData.push({ name, dirHandle:h, files });
+      }
+    } catch(e) {
+      console.warn('scanBundleBrowser:', e);
+      if (gen !== loadGen) return;
+      $('bb-list').innerHTML = `<div class="no-results">Could not read Bundles/: ${esc(e.message)} — try ↺ Rescan.</div>`;
+      $('bb-stat').textContent = '';
+      $('btn-bb-scan').style.display = '';
+      return;
     }
+    if (gen !== loadGen) return; // card changed mid-scan
     bundleBrData.sort((a,b) => a.name.localeCompare(b.name, undefined, {sensitivity:'base'}));
-    bundleBrScanned = true;
     $('btn-bb-scan').style.display = '';
     renderBundleBrowser();
   }
@@ -4665,7 +5089,7 @@ const UI = (() => {
           const row = document.createElement('div');
           row.className = 'bb-file-row';
           const extCls = {m8s:'song', m8i:'instr', wav:'wav'}[f.ext] || 'other';
-          const extLabel = f.ext.toUpperCase();
+          const extLabel = esc(f.ext.toUpperCase()); // card-derived — must be escaped
           const playBtn = f.ext === 'wav' ? (() => {
             const btn = document.createElement('button');
             btn.className = 'play-btn'; btn.textContent = '▶'; btn.title = 'Preview';
@@ -4724,6 +5148,9 @@ const UI = (() => {
     const el = $('set-summary');
     const deps = computeSetDeps();
     const n = deps.songsSel.length;
+    // Preserve user state across rebuilds (this runs on every row toggle)
+    const prevIncBundles = $('set-inc-bundles') ? $('set-inc-bundles').checked : true;
+    const prevLog = $('set-log') ? $('set-log').innerHTML : '';
     if (!n) {
       el.innerHTML = '<span class="set-sum-item">Tick songs below to build a set — dependencies resolve automatically.</span>';
       return;
@@ -4736,11 +5163,11 @@ const UI = (() => {
       <span class="set-sum-item"><b>${n}</b> song${n!==1?'s':''}</span> ·
       <span class="set-sum-item"><b>${deps.samples.length}</b> samples</span>${sizeStr}${missStr}${catNote}
       <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--muted)">
-        <input type="checkbox" id="set-inc-bundles" checked style="accent-color:var(--accent)"> bundles</label>
+        <input type="checkbox" id="set-inc-bundles" ${prevIncBundles?'checked':''} style="accent-color:var(--accent)"> bundles</label>
       <button class="btn sm secondary" id="btn-set-folder" ${!sampIndexed?'disabled title="Catalogue first"':''}>⬇ Export folder</button>
       <button class="btn sm secondary" id="btn-set-zip" ${!sampIndexed?'disabled title="Catalogue first"':''}>⬇ Export ZIP</button>
       <button class="btn ghost sm" id="btn-set-clear">✕ Clear</button>
-      <div class="set-log" id="set-log"></div>`;
+      <div class="set-log" id="set-log">${prevLog}</div>`;
     $('btn-set-clear').addEventListener('click', () => { setSelection.clear(); renderSets(); });
     $('btn-set-folder')?.addEventListener('click', () => exportSet('folder'));
     $('btn-set-zip')?.addEventListener('click', () => exportSet('zip'));
@@ -4820,7 +5247,9 @@ const UI = (() => {
       try {
         const rel = await sdHandle.resolve(dest);
         if (rel !== null) { setLog('err', '✗ Destination is on the SD card — pick a folder on your computer.'); return; }
-      } catch {}
+      } catch {
+        try { if (await sdHandle.isSameEntry(dest)) { setLog('err', '✗ Destination is the SD card itself.'); return; } } catch {}
+      }
       try {
         const root = await dest.getDirectoryHandle(`${setName}_${stamp}`, {create:true});
         let n = 0;
@@ -4845,7 +5274,7 @@ const UI = (() => {
         writable = await fh.createWritable();
       } else {
         blobParts = [];
-        writable = { write: async u8 => { blobParts.push(u8); }, close: async () => {} };
+        writable = { write: async u8 => { blobParts.push(u8); }, close: async () => {}, abort: async () => { blobParts = null; } };
       }
       try {
         const zip = new Zip.Writer(writable);
@@ -4864,7 +5293,11 @@ const UI = (() => {
           a.click(); URL.revokeObjectURL(a.href);
         }
         setLog('ok', `✓ ZIP with ${n} files ready${deps.missing.length ? ` · ${deps.missing.length} missing samples were skipped` : ''}`);
-      } catch(e) { try { await writable.close(); } catch {} setLog('err', '✗ ' + e.message); }
+      } catch(e) {
+        // abort, don't commit a truncated archive over an existing file
+        try { await (writable.abort ? writable.abort() : writable.close()); } catch {}
+        setLog('err', '✗ ' + e.message);
+      }
     }
   }
 
@@ -4914,6 +5347,7 @@ const UI = (() => {
   async function scanSampBrowser() {
     if (!sdHandle) return;
     sampbrScanned = true; // set early so concurrent activations don't double-scan
+    const gen = loadGen;
     $('sampbr-stat').textContent = 'Scanning…';
     $('sampbr-list').innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Scanning Samples/…</div>';
     sampbrData = [];
@@ -4941,17 +5375,19 @@ const UI = (() => {
           const head = new Uint8Array(await file.slice(0, 512).arrayBuffer());
           f.meta = M8.parseWavHeader(head, file.size);
         } catch {}
-        if (++done % 100 === 0) $('sampbr-stat').textContent = `Reading WAV headers… ${done}/${sampbrData.length}`;
+        if (++done % 100 === 0 && gen === loadGen) $('sampbr-stat').textContent = `Reading WAV headers… ${done}/${sampbrData.length}`;
+        if (gen !== loadGen) return; // card changed mid-scan
       }
     } catch(e) {
+      if (gen !== loadGen) return;
       if (!found) {
         $('sampbr-list').innerHTML = '<div class="no-results">No Samples/ folder found on this SD card.</div>';
         $('sampbr-stat').textContent = '0 files';
-        sampbrScanned = true; return;
+        return;
       }
       console.warn('scanSampBrowser:', e);
     }
-    sampbrScanned = true;
+    if (gen !== loadGen) return;
     $('btn-sampbr-scan').style.display = '';
     renderSampBrowser();
   }
@@ -5057,9 +5493,13 @@ const UI = (() => {
   async function scanAndRenderRenders() {
     if (!sdHandle) return;
     rendersScanned = true; // set early so concurrent activations don't double-scan
+    const gen = loadGen;
     $('renders-stat').textContent = 'Scanning Renders/…';
-    renders = await Scanner.scanRenders(sdHandle);
-    rendersScanned = true;
+    let result = [];
+    try { result = await Scanner.scanRenders(sdHandle); }
+    catch(e) { console.warn('scanRenders:', e); }
+    if (gen !== loadGen) return; // card changed mid-scan
+    renders = result;
     renderRendersTab();
   }
 
@@ -5470,14 +5910,18 @@ const UI = (() => {
     const tag = e.target.tagName;
     const inInput = tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT';
 
-    // Escape — close any open overlay/modal
+    // Escape — close any open overlay/modal (highest z-index first)
     if (e.key==='Escape') {
       if ($('search-overlay').classList.contains('open')) { closeSearch(); return; }
+      if ($('fix-modal').classList.contains('open')) { closeFixModal(); return; }
       if ($('diff-modal').classList.contains('open')) { closeDiffModal(); return; }
       if ($('samp-modal').classList.contains('open')) { closeSampModal(); return; }
       if ($('song-modal').style.display==='flex') { closeSongModal(); return; }
       if (diffPendingA) { diffPendingA=null; updateDiffPickMode(); return; }
     }
+
+    // While the fix modal is open, no other global shortcut should fire
+    if ($('fix-modal').classList.contains('open')) return;
 
     // Arrow nav inside song modal
     if ($('song-modal').style.display==='flex') {
@@ -5487,9 +5931,13 @@ const UI = (() => {
 
     if (inInput) return;
 
-    // Arrow-key audition in the sample browser
+    const anyModalOpen = $('song-modal').style.display==='flex'
+      || ['diff-modal','samp-modal'].some(id => $(id).classList.contains('open'))
+      || $('search-overlay').classList.contains('open');
+
+    // Arrow-key audition in the sample browser (not behind a modal)
     const curTab = document.querySelector('.tab-btn.active')?.dataset.tab;
-    if (curTab === 'samples' && sampbrRows.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    if (!anyModalOpen && curTab === 'samples' && sampbrRows.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
       e.preventDefault();
       sampbrSel = e.key === 'ArrowDown'
         ? Math.min(sampbrSel + 1, sampbrRows.length - 1)

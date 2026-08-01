@@ -1,0 +1,6 @@
+# Local reference material — real M8 bundles/examples, never published
+sources/
+
+# OS junk
+.DS_Store
+._*

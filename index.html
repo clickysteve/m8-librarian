@@ -1098,24 +1098,9 @@
     .gen-prow.chg .new { color:var(--c-found); font-weight:700; }
     .gen-prow.gone .new { color:var(--c-miss); }
 
-/* ════════════════════════════════════════════════════════════════════
-   d-css.txt — CSS splices for index.html (anchors in d-wiring.md)
-   ════════════════════════════════════════════════════════════════════ */
-
-/* ── SPLICE A: theme variables ─────────────────────────────────────────
-   The fx CSS below leans on three custom properties PT's theme had and
-   the M8 theme lacks. Append this line inside :root (after the
-   --c-miss/--c-found line). Values picked for the M8's orange accent. */
-      --accent-brd:#b45309; --accent-dim:#271307; --warn:#f59e0b;
-
-/* ── SPLICE B: mirror + effects panel + device-tab additions ───────────
-   Insert the whole block below just before the closing </style>.
-   Blocks 1 and 2 are verbatim from mirror-integration.md §c (PT
-   head.html), with one adaptation: PT's hard-coded on-accent text colour
-   #08121a (dark blue for PT's cyan accent) becomes #1a0d02 (dark brown
-   for the M8's orange accent) in .fx-segb.on. */
-
-    /* ══ DEVICE TAB — USB screen mirror ══ */
+    /* ══ DEVICE TAB — USB screen mirror ══
+       Mirror/effects CSS ported from pt-librarian; .fx-segb.on text
+       colour adapted to the M8's orange accent (#1a0d02). */
 
     /* Block 1 — mirror stage / sticky layout (verbatim, head.html 926–942) */
     #usb-stage:fullscreen { border:none; border-radius:0; }
@@ -1532,21 +1517,14 @@
      d-html.txt — three HTML splices for index.html (anchors in d-wiring.md)
      ════════════════════════════════════════════════════════════════════ -->
 
-<!-- ── SPLICE 1: tab-bar button (after the SETS button) ─────────────── -->
       <button class="tab-btn" data-tab="device">DEVICE</button>
 
-<!-- ── SPLICE 2: landing-page entry (after #btn-open-empty) ─────────────
-     Works without an SD card: jumps straight to the Device tab. -->
+<!-- Landing-page mirror entry: works without an SD card -->
     <div class="empty-divider">— or —</div>
     <button class="btn secondary" id="btn-landing-mirror">MIRROR YOUR M8 (USB)</button>
     <div class="empty-sub" style="font-size:11px;max-width:340px">Live screen mirror with output effects, audio-reactive visuals and recording — over a USB cable, no SD card needed.</div>
 
-<!-- ── SPLICE 3: DEVICE tab pane (before </div><!-- #main -->) ──────────
-     Ids follow the Mirror DOM contract from mirror-integration.md:
-     #usb-canvas / #usb-stage / #usb-sticky / #usb-scroll / #tab-device
-     and the full #fx-panel block (grid filled by Mirror at runtime). -->
-
-    <!-- ── DEVICE (USB screen mirror) ── -->
+    <!-- ── DEVICE (USB screen mirror) — ids follow the Mirror DOM contract ── -->
     <div class="tab-pane" id="tab-device">
       <div class="toolbar">
         <button class="btn" id="btn-usb-connect">CONNECT M8</button>

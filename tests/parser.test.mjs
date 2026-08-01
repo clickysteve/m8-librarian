@@ -210,12 +210,24 @@ test('noteStr formats notes and empties', () => {
   assert.equal(M8.noteStr(24), 'C-3');
 });
 
-test('fxStr resolves sequencer command names', () => {
+test('fxStr resolves sequencer command names (versioned)', () => {
   assert.equal(M8.fxStr(0xFF, 0x00), '------');
-  assert.equal(M8.fxStr(0x04, 0x10), 'HOP 10');   // sequencer
+  assert.equal(M8.fxStr(0x04, 0x10), 'HOP 10');   // sequencer, stable across versions
   assert.equal(M8.fxStr(0x05, 0x00), 'KIL 00');
-  assert.equal(M8.fxStr(0x17, 0x80), 'VMV 80');   // fx/mixer
-  assert.equal(M8.fxStr(0x3A, 0x01), 'USB 01');   // last mixer command
+  // 2.x tables (vn = 20000): 23 sequencer commands, mixer from 0x17
+  assert.equal(M8.fxStr(0x06, 0x00, null, 20601), 'RAN 00');
+  assert.equal(M8.fxStr(0x17, 0x80, null, 20601), 'VMV 80');
+  assert.equal(M8.fxStr(0x3A, 0x01, null, 20601), 'USB 01');
+  // 3.0 inserted RND/RNL and shifted the list; mixer starts at 0x1B
+  assert.equal(M8.fxStr(0x06, 0x00, null, 30000), 'RND 00');
+  assert.equal(M8.fxStr(0x08, 0x00, null, 30000), 'RET 00');  // was REP pre-3.0
+  assert.equal(M8.fxStr(0x0F, 0x00, null, 60500), 'PVX 00');  // real 6.x file evidence
+  assert.equal(M8.fxStr(0x1B, 0x80, null, 30000), 'VMV 80');
+  // 4.0 mixer renames + additions (also the default when no version given)
+  assert.equal(M8.fxStr(0x1B, 0x80), 'VMV 80');
+  assert.equal(M8.fxStr(0x35, 0x00, null, 30000), 'DJF 00');
+  assert.equal(M8.fxStr(0x35, 0x00, null, 40000), 'DJC 00');
+  assert.equal(M8.fxStr(0x46, 0x00, null, 40000), 'GGR 00');  // last 4.x mixer command
 });
 
 test('fxStr resolves instrument-specific command names by type', () => {
@@ -223,22 +235,41 @@ test('fxStr resolves instrument-specific command names by type', () => {
   assert.equal(M8.fxStr(0x83, 0x01, 'SAMPLER'), 'PLY 01');
   assert.equal(M8.fxStr(0x83, 0x01, 'WAVSYNTH'), 'OSC 01');
   assert.equal(M8.fxStr(0x83, 0x01, 'FMSYNTH'), 'ALG 01');
-  assert.equal(M8.fxStr(0x80, 0x01, 'MIDIOUT'), 'MPG 01');
-  assert.equal(M8.fxStr(0xA2, 0x01, 'SAMPLER'), 'SLI 01');
+  assert.equal(M8.fxStr(0x80, 0x01, 'MIDIOUT'), 'VOL 01');
+  assert.equal(M8.fxStr(0x82, 0x01, 'MIDIOUT'), 'MPG 01');
+  // modulator command block: 0x92 + 5 per modulator, named by mod type
+  assert.equal(M8.fxStr(0x92, 0x01, 'SAMPLER'), 'EA1 01');           // default mod 1 = AHD
+  assert.equal(M8.fxStr(0x97, 0x01, 'SAMPLER'), 'EA2 01');
+  assert.equal(M8.fxStr(0x9C, 0x01, 'SAMPLER'), 'LA3 01');           // default mod 3 = LFO
+  assert.equal(M8.fxStr(0x9D, 0x01, 'SAMPLER'), 'LO3 01');
+  assert.equal(M8.fxStr(0x92, 0x01, 'SAMPLER', null, ['LFO']), 'LA1 01'); // explicit mod types
+  // extra command after the 4×5 modulator block — matches real 6.x songs,
+  // where 0xA6 appears on sliced sampler phrases
+  assert.equal(M8.fxStr(0xA6, 0x01, 'SAMPLER'), 'SLI 01');
+  assert.equal(M8.fxStr(0xA6, 0x01, 'MACROSYNTH'), 'TRG 01');
+  assert.equal(M8.fxStr(0xA6, 0x01, 'FMSYNTH'), 'FMP 01');
+  assert.equal(M8.fxStr(0xA7, 0x01, 'HYPERSYNTH'), 'SNC 01');
 });
 
 test('fxStr falls back to hex for unknown commands', () => {
   assert.equal(M8.fxStr(0x70, 0x22), '70? 22');            // gap between mixer and instr ranges
   assert.equal(M8.fxStr(0x80, 0x22), '80? 22');            // instr range without a type
   assert.equal(M8.fxStr(0xF0, 0x22, 'SAMPLER'), 'F0? 22'); // beyond the table
+  assert.equal(M8.fxStr(0x90, 0x22, 'MIDIOUT'), '90? 22'); // MIDI OUT gap (only 16 base commands)
 });
 
 test('fxName boundaries', () => {
   assert.equal(M8.fxName(0x00), 'ARP');
-  assert.equal(M8.fxName(0x16), 'TSP');
-  assert.equal(M8.fxName(0x17), 'VMV');
+  assert.equal(M8.fxName(0x16, null, 20601), 'TSP');  // last 2.x sequencer command
+  assert.equal(M8.fxName(0x17, null, 20601), 'VMV');
+  assert.equal(M8.fxName(0x3B, null, 20601), null);   // past the 2.x tables
+  assert.equal(M8.fxName(0x1A), 'OFF');               // last 3.0+ sequencer command
+  assert.equal(M8.fxName(0x46), 'GGR');               // last 4.x mixer command
+  assert.equal(M8.fxName(0x47), null);
   assert.equal(M8.fxName(0xFF), null);
-  assert.equal(M8.fxName(0x3B), null);
+  const r2 = M8.fxRanges(20601), r4 = M8.fxRanges(null);
+  assert.equal(r2.seqLen, 23); assert.equal(r2.mixLen, 36);
+  assert.equal(r4.seqLen, 27); assert.equal(r4.mixLen, 44);
 });
 
 // ── String decoding ────────────────────────────────────────
@@ -415,4 +446,54 @@ test('detectScales returns empty for empty phrases', () => {
 test('fxStr resolves HyperSynth and External commands', () => {
   assert.equal(M8.fxStr(0x83, 0x01, 'HYPERSYNTH'), 'CRD 01');
   assert.equal(M8.fxStr(0x82, 0x01, 'EXTERNALINST'), 'MPB 01');
+});
+
+// ── Real-firmware additions (sources review round) ─────────
+test('parseSong exposes the save directory and per-instrument mod types', () => {
+  const b = makeSong();
+  // directory string sits right after the 14-byte header
+  const dir = '/Bundles/TEST/';
+  for (let i = 0; i < dir.length; i++) b[14 + i] = dir.charCodeAt(i);
+  // instrument 0 (written by the fixture): give mod slots typed nibbles
+  // type<<4 | dest — AHD(0), LFO(3), TRIG(4), TRACK(5)
+  const i0 = INSTR_TABLE;
+  b[i0 + 0x3F + 0*6] = 0x00 << 4;
+  b[i0 + 0x3F + 1*6] = 0x03 << 4;
+  b[i0 + 0x3F + 2*6] = 0x04 << 4;
+  b[i0 + 0x3F + 3*6] = 0x05 << 4;
+  const song = M8.parseSong(b);
+  assert.equal(song.directory, '/Bundles/TEST/');
+  const inst = song.instruments.find(i => i.slot === 0);
+  assert.deepEqual(inst.modTypes, ['AHD ENV', 'LFO', 'TRIG ENV', 'TRACK ENV']);
+});
+
+test('parseWavCues decodes cue chunk bodies (sorted sample offsets)', () => {
+  // 2 cue points at frames 4800 and 1200 (deliberately unsorted)
+  const body = new Uint8Array(4 + 2 * 24);
+  const dv = new DataView(body.buffer);
+  dv.setUint32(0, 2, true);
+  dv.setUint32(4 + 20, 4800, true);
+  dv.setUint32(4 + 24 + 20, 1200, true);
+  assert.deepEqual(M8.parseWavCues(body), [1200, 4800]);
+  assert.equal(M8.parseWavCues(new Uint8Array(2)), null);          // truncated
+  const zero = new Uint8Array(4); // count 0
+  assert.equal(M8.parseWavCues(zero), null);
+});
+
+test('parseWavHeader picks up cue chunks inside the buffer', () => {
+  // minimal RIFF: fmt + cue + data
+  const cueBody = 4 + 24, sz = 12 + 8+16 + 8+cueBody + 8;
+  const b = new Uint8Array(sz), dv = new DataView(b.buffer);
+  const w4 = (o, s) => { for (let i=0;i<4;i++) b[o+i]=s.charCodeAt(i); };
+  w4(0,'RIFF'); dv.setUint32(4, sz-8, true); w4(8,'WAVE');
+  w4(12,'fmt '); dv.setUint32(16, 16, true);
+  dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);      // PCM mono
+  dv.setUint32(24, 44100, true); dv.setUint32(28, 88200, true); // rate, byteRate
+  dv.setUint16(34, 16, true);                                 // bits
+  w4(36,'cue '); dv.setUint32(40, cueBody, true);
+  dv.setUint32(44, 1, true); dv.setUint32(44+4+20, 999, true);
+  w4(36+8+cueBody,'data'); dv.setUint32(36+8+cueBody+4, 0, true);
+  const m = M8.parseWavHeader(b, sz);
+  assert.equal(m.sampleRate, 44100);
+  assert.deepEqual(m.cues, [999]);
 });

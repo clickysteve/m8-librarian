@@ -1802,6 +1802,9 @@ const M8 = (() => {
     const tempo     = b.length > TEMPO_OFF + 3 ? dv.getFloat32(TEMPO_OFF, true) : null;
     const transpose = b.length > TRANSPOSE_OFF  ? dv.getInt8(TRANSPOSE_OFF)     : 0;
     const quantize  = b.length > QUANTIZE_OFF   ? b[QUANTIZE_OFF]               : 0;
+    // Directory the song was last saved under (128-byte string after the header)
+    const directory = readStr(b, 14, 127).trim();
+    const v3 = verNum(h.version) >= 30000;
     const instruments = [];
     for (let i = 0; i < 128; i++) {
       const base = INSTR_TABLE + i * ISIZE, kind = b[base];
@@ -1809,11 +1812,14 @@ const M8 = (() => {
       const iname = readStr(b, base+1, 12).trim();
       if (!iname) continue;
       const typeName = KIND[kind] || `0x${kind.toString(16)}`;
+      // Modulator types (3.0+ fixed slots) — needed to name 0x92+ FX commands
+      let modTypes = null;
+      if (v3) modTypes = [0,1,2,3].map(m => MOD_TYPES[b[base + 0x3F + m*6] >> 4] ?? 'LFO');
       instruments.push({ slot:i, kind, typeName, kindShort:KIND_SHORT[typeName]||typeName,
-        name:iname, samplePath:kind===0x02?readStr(b,base+SAMP_OFF,127).trim():'' });
+        name:iname, samplePath:kind===0x02?readStr(b,base+SAMP_OFF,127).trim():'', modTypes });
     }
     const samplePaths = [...new Set(instruments.filter(x=>x.samplePath).map(x=>x.samplePath))];
-    return { header:h, name, instruments, samplePaths, tempo, transpose, quantize };
+    return { header:h, name, directory, instruments, samplePaths, tempo, transpose, quantize };
   }
 
   function parseInstrFile(b) {
@@ -1989,7 +1995,7 @@ const M8 = (() => {
     const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
     const tag = o => String.fromCharCode(u8[o],u8[o+1],u8[o+2],u8[o+3]);
     if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return null;
-    let off = 12, fmt = null, dataSize = null;
+    let off = 12, fmt = null, dataSize = null, cues = null;
     while (off + 8 <= u8.length) {
       const id = tag(off), size = dv.getUint32(off + 4, true);
       if (id === 'fmt ' && off + 24 <= u8.length) {
@@ -2000,12 +2006,27 @@ const M8 = (() => {
           bits: dv.getUint16(off + 22, true),
         };
       } else if (id === 'data') { dataSize = size; }
+      else if (id === 'cue ') { cues = parseWavCues(u8.subarray(off + 8, off + 8 + size)); }
       off += 8 + size + (size % 2);
     }
     if (!fmt || !fmt.sampleRate || !fmt.byteRate) return null;
     const bytes = dataSize ?? (totalSize != null ? Math.max(0, totalSize - 44) : null);
     return { channels:fmt.channels, sampleRate:fmt.sampleRate, bits:fmt.bits,
-      duration: bytes != null ? bytes / fmt.byteRate : null };
+      duration: bytes != null ? bytes / fmt.byteRate : null, cues };
+  }
+
+  // Decode a RIFF 'cue ' chunk BODY into sample-frame offsets, sorted.
+  // The M8 stores user-placed slice points as standard WAV cue markers,
+  // so these are exactly the device's slice positions.
+  function parseWavCues(u8) {
+    if (u8.length < 4) return null;
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    const n = dv.getUint32(0, true);
+    if (n === 0 || n > 512 || 4 + n * 24 > u8.length) return null;
+    const pts = [];
+    for (let i = 0; i < n; i++) pts.push(dv.getUint32(4 + i * 24 + 20, true)); // dwSampleOffset
+    pts.sort((a, b) => a - b);
+    return pts;
   }
 
   // ── Scale detection (shared by histogram UI and key analysis) ──
@@ -2047,7 +2068,7 @@ const M8 = (() => {
   // ── Pattern parser ──────────────────────────────────────
   // Offsets from AlexCharlton/m8-files V4_OFFSETS. The core layout
   // (grid → phrases → chains → tables → instruments) is sequential and
-  // byte-identical across firmware 1.x-4.x: whitlockjc/m8-js reads these
+  // byte-identical across firmware 1.x-6.x (verified against real 6.x files): m8-js reads these
   // regions with no version branches, and m8-files V4/V4.1 use the same
   // values. Version differences are confined to instrument internals,
   // scales (2.5+) and EQs (4.0+), none of which we read here.
@@ -2062,46 +2083,94 @@ const M8 = (() => {
     return (key.length===1 ? key+'-' : key) + (oct > 9 ? String.fromCharCode(55+oct) : oct);
   }
 
-  // ── FX command names (from whitlockjc/m8-js, Apache 2.0) ─
-  // 0x00-0x16 sequencer, 0x17-0x3A fx/mixer, 0x80+ instrument-specific.
-  // Newer-firmware commands beyond these tables fall back to hex.
-  const SEQ_FX_CMDS = [
+  // ── FX command names (from AlexCharlton/m8-files, Apache 2.0) ─
+  // Sequencer + mixer commands are VERSIONED: firmware 3.0 inserted
+  // RND/RNL/RMX/PBN/TBX/OFF into the sequencer list (shifting everything
+  // after KIL) and 4.0 renamed/extended the mixer block. Using one table
+  // for all versions mislabels commands on modern songs (verified against
+  // real 6.x files, where 0x08 is RET, not REP).
+  const SEQ_V2 = [
     'ARP','CHA','DEL','GRV','HOP','KIL','RAN','RET','REP','NTH','PSL','PSN',
     'PVB','PVX','SCA','SCG','SED','SNG','TBL','THO','TIC','TPO','TSP',
-    // fx/mixer from 0x17
+  ];
+  const SEQ_V3 = [
+    'ARP','CHA','DEL','GRV','HOP','KIL','RND','RNL','RET','REP','RMX','NTH',
+    'PSL','PBN','PVB','PVX','SCA','SCG','SED','SNG','TBL','THO','TIC','TBX',
+    'TPO','TSP','OFF',
+  ];
+  const MIX_V2 = [
     'VMV','XCM','XCF','XCW','XCR','XDT','XDF','XDW','XDR','XRS','XRD','XRM',
     'XRF','XRW','XRZ','VCH','VCD','VRE','VT1','VT2','VT3','VT4','VT5','VT6',
     'VT7','VT8','DJF','IVO','ICH','IDE','IRE','IV2','IC2','ID2','IR2','USB',
   ];
-  const INSTR_FX_COMMON = ['VOL','PIT','FIN']; // 0x80-0x82 for all synth types
-  const fxTail = flt => [ // 0x88-0xA1 shared block (filter cmd name varies)
-    flt,'CUT','RES','AMP','LIM','PAN','DRY','SCH','SDL','SRV',
-    'EA1','AT1','HO1','DE1','ET1','EA2','AT2','HO2','DE2','ET2',
-    'LA1','LF1','LT1','LA2','LF2','LT2',
+  const MIX_V4 = [
+    'VMV','XCM','XCF','XCW','XCR','XDT','XDF','XDW','XDR','XRS','XRD','XRM',
+    'XRF','XRW','XRZ','VCH','VDE','VRE','VT1','VT2','VT3','VT4','VT5','VT6',
+    'VT7','VT8','DJC','VIN','ICH','IDE','IRE','VI2','IC2','ID2','IR2','USB',
+    'DJR','DJT','EQM','EQI','INS','RTO','ARC','GGR',
   ];
+  // vn = verNum(header.version); null/undefined = assume modern firmware
+  function seqFxTable(vn) {
+    if (vn != null && vn < 30000) return { seq: SEQ_V2, mix: MIX_V2 };
+    return { seq: SEQ_V3, mix: (vn != null && vn < 40000) ? MIX_V2 : MIX_V4 };
+  }
+  // Instrument-specific commands, 0x80 + i:
+  //   i 0-17   instrument command (table below; MIDI OUT defines only 16)
+  //   i 18-37  modulator commands, 5 per modulator × 4 — names depend on
+  //            the modulator TYPE in that slot for the instrument
+  //   i 38+    extra commands (SLI, TRG, FMP, …)
+  const INSTR_FX_COMMON = ['VOL','PIT','FIN']; // 0x80-0x82 for all synth types
+  const fxTail = flt => [flt,'CUT','RES','AMP','LIM','PAN','DRY','SCH','SDL','SRV'];
   const INSTR_FX_CMDS = {
     WAVSYNTH:     [...INSTR_FX_COMMON,'OSC','SIZ','MUL','WRP','MIR',...fxTail('FIL')],
-    MACROSYNTH:   [...INSTR_FX_COMMON,'OSC','TBR','COL','DEG','RED',...fxTail('FIL'),'TRG'],
-    SAMPLER:      [...INSTR_FX_COMMON,'PLY','STA','LOP','LEN','DEG',...fxTail('FLT'),'SLI'],
-    FMSYNTH:      [...INSTR_FX_COMMON,'ALG','FM1','FM2','FM3','FM4',...fxTail('FIL'),'FMP'],
-    MIDIOUT:      ['MPG','MPB','ADD','CHD','CCA','CCB','CCC','CCD','CCE','CCF','CCG','CCH','CCI','CCJ'],
+    MACROSYNTH:   [...INSTR_FX_COMMON,'OSC','TBR','COL','DEG','RED',...fxTail('FIL')],
+    SAMPLER:      [...INSTR_FX_COMMON,'PLY','STA','LOP','LEN','DEG',...fxTail('FLT')],
+    FMSYNTH:      [...INSTR_FX_COMMON,'ALG','FM1','FM2','FM3','FM4',...fxTail('FLT')],
+    MIDIOUT:      ['VOL','PIT','MPG','MPB','ADD','CHD','CCA','CCB','CCC','CCD','CCE','CCF','CCG','CCH','CCI','CCJ'],
     HYPERSYNTH:   [...INSTR_FX_COMMON,'CRD','SHF','SWM','WID','SUB',...fxTail('FLT')],
-    EXTERNALINST: ['VOL','PIT','MPB','MPG','CCA','CCB','CCC','CCD',...fxTail('FLT'),'ADD','CHD'],
+    EXTERNALINST: ['VOL','PIT','MPB','MPG','CCA','CCB','CCC','CCD',...fxTail('FLT')],
   };
-  function fxName(cmd, typeName) {
+  const INSTR_FX_EXTRA = {
+    SAMPLER:['SLI'], MACROSYNTH:['TRG'], FMSYNTH:['FMP'],
+    HYPERSYNTH:['CVO','SNC'], EXTERNALINST:['ADD','CHD'],
+  };
+  const MOD_CMD_STEMS = {
+    'AHD ENV':  ['EA','AT','HO','DE','ET'],
+    'ADSR ENV': ['EA','AT','DE','SU','ET'],
+    'DRUM ENV': ['EA','PK','BO','DE','ET'],
+    'LFO':      ['LA','LO','LS','LF','LT'],
+    'TRIG ENV': ['EA','AT','HO','SU','ET'],
+    'TRACK ENV':['TA','TS','TL','TH','TX'],
+  };
+  const DEFAULT_MOD_TYPES = ['AHD ENV','AHD ENV','LFO','LFO']; // device default
+  function fxName(cmd, typeName, vn, modTypes) {
     if (cmd === 0xFF || cmd == null) return null;
-    if (cmd < SEQ_FX_CMDS.length) return SEQ_FX_CMDS[cmd];
+    const { seq, mix } = seqFxTable(vn);
+    if (cmd < seq.length) return seq[cmd];
+    if (cmd < seq.length + mix.length) return mix[cmd - seq.length];
     if (cmd >= 0x80 && typeName) {
-      const t = INSTR_FX_CMDS[typeName];
-      if (t && cmd - 0x80 < t.length) return t[cmd - 0x80];
+      const i = cmd - 0x80, base = INSTR_FX_CMDS[typeName];
+      if (!base) return null;
+      if (i < 18) return base[i] ?? null;
+      if (i < 38) {
+        const m = (i - 18) / 5 | 0, k = (i - 18) % 5;
+        const ty = (modTypes && modTypes[m]) || DEFAULT_MOD_TYPES[m];
+        return (MOD_CMD_STEMS[ty] || MOD_CMD_STEMS.LFO)[k] + (m + 1);
+      }
+      return (INSTR_FX_EXTRA[typeName] || [])[i - 38] ?? null;
     }
     return null;
   }
-  function fxStr(cmd, val, typeName) {
+  function fxStr(cmd, val, typeName, vn, modTypes) {
     if (cmd === 0xFF) return '------';
     const v = val.toString(16).toUpperCase().padStart(2,'0');
-    const n = fxName(cmd, typeName);
+    const n = fxName(cmd, typeName, vn, modTypes);
     return n ? `${n} ${v}` : `${cmd.toString(16).toUpperCase().padStart(2,'0')}? ${v}`;
+  }
+  // Numeric FX groups for the editor pick-lists: [seqEnd, mixEnd]
+  function fxRanges(vn) {
+    const { seq, mix } = seqFxTable(vn);
+    return { seqLen: seq.length, mixLen: mix.length };
   }
 
   const GROOVE_OFF = 0xEE; // 32 grooves × 16 step bytes, straight after settings
@@ -2241,7 +2310,7 @@ const M8 = (() => {
 
   return { parseSong, parseInstrFile, parseTheme, parseGroove,
     parseSongPatterns, noteStr, fxStr, fxName, buildMidi,
-    decodeInstrParams, writeSamplePath, parseWavHeader, detectScales,
+    decodeInstrParams, writeSamplePath, parseWavHeader, parseWavCues, fxRanges, detectScales,
     rgbHex, fmtVer, verNum, THEME_COLORS,
     OFFSETS: { INSTR_TABLE, ISIZE, SAMP_OFF } };
 })();
@@ -2280,12 +2349,12 @@ const Cache = (() => {
   async function load(key) {
     try {
       const data = await tx(LIB, 'readonly', s => s.get(key));
-      if (!data || data.cacheVer !== 5) return null; // v5 added fxStats
+      if (!data || data.cacheVer !== 6) return null; // v6 added instrument modTypes + song directory
       return data;
     } catch { return null; }
   }
   async function save(data) {
-    try { await tx(LIB, 'readwrite', s => s.put({...data, cacheVer:5})); }
+    try { await tx(LIB, 'readwrite', s => s.put({...data, cacheVer:6})); }
     catch(e) { console.warn('Cache.save:', e); }
   }
   async function remove(key) {
@@ -2796,7 +2865,7 @@ const Zip = (() => {
 // NO file I/O lives here — the UI's save path owns reads, backups,
 // writes, verification and rollback.
 //
-// Region layout (sequential, byte-identical across firmware 1.x-4.x —
+// Region layout (sequential, byte-identical across firmware 1.x-6.x —
 // same sources as the M8 parser module: AlexCharlton/m8-files V4_OFFSETS,
 // whitlockjc/m8-js):
 //   0x00EE grooves      32 × 16 tick bytes
@@ -7330,6 +7399,7 @@ const USB = (() => {
         <span><span style="color:var(--muted);font-size:10px">BPM </span><b>${bpm}</b></span>
         <span><span style="color:var(--muted);font-size:10px">TRANSPOSE </span><b>${xpose}</b></span>
         <span><span style="color:var(--muted);font-size:10px">QUANTIZE </span><b>${qname}</b></span>
+        ${song.directory ? `<span title="Folder the song was last saved under on the device"><span style="color:var(--muted);font-size:10px">SAVED AS </span><b>${esc(song.directory)}</b></span>` : ''}
       </div>`;
     }
 
@@ -9822,7 +9892,7 @@ const USB = (() => {
   }
 
   // Re-read a song file from the card and parse its pattern data.
-  // (Pattern offsets are stable across firmware 1.x-4.x — see M8 module.)
+  // (Pattern offsets are stable across firmware 1.x-6.x — see M8 module.)
   async function readSongPatterns(song) {
     if (!sdHandle) return null;
     const parts = ('Songs/' + song.filePath).replace(/\\/g,'/').split('/').filter(Boolean);
@@ -10400,20 +10470,22 @@ const USB = (() => {
       items.push({ value: i.slot, label: `${edHx(i.slot)}  ${i.name}`, hint: i.typeName, group: 'Instruments' });
     return items;
   }
-  function edFxItems(typeName) {
+  function edFxItems(typeName, vn, modTypes) {
     const items = [{ value: null, label: '---', hint: 'no command', group: '' }];
-    for (let c = 0; c <= 0x16; c++) {
-      const n = M8.fxName(c);
+    const { seqLen, mixLen } = M8.fxRanges(vn);
+    for (let c = 0; c < seqLen; c++) {
+      const n = M8.fxName(c, null, vn);
       if (n) items.push({ value: c, label: n, hint: edHx(c), group: 'Sequencer' });
     }
-    for (let c = 0x17; c <= 0x3A; c++) {
-      const n = M8.fxName(c);
+    for (let c = seqLen; c < seqLen + mixLen; c++) {
+      const n = M8.fxName(c, null, vn);
       if (n) items.push({ value: c, label: n, hint: edHx(c), group: 'FX & mixer' });
     }
-    if (typeName) for (let c = 0x80; c <= 0xC5; c++) {
-      const n = M8.fxName(c, typeName);
-      if (!n) break;
-      items.push({ value: c, label: n, hint: edHx(c), group: typeName });
+    // Instrument block: base commands, 4×5 modulator commands, extras —
+    // MIDI OUT leaves gaps in the base range, so skip rather than stop.
+    if (typeName) for (let c = 0x80; c <= 0x80 + 40; c++) {
+      const n = M8.fxName(c, typeName, vn, modTypes);
+      if (n) items.push({ value: c, label: n, hint: edHx(c), group: typeName });
     }
     return items;
   }
@@ -10434,14 +10506,15 @@ const USB = (() => {
         items.push({ value: `${root}|${sc.n}`, label: `${root} ${sc.n}`, group: root });
     return items;
   }
-  function fxCmdByName(name, typeName) {
+  function fxCmdByName(name, typeName, vn, modTypes) {
     const q = String(name).trim().toLowerCase();
     if (!q || q === '---') return null;
-    for (let c = 0; c <= 0x3A; c++) if ((M8.fxName(c) || '').toLowerCase() === q) return c;
-    if (typeName) for (let c = 0x80; c <= 0xC5; c++) {
-      const n = M8.fxName(c, typeName);
-      if (!n) break;
-      if (n.toLowerCase() === q) return c;
+    const { seqLen, mixLen } = M8.fxRanges(vn);
+    for (let c = 0; c < seqLen + mixLen; c++)
+      if ((M8.fxName(c, null, vn) || '').toLowerCase() === q) return c;
+    if (typeName) for (let c = 0x80; c <= 0x80 + 40; c++) {
+      const n = M8.fxName(c, typeName, vn, modTypes);
+      if (n && n.toLowerCase() === q) return c;
     }
     const v = parseInt(q, 16);
     return (/^[0-9a-f]{1,2}$/.test(q) && !isNaN(v)) ? v : undefined;   // undefined = reject
@@ -11061,13 +11134,29 @@ const USB = (() => {
   // Instrument type for a step, for instrument-specific FX names: the
   // step's own instrument, else carried down from the nearest one above.
   function peStepType(st, ph, s) {
+    return peStepInstr(st, ph, s)?.typeName;
+  }
+  // The governing instrument for a step (last INS at or above it) — used
+  // for instrument-specific FX names, incl. its modulator command names.
+  function peStepInstr(st, ph, s) {
     const pat = st.pat;
-    const types = new Map((st.song.instruments || []).map(i => [i.slot, i.typeName]));
+    const bySlot = new Map((st.song.instruments || []).map(i => [i.slot, i]));
     for (let up = s; up >= 0; up--) {
       const iv = pat.phrases[ph][up].instr;
-      if (iv !== ED_EMPTY) return types.get(iv);
+      if (iv !== ED_EMPTY) return bySlot.get(iv);
     }
     return undefined;
+  }
+  // Song firmware version number, for version-correct FX command tables
+  function edVn(st) {
+    const v = st?.song?.header?.version;
+    return v ? M8.verNum(v) : null;
+  }
+  // Display fallback when a step has no INS in scope: if every instrument
+  // in the song is one type, its command names are the only possibility.
+  function edSoleType(st) {
+    const types = new Set((st?.song?.instruments || []).map(i => i.typeName));
+    return types.size === 1 ? types.values().next().value : null;
   }
 
   function renderPhraseEd(ph, opts = {}) {
@@ -11144,7 +11233,8 @@ const USB = (() => {
       <span>fx1</span><span>val</span><span>fx2</span><span>val</span><span>fx3</span><span>val</span></div>`;
     for (let s = 0; s < ED_STEPS; s++) {
       const step = pat.phrases[ph][s];
-      const typeName = peStepType(st, ph, s);
+      const stepInstr = peStepInstr(st, ph, s);
+      const typeName = stepInstr?.typeName ?? edSoleType(st);
       const blank = step.note === ED_EMPTY && step.instr === ED_EMPTY && step.vol === ED_EMPTY && step.fx.every(f => f.cmd === ED_EMPTY);
       let cellsHtml = '';
       for (let col = 0; col < PE_FIELDS.length; col++) {
@@ -11159,7 +11249,7 @@ const USB = (() => {
         } else if (f === 'vol') { txt = v === ED_EMPTY ? '--' : edHx(v); dim = v === ED_EMPTY; }
         else if (f === 'instr') { txt = v === ED_EMPTY ? '--' : edHx(v); dim = v === ED_EMPTY; }
         else if (f.startsWith('cmd')) {
-          txt = v === ED_EMPTY ? '---' : (M8.fxName(v, typeName) || `${edHx(v)}?`);
+          txt = v === ED_EMPTY ? '---' : (M8.fxName(v, typeName, edVn(st), stepInstr?.modTypes) || `${edHx(v)}?`);
           dim = v === ED_EMPTY;
         } else {
           const cmd = step.fx[+f.slice(-1) - 1].cmd;
@@ -11224,7 +11314,9 @@ const USB = (() => {
     const beginEdit = (cell, seed) => {
       const s = +cell.dataset.step, col = +cell.dataset.col, f = cell.dataset.f;
       peCursor = { step: s, col };
-      const typeName = peStepType(st, ph, s);
+      const stepInstr = peStepInstr(st, ph, s);
+      const typeName = stepInstr?.typeName ?? edSoleType(st);
+      const fxVn = edVn(st), fxMods = stepInstr?.modTypes;
       const commitVal = v => {   // v = raw byte or null(clear); undo pushed by caller paths
         edPushUndo(st);
         if (v === null) peClearCell(pat, ph, s, col);
@@ -11265,13 +11357,13 @@ const USB = (() => {
         });
       } else if (f.startsWith('cmd')) {
         openPicker(cell, {
-          items: edFxItems(typeName),
+          items: edFxItems(typeName, fxVn, fxMods),
           seed,
           placeholder: 'command…',
           rawHint: 'or type a name / hex',
           onPick: v => commitVal(v),   // null zeroes the val via peClearCell
           onRaw: raw => {
-            const v = fxCmdByName(raw, typeName);
+            const v = fxCmdByName(raw, typeName, fxVn, fxMods);
             if (v === null) { commitVal(null); return; }
             if (v !== undefined) commitVal(v);
           },
@@ -12531,6 +12623,32 @@ const USB = (() => {
           f.size = file.size;
           const head = new Uint8Array(await file.slice(0, 512).arrayBuffer());
           f.meta = M8.parseWavHeader(head, file.size);
+          // Slice markers: the M8 writes user-placed slices as WAV cue
+          // points, usually in chunks AFTER the (large) data chunk — walk
+          // the chunk list with small ranged reads to find them.
+          if (f.meta && !f.meta.cues) {
+            const dv = new DataView(head.buffer);
+            const tag = o => String.fromCharCode(head[o],head[o+1],head[o+2],head[o+3]);
+            let off = 12, guard = 0;
+            while (off + 8 <= file.size && ++guard < 64) {
+              let id, size;
+              if (off + 8 <= head.length) { id = tag(off); size = dv.getUint32(off + 4, true); }
+              else {
+                const hdr = new Uint8Array(await file.slice(off, off + 8).arrayBuffer());
+                if (hdr.length < 8) break;
+                id = String.fromCharCode(hdr[0],hdr[1],hdr[2],hdr[3]);
+                size = new DataView(hdr.buffer).getUint32(4, true);
+              }
+              if (id === 'cue ' && size > 0 && size <= 16384) {
+                const body = new Uint8Array(await file.slice(off + 8, off + 8 + size).arrayBuffer());
+                const cues = M8.parseWavCues(body);
+                if (cues) f.meta.cues = cues;
+                break;
+              }
+              if (size == null || size < 0) break;
+              off += 8 + size + (size % 2);
+            }
+          }
         } catch {}
         if (++done % 100 === 0 && gen === loadGen) $('sampbr-stat').textContent = `Reading WAV headers… ${done}/${sampbrData.length}`;
         if (gen !== loadGen) return; // card changed mid-scan
@@ -12560,7 +12678,10 @@ const USB = (() => {
       m.duration < 60 ? Math.round(m.duration) + 's' :
       `${Math.floor(m.duration/60)}:${String(Math.round(m.duration%60)).padStart(2,'0')}`;
     const rate = (m.sampleRate / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
-    return `${dur} · ${rate}/${m.bits}${m.channels === 2 ? ' st' : m.channels > 2 ? ' ' + m.channels + 'ch' : ''}`;
+    // ≥2 cue points = user-placed slice markers (a single cue at 0 is
+    // just a generic marker many editors leave behind)
+    const sl = (m.cues && m.cues.length >= 2) ? ` · ${m.cues.length} slices` : '';
+    return `${dur} · ${rate}/${m.bits}${m.channels === 2 ? ' st' : m.channels > 2 ? ' ' + m.channels + 'ch' : ''}${sl}`;
   }
 
   function renderSampBrowser() {
@@ -12856,14 +12977,19 @@ const USB = (() => {
           if (gen !== loadGen) return;
           const counts = {};
           if (pat?.phrases?.length) {
-            const slotType = new Map((s.instruments || []).map(i => [i.slot, i.typeName]));
+            const slotInstr = new Map((s.instruments || []).map(i => [i.slot, i]));
+            const vn = s.header?.version ? M8.verNum(s.header.version) : null;
+            // Steps with no INS in scope: if the whole song is one
+            // instrument type (common on sample-based cards), use it.
+            const types = new Set((s.instruments || []).map(i => i.typeName));
+            const soleType = types.size === 1 ? types.values().next().value : null;
             for (const ph of pat.phrases) {
-              let lastType = null;
+              let lastInstr = null;
               for (const step of ph) {
-                if (step.instr !== 0xFF) lastType = slotType.get(step.instr) || null;
+                if (step.instr !== 0xFF) lastInstr = slotInstr.get(step.instr) || null;
                 for (const f of step.fx) {
                   if (f.cmd === 0xFF) continue;
-                  const label = M8.fxName(f.cmd, lastType)
+                  const label = M8.fxName(f.cmd, lastInstr?.typeName ?? soleType, vn, lastInstr?.modTypes)
                     || (f.cmd >= 0x80
                         ? `I80+${(f.cmd - 0x80).toString(16).toUpperCase().padStart(2,'0')}`
                         : f.cmd.toString(16).toUpperCase().padStart(2,'0') + '?');

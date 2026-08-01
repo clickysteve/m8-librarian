@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — real-data review round
+
+Validated the whole parsing stack against real M8 cards (firmware 6.0–6.5 song, instrument and sample files) and fixed what the synthetic fixtures couldn't catch.
+
+- **Version-correct FX command names.** Firmware 3.0 inserted `RND`/`RNL`/`RMX`/`PBN`/`TBX`/`OFF` into the sequencer command list (shifting everything after `KIL`) and 4.0 renamed and extended the mixer block — the app used the 2.x table for every file, so modern songs showed `REP` where the device shows `RET`, `PVX` for `PBN`, and so on. Sequencer/mixer names now come from the file's own header version, in the viewer, the phrase editor (display, pick-lists and typed entry) and the FX stats.
+- **Instrument-command block decoded properly.** Commands `0x80`+ now follow the real layout: 18 per-type commands, then 5 commands per modulator × 4 (named from each instrument's actual modulator types, parsed from the song), then the extra commands — `SLI`, `TRG`, `FMP`, `CVO`/`SNC`, `ADD`/`CHD`. Previously the modulator block was 4 slots too short with wrong LFO names, so e.g. `SLI` (slice select, all over real sliced-break songs) displayed as raw hex. When a step has no `INS` in scope and the song only contains one instrument type, that type's names are used.
+- **Slice markers surfaced.** The M8 stores user-placed sample slices as standard WAV cue points; the sample browser now walks each WAV's chunk list (small ranged reads) and shows the slice count. Groundwork for a slice editor.
+- **Songs carry their save path.** The 128-byte directory field after the header (e.g. `/Bundles/NAME/`) is parsed and shown in the song detail strip.
+- Firmware 6.x confirmed working end to end (header version decode matches m8-files exactly); docs updated from "1.x–4.x" to "1.x–6.x".
+- Cache schema v6 (adds modulator types and save directory to cached parses; first open after updating rescans).
+
 ## Unreleased — parity with pt-librarian
 
 Ports the feature set built out in the sibling picoTracker Librarian back to the M8, adapted to the M8's binary formats. Roughly doubles the app.

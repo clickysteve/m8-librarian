@@ -20,7 +20,7 @@ The library is cached locally (IndexedDB), so reopening the same card is instant
 
 - **Songs** — list, compact and grid views with folder tree, filtering, and sorting (name, date, missing samples, instrument count, BPM, key, firmware). Expand a song for its instruments, sample dependencies (with previews), and similar songs. The **♪ Keys** button detects each song's key/scale from its note content.
 - **Instruments** — every `.m8i` decoded in full: synth parameters, filter, amp/mixer sends, and all modulators with envelope curves. Usage tracking shows which songs use each instrument. Any instrument in a song's bank can be **extracted as a `.m8i`** into `Instruments/`.
-- **Samples** — tree browser with duration/sample-rate/bit-depth per WAV, usage badges, and arrow-key audition.
+- **Samples** — tree browser with duration/sample-rate/bit-depth per WAV, usage badges, and arrow-key audition. WAVs carrying user-placed slice markers (the M8 stores them as standard cue points) show their slice count.
 - **Themes** — visual previews of every `.m8t`, with swatches. **Use** applies a theme's palette to the app itself.
 - **Bundles / Grooves / Renders** — bundle contents with song links, groove step visualisation, renders with waveform preview and playback.
 - **Stats** — collection health, instrument types, firmware versions, most-used instruments and samples, songs by folder, a modification timeline, and FX command usage (analyzed on demand, cached).
@@ -79,11 +79,11 @@ Everything runs locally. There is no server, no telemetry, and no network access
 
 ## Firmware compatibility
 
-File parsing works across firmware 1.x through 4.x — the core song layout (grid, phrases, chains, instrument table) is byte-identical across versions, verified against [m8-js](https://github.com/whitlockjc/m8-js) and [m8-files](https://github.com/AlexCharlton/m8-files). All instrument types are recognised, including HyperSynth and External Instrument (3.0+). Known limitations:
+File parsing works across firmware 1.x through 6.x — the core song layout (grid, phrases, chains, instrument table) is byte-identical across versions, verified against [m8-js](https://github.com/whitlockjc/m8-js) and [m8-files](https://github.com/AlexCharlton/m8-files) and against real 6.x song files. All instrument types are recognised, including HyperSynth and External Instrument (3.0+). FX command names are version-aware: the sequencer/mixer tables changed in firmware 3.0 and 4.0, and the right table is chosen from each file's own header. Instrument-specific commands (0x80+) resolve through the instrument's type and its modulator types, including the extra commands (`SLI`, `TRG`, `FMP`, `CVO`/`SNC`, `ADD`/`CHD`). Known limitations:
 
 - MIDI export uses groove 0 for timing; per-phrase `GRV` commands and flow commands (`HOP`) are not applied.
 - MIDI export models the 8 tracks independently (as the M8 does); cross-track sync assumes conventionally aligned chain lengths.
-- FX command names cover the 2.6-era command set; newer commands display as hex.
+- Commands newer than the 4.x-era tables display as hex.
 
 ## Development
 

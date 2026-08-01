@@ -1,5 +1,38 @@
 # Changelog
 
+## Unreleased — parity with pt-librarian
+
+Ports the feature set built out in the sibling picoTracker Librarian back to the M8, adapted to the M8's binary formats. Roughly doubles the app.
+
+### Arrange and edit
+- Editable pattern workspace: song grid with cursor, chain pick-lists (used / defined / free slots), shift block selection with copy/paste/clear, row gutter ops, spare rows, group-hued chain colours with custom picks and a card sidecar (`M8Librarian_colours.json`).
+- Chain editor (phrase + transpose per step, Clone-with-repoint) and a full tracker-style phrase editor: fuzzy pick-lists for notes/instruments/FX, QWERTY piano entry, block ops across steps and columns, insert/delete step, ±1/±12, 40-level unified undo.
+- Scale lock (chosen or detected key, snap, degree-wise transpose, explicit-only conform) and seeded generators (Euclidean, arpeggios over 12 chord shapes × 4 patterns, variations, humanise) with preview-then-apply.
+- Groove editor. Saves preview every change, then run through the backup → write → verify → rollback path with `{mode:'edit'}` audit entries.
+
+### Play
+- In-browser playback: Web Audio sampler sketch honouring grooves, per-track GRV switches, HOP flow, chain transposes, the volume column and KIL, through a limiter. Play the song, a row, a chain or a phrase; Space plays what you're looking at; transport bar with scrub, loop and live grid/chain/phrase highlighting.
+- Render to stereo 16-bit WAV or per-track stems (zipped), offline through the same scheduler.
+- Known limits: synth engines are silent (counted in the transport), TPO ignored.
+
+### Device (USB)
+- Live M8 screen mirror over WebSerial using the community-documented SLIP protocol (uncertain details marked and tolerant), with PNG snapshot, pop-out, fullscreen and .webm recording.
+- Nineteen WebGL output effects with presets (from DMG Darkroom, reimplemented as one shader pass) and audio-reactive modulation from a live input. Experimental input mode, off by default.
+
+### Library
+- Trash instead of delete: unused samples move to `M8Librarian_Trash/`; Trash tab with restore (reappearance refusal) and permanent delete.
+- Repair-by-copy: fix a broken reference by writing the matching WAV to the referenced path, never touching the song file (triple-verified).
+- Extract any song-bank instrument as a `.m8i` (slot + table block, round-trip verified).
+- Ordered setlists with drag/arrow reorder and numbered export (`01_NAME.m8s`).
+- Annotated song map: section bands, pinned notes, PNG/SVG export, `M8Librarian_map.json` sidecar.
+- Demo mode: synthetic in-memory card from the landing page.
+- FX-usage stats (analyzed on demand, mtime-cached; cache schema v5).
+- macOS junk-file filtering everywhere; PWA (manifest + service worker + icons).
+
+### Tests
+- Four new suites extracted from the shipped file: editor byte encoders, playback timeline + WAV encoding, SLIP/display parser, generators. Plus end-to-end browser smokes for the editors, playback wiring and the QoL layer.
+
+
 ## Unreleased
 
 ### Added

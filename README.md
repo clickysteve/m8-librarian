@@ -17,23 +17,51 @@ The library is cached locally (IndexedDB), so reopening the same card is instant
 ## What it does
 
 ### Browse
-- **Songs** — list, compact, and grid views with folder tree, filtering, and sorting (name, date, missing samples, instrument count, BPM, key, firmware). Expand a song for its instruments, sample dependencies (with previews), and similar songs. The **♪ Keys** button detects each song's key/scale from its note content.
-- **Instruments** — every `.m8i` decoded in full: synth parameters, filter, amp/mixer sends, and all modulators with envelope curves. Usage tracking shows which songs use each instrument.
-- **Samples** — tree browser with duration/sample-rate/bit-depth per WAV, usage badges, and arrow-key audition (press up/down to walk the list and hear each sample).
+
+- **Songs** — list, compact and grid views with folder tree, filtering, and sorting (name, date, missing samples, instrument count, BPM, key, firmware). Expand a song for its instruments, sample dependencies (with previews), and similar songs. The **♪ Keys** button detects each song's key/scale from its note content.
+- **Instruments** — every `.m8i` decoded in full: synth parameters, filter, amp/mixer sends, and all modulators with envelope curves. Usage tracking shows which songs use each instrument. Any instrument in a song's bank can be **extracted as a `.m8i`** into `Instruments/`.
+- **Samples** — tree browser with duration/sample-rate/bit-depth per WAV, usage badges, and arrow-key audition.
 - **Themes** — visual previews of every `.m8t`, with swatches. **Use** applies a theme's palette to the app itself.
 - **Bundles / Grooves / Renders** — bundle contents with song links, groove step visualisation, renders with waveform preview and playback.
-- **Stats** — collection health, instrument types, firmware versions, most-used instruments and samples, songs by folder, a modification timeline.
+- **Stats** — collection health, instrument types, firmware versions, most-used instruments and samples, songs by folder, a modification timeline, and FX command usage (analyzed on demand, cached).
 
-### Inspect
-- **Pattern viewer** — open any song's arrangement: a chain-colored timeline of all 8 tracks, the full song grid, and drill-down into chains and phrases with real M8 FX command names (HOP, KIL, PLY, ...), plus a note histogram with scale detection.
-- **Compare** — diff two songs: shared/unique instruments and sample paths, metadata side by side (BPM, transpose, quantize, firmware, sizes), and a pattern summary.
-- **MIDI export** — download any song as a standard MIDI file (type 1, 24 PPQ, one MIDI track per M8 track, groove timing and chain transposes applied). Drag it into any DAW.
+No card handy? **Try with demo data** on the landing screen loads a synthetic in-memory card — songs, instruments, themes, a repairable broken reference — so every tab, the editors, playback and the repair flow can be explored without hardware.
+
+### Play
+
+- **In-browser playback** — press ▶ on any song and hear it. A Web Audio engine walks the song grid the way the tracker does: grooves, per-track `GRV` switches, `HOP` flow, chain transposes, the volume column, and `KIL`, with the mix run through a limiter. An honest sketch, not an emulation: only SAMPLER instruments sound (synth voices are silent and counted in the transport bar), and `TPO` tempo changes are ignored.
+- **Play anything** — the whole song, one song row across all 8 tracks, one chain, or one phrase. **Space** plays whatever you're looking at.
+- **Transport** — a bottom bar with what's playing, a draggable scrub bar, loop toggle, elapsed/total and stop; while anything plays the grid outlines each track's current cell and the open chain/phrase highlights its current step.
+- **Render to WAV** — bounce the mix to a stereo 16-bit WAV, or to **stems**, one WAV per track, zipped. Rendered offline through the same scheduling as the preview.
+
+### Arrange and edit
+
+- **Pattern editor** — the song grid, editable: click any cell to choose a chain from a filterable pick-list (used, defined-but-unplaced, and free slots), arrow keys walk the grid, shift+arrows or shift+click select a block that copies, pastes or clears as a unit, rows copy/paste from the gutter, and spare rows extend the arrangement. Chains are coloured by number group, with custom per-chain colours that can be saved to the card (`M8Librarian_colours.json`).
+- **Chain editor** — edit any chain's 16 steps in place: phrase per step and per-step transpose, with **Clone** to copy a chain and repoint the grid cells that used it.
+- **Phrase editor** — a tracker-style grid edited in place: notes, instruments and FX chosen by name with fuzzy matching, block selection over steps and columns (copy/paste/clear/transpose), insert/delete step, ±1/±12 transpose, per-step and whole-phrase clipboard, a 40-level undo, and an optional QWERTY piano mode for typing notes.
+- **Scale lock** — the editor knows the song's key (chosen or detected), flags out-of-key notes, snaps entry to the key when locked, moves by scale degree, and offers a one-click conform when the scale is explicit.
+- **Generators** — preview-then-apply phrase generation: Euclidean rhythms with rotation, arpeggios over twelve chord shapes in four patterns, seeded variations of what's already there, and a humanise pass on the volume column. Nothing is written until Apply; one undo takes it all back.
+- **Groove editor** — edit any groove's step ticks.
+- **Song map** — named section bands dragged over the arrangement, notes pinned to rows, PNG/SVG export, and a sidecar on the card (`M8Librarian_map.json`) so the marked-up map travels with it.
+
+All edits are held in memory until you explicitly save; the save previews every change, then goes through the same backup/verify/rollback path as repairs.
+
+### Device (USB)
+
+- **Live screen mirror** — connect the M8 over USB (WebSerial) and watch the device screen in the browser, with PNG snapshots, pop-out window, fullscreen, and recording straight to `.webm`. Reachable from the landing page, no SD card needed. Requires Chrome/Edge on `https://` or localhost.
+- **Output effects** — nineteen GPU effects over the mirror (CRT, glitch, VHS, scanlines, grades and more) with presets, per-parameter control and persistent settings, reimplemented from [DMG Darkroom](https://github.com/clickysteve/dmg-darkroom) as a single WebGL pass.
+- **Audio-reactive effects** — drive any effect from a live audio input (bass/mids/highs/level/transients), riding on top of your slider settings.
+- **Experimental input** — an off-by-default control mode sends key states using the community-documented remote protocol. The protocol details are marked and degrade gracefully; the display side is read-only and safe.
 
 ### Maintain
-- **Problems tab** — broken sample references, unreadable files, unused instruments and samples (with reclaimable sizes), duplicate instrument names, content-identical samples (byte-level dedupe scan), your most-reused "backbone" sounds, and the repair log.
-- **Repair mode** — relinks broken sample references by rewriting the path inside the `.m8s`/`.m8i` file. Candidates are ranked (exact filename matches first) and previewable. **Fix all exact matches** batch-repairs every unambiguous reference at once.
+
+- **Problems tab** — broken sample references, unreadable files, unused instruments and samples (with reclaimable sizes), duplicate instrument names, content-identical samples (byte-level dedupe scan), your backbone sounds, and the repair log.
+- **Repair mode** — two fixes for a broken reference: *re-point* the file's sample path (candidates ranked, previewable, save-as-copy default or overwrite-with-backup), or *copy the sample in* — write a matching WAV to the referenced path without touching the song file. **Fix all exact matches** batch-repairs every unambiguous reference.
+- **Trash, not delete** — cleanup moves unused samples to `M8Librarian_Trash/` on the card. The Trash tab restores files (refusing if the name has reappeared) or deletes permanently.
 - **Backup** — copy the card to a folder or download it as a ZIP, with per-directory selection.
-- **Sets** — tick songs, get their full dependency set resolved automatically (samples, bundles, sizes, missing warnings), and export a lean self-contained card layout as a folder or ZIP. Sets can be named and saved for reuse.
+- **Sets** — build **ordered** setlists: click songs in play order, reorder by drag or arrows, then export a lean card layout as a folder or ZIP, optionally with numbered filenames (`01_`, `02_` …) so the device lists them in order. Sets save with their order.
+
+macOS junk files (`._*`, `.DS_Store`, Spotlight folders) are filtered everywhere. The hosted page installs as an offline-capable PWA.
 
 ## The safety model
 
@@ -44,7 +72,8 @@ The card is opened **read-only**. Nothing is ever written unless you explicitly 
 - **Overwrite** mode first copies the original to `M8Librarian_Backups/<timestamp>/` on the card.
 - Before writing, the file's modification time is checked against the scan and the fresh bytes are re-parsed; if the file changed since you scanned (say, you edited it on the M8), the repair refuses and asks for a rescan.
 - After writing, the file is re-read and re-parsed to verify the change. If verification fails, the write is automatically rolled back (original restored from backup, or the bad copy deleted).
-- Every repair is recorded in an audit log: in the browser and appended to `M8Librarian_Backups/audit-log.txt` on the card itself, so the history travels with the card.
+- Deletions are never destructive: cleanup moves files to `M8Librarian_Trash/`.
+- Every repair, edit, trash move and export is recorded in an audit log: in the browser and appended to `M8Librarian_Backups/audit-log.txt` on the card itself, so the history travels with the card.
 
 Everything runs locally. There is no server, no telemetry, and no network access beyond loading the page itself.
 
@@ -63,9 +92,13 @@ The entire app is a single `index.html` — CSS, markup, and JavaScript — deli
 Tests are zero-dependency Node scripts that extract the modules straight out of `index.html`:
 
 ```bash
-node tests/parser.test.mjs   # binary parser unit tests
-node tests/fuzz.test.mjs     # seeded fuzz + property tests (parsers must never throw)
-node tests/midi.test.mjs     # MIDI export vs an independent SMF reader
+node tests/parser.test.mjs      # binary parser unit tests
+node tests/fuzz.test.mjs        # seeded fuzz + property tests (parsers must never throw)
+node tests/midi.test.mjs        # MIDI export vs an independent SMF reader
+node tests/editor.test.mjs      # editing-suite byte encoders, round-tripped through the parser
+node tests/player.test.mjs      # playback timeline builder + WAV encoding
+node tests/usb.test.mjs         # SLIP decoder + display-command parser
+node tests/generators.test.mjs  # phrase generators: determinism, scale purity
 ```
 
 The M8 file format knowledge is derived from [whitlockjc/m8-js](https://github.com/whitlockjc/m8-js) and [AlexCharlton/m8-files](https://github.com/AlexCharlton/m8-files) (both Apache 2.0) — thank you to both authors.

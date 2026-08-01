@@ -159,7 +159,7 @@
     /* SONGS — COMPACT ROWS */
     .song-compact-item { border-bottom:1px solid var(--border); }
     .s-crow { display:grid;
-      grid-template-columns:minmax(120px,1fr) minmax(70px,140px) 58px 90px;
+      grid-template-columns:minmax(120px,1fr) minmax(70px,140px) 58px 90px 30px 30px;
       align-items:center; gap:0 12px; padding:6px 20px;
       cursor:pointer; user-select:none; transition:background .1s; }
     .s-crow:hover { background:var(--surface); }
@@ -176,7 +176,7 @@
     /* SONGS — LIST ROWS */
     .song-item { border-bottom:1px solid var(--border); }
     .song-row { display:grid;
-      grid-template-columns:16px minmax(130px,1fr) minmax(70px,150px) 62px 86px 70px 110px;
+      grid-template-columns:16px minmax(130px,1fr) minmax(70px,150px) 62px 86px 70px 110px 30px 30px;
       align-items:center; gap:0 12px; padding:9px 20px;
       cursor:pointer; user-select:none; transition:background .1s; }
     .song-row:hover { background:var(--surface); }
@@ -278,7 +278,11 @@
       display:flex; align-items:center; justify-content:center; padding:24px; }
     .song-modal-box { background:var(--surface); border:1px solid var(--border2);
       border-radius:10px; width:min(720px,100%); max-height:84vh;
-      display:flex; flex-direction:column; overflow:hidden; }
+      display:flex; flex-direction:column; overflow:hidden;
+      transition:width .15s ease; }
+    /* Editors and the song map need the full arrangement side by side —
+       widen the modal while either section is open */
+    .song-modal-box.wide { width:min(1280px,96vw); }
     .song-modal-hdr { display:flex; align-items:center; gap:12px; padding:13px 16px;
       border-bottom:1px solid var(--border); flex-shrink:0; }
     .song-modal-title { font-size:14px; font-weight:700; flex:1; min-width:0;
@@ -1262,6 +1266,9 @@
     <div class="empty-divider" id="empty-divider" style="display:none">— or —</div>
     <button class="btn secondary" id="btn-open-empty">OPEN SD CARD</button>
     <button class="btn ghost" id="btn-demo" title="Explore the app with a synthetic demo card — no SD card needed" style="margin-top:10px">▶ Try with demo data</button>
+    <div class="empty-divider">— or —</div>
+    <button class="btn secondary" id="btn-landing-mirror">MIRROR YOUR M8 (USB)</button>
+    <div class="empty-sub" style="font-size:11px;max-width:340px">Live screen mirror with output effects, audio-reactive visuals and recording — over a USB cable, no SD card needed.</div>
     <div id="browser-warn" class="browser-warn" style="display:none">
       ⚠ Requires Chrome or Edge — Firefox and Safari do not support the File System Access API.
     </div>
@@ -1511,19 +1518,6 @@
       <div class="scroll-area" id="trash-list"></div>
     </div>
 
-  </div><!-- #main -->
-
-<!-- ════════════════════════════════════════════════════════════════════
-     d-html.txt — three HTML splices for index.html (anchors in d-wiring.md)
-     ════════════════════════════════════════════════════════════════════ -->
-
-      <button class="tab-btn" data-tab="device">DEVICE</button>
-
-<!-- Landing-page mirror entry: works without an SD card -->
-    <div class="empty-divider">— or —</div>
-    <button class="btn secondary" id="btn-landing-mirror">MIRROR YOUR M8 (USB)</button>
-    <div class="empty-sub" style="font-size:11px;max-width:340px">Live screen mirror with output effects, audio-reactive visuals and recording — over a USB cable, no SD card needed.</div>
-
     <!-- ── DEVICE (USB screen mirror) — ids follow the Mirror DOM contract ── -->
     <div class="tab-pane" id="tab-device">
       <div class="toolbar">
@@ -1598,6 +1592,8 @@
         </div>
       </div>
     </div>
+
+  </div><!-- #main -->
 
 </div><!-- #app -->
 
@@ -7468,6 +7464,7 @@ const USB = (() => {
     mapSec.style.display = 'none'; mapSec.innerHTML = ''; delete mapSec.dataset.loaded;
     $('btn-modal-map').textContent = '🗺 Map';
     mapSel = null;
+    document.querySelector('#song-modal .song-modal-box')?.classList.remove('wide');
     const body = $('modal-body');
     // Re-insert the sections since we replaced innerHTML
     body.innerHTML = '';
@@ -7517,6 +7514,12 @@ const USB = (() => {
       alert('MIDI export failed: ' + e.message);
     } finally { btn.disabled = false; btn.textContent = '⬇ MIDI'; }
   });
+  // The modal widens while the patterns or map section is open
+  function syncModalWidth() {
+    const wide = $('modal-pattern-section').style.display !== 'none'
+              || $('modal-map-section').style.display !== 'none';
+    document.querySelector('#song-modal .song-modal-box')?.classList.toggle('wide', wide);
+  }
   $('btn-modal-patterns').addEventListener('click', () => {
     const btn = $('btn-modal-patterns');
     const sec = $('modal-pattern-section');
@@ -7529,6 +7532,7 @@ const USB = (() => {
       sec.style.display = 'none';
       btn.textContent = '▦ Patterns';
     }
+    syncModalWidth();
   });
 
   // ══════════════════════════════════════════════════════
@@ -7883,6 +7887,7 @@ const USB = (() => {
     const sec = $('modal-map-section');
     if (sec.style.display === 'none') {
       sec.style.display = 'block';
+      syncModalWidth();
       btn.textContent = '▲ Map';
       if (!sec.dataset.loaded && _modalSong) {
         sec.dataset.loaded = '1';
@@ -7901,6 +7906,7 @@ const USB = (() => {
       sec.style.display = 'none';
       btn.textContent = '🗺 Map';
     }
+    syncModalWidth();
   });
 
   // ── Diff pick mode (⇌ buttons on song rows) ───────────

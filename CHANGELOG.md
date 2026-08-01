@@ -11,6 +11,11 @@ Validated the whole parsing stack against real M8 cards (firmware 6.0–6.5 song
 - Firmware 6.x confirmed working end to end (header version decode matches m8-files exactly); docs updated from "1.x–4.x" to "1.x–6.x".
 - Cache schema v6 (adds modulator types and save directory to cached parses; first open after updating rescans).
 
+### Layout fixes (visual QA pass with real cards)
+- The device-round HTML had landed outside the main layout container: the landing page's "MIRROR YOUR M8" entry and a duplicate DEVICE tab button rendered at the bottom of every tab (and on top of open modals), and the Device tab itself sat outside the tab area with a page-height gap above it. Everything is now in its proper place — the mirror entry lives on the landing screen and disappears once a card is open.
+- Song rows: the play ▶ and compare ⇌ buttons had no grid columns, so they wrapped onto a second line under every row (and in the dense view the play button stretched into a full-width bar). The row grids now include them properly.
+- The song modal now widens to fit the editors and the song map — previously the 720px modal clipped the song grid at track 4, hiding tracks 5-8.
+
 ## Unreleased — parity with pt-librarian
 
 Ports the feature set built out in the sibling picoTracker Librarian back to the M8, adapted to the M8's binary formats. Roughly doubles the app.

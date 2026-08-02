@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — discoverability + theme creator round
+
+- **Dashboard and pattern editor, one click away.** Every song row (list, dense and grid views) now has ⧉ (song dashboard) and ▦ (pattern editor) buttons, the ▦ opens the dashboard with the editor already expanded, and the expanded row leads with "Song dashboard" / "Pattern editor" buttons.
+- **Theme creator.** ＋ New theme on the Themes tab (or ✎ on any theme to start from a copy): all 13 colour roles with pickers, a live device-screen preview, and Save writes `NAME.m8t` into `Themes/` on the card (never overwrites, verified after writing, audit-logged). With no card open it downloads the file instead.
+- **Representative theme previews.** Theme cards now render a mock M8 SONG screen in the theme's palette — title, info, empty/default/value text, play-marker row, cursor, selection, scope slider and the three meter segments are all visible — instead of a generic four-row strip.
+- **Correct 13-role theme decode.** The .m8t colour list was 8 roles with wrong names past the second (verified against m8-files: background, empty/info/default/value/title text, play marker, cursor, selection, scope slider, meter low/mid/peak). Swatches, previews and app skinning now use the real roles.
+- **Mirror demo screen.** ▶ Demo screen on the Device tab animates a fake M8 SONG screen (play marker, cursor, live scope) on the mirror, so the output effects, audio-reactive mode and recording can be tried with no device plugged in. Stops itself the moment a real M8 connects.
+
 ## Unreleased — real-data review round
 
 Validated the whole parsing stack against real M8 cards (firmware 6.0–6.5 song, instrument and sample files) and fixed what the synthetic fixtures couldn't catch.

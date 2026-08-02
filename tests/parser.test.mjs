@@ -185,12 +185,25 @@ test('parseInstrFile reads kind, name, sample path', () => {
   assert.equal(i.samplePath, 'Samples/snare.wav');
 });
 
-test('parseTheme reads colors', () => {
+test('parseTheme reads the 13 colour roles', () => {
   const t = M8.parseTheme(makeTheme());
   assert.ok(t);
   assert.deepEqual(t.colors.background, {r: 16, g: 16, b: 16});
-  assert.deepEqual(t.colors.text, {r: 255, g: 128, b: 0});
+  assert.deepEqual(t.colors.textEmpty, {r: 255, g: 128, b: 0});
   assert.equal(M8.rgbHex(t.colors.background), '#101010');
+  assert.equal(M8.THEME_COLORS.length, 13);
+  assert.equal(M8.THEME_COLORS[12], 'meterPeak');
+});
+
+test('buildThemeFile round-trips through parseTheme', () => {
+  const colors = {};
+  M8.THEME_COLORS.forEach((n, i) => { colors[n] = { r: i * 10, g: 255 - i * 10, b: i }; });
+  const bytes = M8.buildThemeFile(colors);
+  assert.equal(bytes.length, 14 + 39);
+  const t = M8.parseTheme(bytes);
+  assert.ok(t, 'built theme parses');
+  assert.equal(t.header.fileType, 0x20);
+  for (const n of M8.THEME_COLORS) assert.deepEqual(t.colors[n], colors[n], n);
 });
 
 test('parseGroove reads 16 steps', () => {

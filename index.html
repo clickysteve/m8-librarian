@@ -159,7 +159,7 @@
     /* SONGS — COMPACT ROWS */
     .song-compact-item { border-bottom:1px solid var(--border); }
     .s-crow { display:grid;
-      grid-template-columns:minmax(120px,1fr) minmax(70px,140px) 58px 90px 30px 30px;
+      grid-template-columns:minmax(120px,1fr) minmax(70px,140px) 58px 90px 30px 30px 30px;
       align-items:center; gap:0 12px; padding:6px 20px;
       cursor:pointer; user-select:none; transition:background .1s; }
     .s-crow:hover { background:var(--surface); }
@@ -176,7 +176,7 @@
     /* SONGS — LIST ROWS */
     .song-item { border-bottom:1px solid var(--border); }
     .song-row { display:grid;
-      grid-template-columns:16px minmax(130px,1fr) minmax(70px,150px) 62px 86px 70px 110px 30px 30px;
+      grid-template-columns:16px minmax(130px,1fr) minmax(70px,150px) 62px 86px 70px 110px 30px 30px 30px 30px;
       align-items:center; gap:0 12px; padding:9px 20px;
       cursor:pointer; user-select:none; transition:background .1s; }
     .song-row:hover { background:var(--surface); }
@@ -401,6 +401,14 @@
     .swatch-hex { font-size:9px; color:var(--border2); font-family:monospace; }
     .no-preview { height:110px; background:var(--surface2); display:flex;
       align-items:center; justify-content:center; font-size:11px; color:var(--muted); }
+    /* THEME CREATOR */
+    .ted-row { display:grid; grid-template-columns:44px 1fr 34px 56px; align-items:center;
+      gap:8px; padding:3px 0; }
+    .ted-lbl { font-size:10px; font-weight:700; letter-spacing:.4px; color:var(--muted); }
+    .ted-role { font-size:11px; }
+    .ted-pick { width:32px; height:22px; padding:0; border:1px solid var(--border2);
+      border-radius:4px; background:none; cursor:pointer; }
+    .ted-hex { font-size:10px; font-family:monospace; color:var(--muted); }
 
     /* PROBLEMS TAB */
     .prob-nav { display:flex; align-items:center; gap:6px; padding:10px 20px;
@@ -1380,6 +1388,7 @@
     <div class="tab-pane" id="tab-themes">
       <div class="toolbar">
         <input class="search" id="theme-q" type="text" placeholder="filter themes…">
+        <button class="btn secondary sm" id="btn-theme-new" title="Build a new .m8t theme with a live device-screen preview">＋ New theme</button>
         <button class="btn ghost sm" id="btn-theme-reset" title="Back to the default app palette">↺ Reset app theme</button>
         <span class="stat-chip" id="themes-stat" style="margin-left:auto"></span>
         <div class="vtog-wrap">
@@ -1523,6 +1532,7 @@
       <div class="toolbar">
         <button class="btn" id="btn-usb-connect">CONNECT M8</button>
         <button class="btn ghost sm" id="btn-usb-disconnect" style="display:none">Disconnect</button>
+        <button class="btn ghost sm" id="btn-usb-demo" title="Animate a fake M8 screen so the mirror, effects and recording can be tried without a device">▶ Demo screen</button>
         <label class="fx-mini" title="List every serial port in the chooser, not just Teensy-vendor devices — use this if your M8 does not appear in the list"><input type="checkbox" id="usb-anyport"> Show all serial ports</label>
         <span class="stat-chip" id="usb-status">Not connected</span>
         <span class="stat-chip" id="usb-version" style="display:none"></span>
@@ -1604,6 +1614,26 @@
   <div id="tr-info"><div id="tr-title"></div><div id="tr-sub"></div></div>
   <div id="tr-barwrap" title="Click or drag to jump"><div id="tr-bar"></div><div id="tr-head"></div></div>
   <span id="tr-time"></span>
+</div>
+
+<!-- Theme creator -->
+<div id="theme-ed-modal" class="song-modal-overlay" style="display:none">
+  <div class="song-modal-box" style="width:min(860px,96vw)">
+    <div class="song-modal-hdr">
+      <span class="song-modal-title" style="flex:0 0 auto">THEME CREATOR</span>
+      <input class="search" id="theme-ed-name" style="flex:1;min-width:120px;max-width:260px" maxlength="24" placeholder="theme name…">
+      <span id="theme-ed-status" style="font-size:11px;color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+      <button class="btn sm" id="btn-theme-ed-save" title="Write NAME.m8t into Themes/ on the card (never overwrites an existing file)">Save to card</button>
+      <button class="btn ghost sm" id="btn-theme-ed-close">✕</button>
+    </div>
+    <div class="song-modal-body" style="display:flex;gap:18px;flex-wrap:wrap">
+      <div id="theme-ed-rows" style="flex:0 0 300px"></div>
+      <div style="flex:1;min-width:280px">
+        <div id="theme-ed-preview"></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px">Live preview of the device screen — every colour role of the .m8t is visible: title, info, empty/default/value text, play marker row, cursor, selection, scope slider and the three meter segments.</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Song modal -->
@@ -1764,7 +1794,23 @@ const M8 = (() => {
     'MIDIOUT':'MID','FMSYNTH':'FM',
     'HYPERSYNTH':'HYP','EXTERNALINST':'EXT','NONE':'—',
   };
-  const THEME_COLORS = ['background','text','play','cursor','selection','deselect','view','marker'];
+  // The 13 colour roles of a .m8t, in file order — verified against
+  // AlexCharlton/m8-files theme.rs (39 colour bytes after the 14-byte header)
+  const THEME_COLORS = ['background','textEmpty','textInfo','textDefault','textValue',
+    'textTitle','playMarker','cursor','selection','scopeSlider','meterLow','meterMid','meterPeak'];
+
+  // Build a complete .m8t file from a {role:{r,g,b}} map (defaults black).
+  function buildThemeFile(colors) {
+    const b = new Uint8Array(14 + THEME_COLORS.length * 3);
+    for (let i = 0; i < 9; i++) b[i] = 'M8VERSION'.charCodeAt(i);
+    b[10] = 0x00; b[11] = 0x04;      // version 4.0.0 (format-identical across firmware)
+    b[13] = 0x20;                    // fileType: theme
+    THEME_COLORS.forEach((name, i) => {
+      const c = colors[name] || { r: 0, g: 0, b: 0 };
+      b[14 + i*3] = c.r & 0xFF; b[14 + i*3 + 1] = c.g & 0xFF; b[14 + i*3 + 2] = c.b & 0xFF;
+    });
+    return b;
+  }
 
   function readStr(b, off, len) {
     const bytes = [];
@@ -2307,7 +2353,7 @@ const M8 = (() => {
   return { parseSong, parseInstrFile, parseTheme, parseGroove,
     parseSongPatterns, noteStr, fxStr, fxName, buildMidi,
     decodeInstrParams, writeSamplePath, parseWavHeader, parseWavCues, fxRanges, detectScales,
-    rgbHex, fmtVer, verNum, THEME_COLORS,
+    rgbHex, fmtVer, verNum, THEME_COLORS, buildThemeFile,
     OFFSETS: { INSTR_TABLE, ISIZE, SAMP_OFF } };
 })();
 
@@ -3077,10 +3123,13 @@ const Demo = (() => {
     if (path) ws(b, 14 + SAMP_OFF, path);
     return b;
   }
-  function themeFile(colors) { // 8 × [r,g,b]
-    const b = new Uint8Array(14 + 24);
+  function themeFile(colors) { // up to 13 × [r,g,b] (padded with the last colour)
+    const b = new Uint8Array(14 + 39);
     ws(b, 0, 'M8VERSION'); b[10] = 0x02; b[11] = 0x04; b[13] = 0x20;
-    colors.forEach((c, i) => { b[14 + i*3] = c[0]; b[14 + i*3 + 1] = c[1]; b[14 + i*3 + 2] = c[2]; });
+    for (let i = 0; i < 13; i++) {
+      const c = colors[i] || colors[colors.length - 1] || [0,0,0];
+      b[14 + i*3] = c[0]; b[14 + i*3 + 1] = c[1]; b[14 + i*3 + 2] = c[2];
+    }
     return b;
   }
   function grooveFile(steps) {
@@ -6309,9 +6358,60 @@ const USB = (() => {
       if (onDrawCb) onDrawCb();
     }
 
+    // Fake device screen (demo mode): an animated stand-in SONG screen so
+    // the mirror, effects and recording can be tried without hardware.
+    // Cell contents are a stable hash so the "song" doesn't churn.
+    function demoHash(r, c) {
+      let h = ((r + 1) * 73856093) ^ ((c + 1) * 19349663);
+      return (h ^ (h >> 13)) >>> 0;
+    }
+    function paintDemo(t) {
+      clearAll('rgb(0,0,0)');
+      const X = x => ox + x * scale, Y = y => oy + y * scale;
+      const font = px => `${px * scale}px ui-monospace, Menlo, monospace`;
+      const ROWS = 12, COLS = 8, gx = 26, gy = 46, cw = 26, rh = 13;
+      const playRow = Math.floor(t / 420) % ROWS;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.font = font(10); ctx.fillStyle = 'rgb(50,255,0)';
+      ctx.fillText('SONG', X(8), Y(8));
+      ctx.fillStyle = 'rgb(120,120,130)';
+      ctx.fillText('DEMO', X(64), Y(8));
+      // live-scope style waveform, animated
+      ctx.strokeStyle = 'rgb(50,255,0)'; ctx.lineWidth = Math.max(1, scale * 0.8);
+      ctx.beginPath();
+      for (let i = 0; i <= 180; i++) {
+        const ph = t / 240;
+        const y = 14 + Math.sin(i * 0.11 + ph) * 5 * Math.sin(i * 0.023 + ph * 0.7)
+                     + Math.sin(i * 1.7 + ph * 3) * 2;
+        i ? ctx.lineTo(X(132 + i), Y(y)) : ctx.moveTo(X(132 + i), Y(y));
+      }
+      ctx.stroke();
+      ctx.font = font(9); ctx.fillStyle = 'rgb(60,60,72)';
+      for (let c = 0; c < COLS; c++) ctx.fillText(String(c + 1), X(gx + c * cw + 4), Y(gy - 13));
+      for (let r = 0; r < ROWS; r++) {
+        const y = gy + r * rh, isPlay = r === playRow;
+        ctx.fillStyle = isPlay ? 'rgb(0,255,112)' : 'rgb(60,60,72)';
+        ctx.fillText(isPlay ? '>' : r.toString(16).toUpperCase().padStart(2, '0'), X(8), Y(y));
+        for (let c = 0; c < COLS; c++) {
+          const h = demoHash(r, c), empty = (h % 100) < 45, x = gx + c * cw;
+          const isCursor = !isPlay && r === ((playRow + 3) % ROWS) && c === 2;
+          if (isCursor) { ctx.fillStyle = 'rgb(50,255,0)'; ctx.fillRect(X(x - 2), Y(y - 1), 16 * scale, 11 * scale); }
+          ctx.fillStyle = isCursor ? 'rgb(0,0,0)'
+            : isPlay ? 'rgb(0,255,112)'
+            : empty ? 'rgb(46,46,56)'
+            : (h % 3 === 0 ? 'rgb(240,240,246)' : 'rgb(140,140,150)');
+          ctx.fillText(empty ? '--' : (h % 255).toString(16).toUpperCase().padStart(2, '0'), X(x), Y(y));
+        }
+      }
+      ctx.font = font(9); ctx.fillStyle = 'rgb(96,96,110)';
+      ctx.fillText('DEMO SCREEN — CONNECT AN M8 FOR THE REAL THING', X(8), Y(devH - 16));
+      if (onDrawCb) onDrawCb();
+    }
+
     return {
       canvas,
       stats,
+      paintDemo,
       getInfo: () => info,
       onDraw(cb) { onDrawCb = cb; },
       // Feed raw serial bytes; returns true if the screen changed.
@@ -6505,6 +6605,8 @@ const USB = (() => {
     },
     // stand-in screen (before connect / after unplug)
     paintStandby: (title, lines, accent) => ensureCore().paintStandby(title, lines, accent),
+    // animated fake screen (demo mode, no device needed)
+    paintDemo: t => ensureCore().paintDemo(t),
     // input (gated)
     KEY,
     setInputEnabled,
@@ -7156,10 +7258,12 @@ const USB = (() => {
       <span class="s-cfile">${esc(song.fileName)}</span>
       <span class="s-cver">${firmStr(song)}</span>
       <span class="s-cmiss ${mi.cls}">${mi.lbl}</span>
+      <button class="btn ghost sm btn-pat-row" title="Open the pattern editor" style="padding:2px 7px;font-size:12px;flex-shrink:0">▦</button>
       <button class="btn ghost sm btn-play-row" title="Play song" style="padding:2px 7px;font-size:12px;flex-shrink:0">▶</button>
       <button class="btn ghost sm btn-diff-row${isPickA(song)?' on':''}" data-sname="${esc(song.name)}" data-spath="${esc(song.filePath)}" title="Compare with…" style="padding:2px 7px;font-size:12px;flex-shrink:0">⇌</button>
     </div>`;
-    item.querySelector('.s-crow').addEventListener('click', e => { if (e.target.closest('.btn-play-row')) return; openSongModal(song, navList||null); });
+    item.querySelector('.btn-pat-row').addEventListener('click', e => { e.stopPropagation(); openSongModal(song, navList||null, {patterns: true}); });
+    item.querySelector('.s-crow').addEventListener('click', e => { if (e.target.closest('.btn-play-row') || e.target.closest('.btn-pat-row')) return; openSongModal(song, navList||null); });
     item.querySelector('.btn-play-row').addEventListener('click', e => { e.stopPropagation(); M8Transport.playSong(song, e.currentTarget); });
     item.querySelector('.btn-diff-row').addEventListener('click', e => handleDiffRowBtn(e, song));
     return item;
@@ -7201,14 +7305,21 @@ const USB = (() => {
       <span class="s-bpm" title="${esc(keyOf(song))}">${esc(bpmKeyLabel(song))}</span>
       <span class="s-ic">${song.instruments.length} instr</span>
       <span class="s-miss ${mi.cls}">${mi.lbl}</span>
+      <button class="btn ghost sm btn-dash-row" title="Open the song dashboard (play, patterns, map, MIDI, compare)" style="padding:2px 7px;font-size:12px;flex-shrink:0;margin-left:4px">⧉</button>
+      <button class="btn ghost sm btn-pat-row" title="Open the pattern editor" style="padding:2px 7px;font-size:12px;flex-shrink:0;margin-left:4px">▦</button>
       <button class="btn ghost sm btn-play-row" title="Play song" style="padding:2px 7px;font-size:12px;flex-shrink:0;margin-left:4px">▶</button>
       <button class="btn ghost sm btn-diff-row${isPickA(song)?' on':''}" data-sname="${esc(song.name)}" data-spath="${esc(song.filePath)}" title="Compare with…" style="padding:2px 7px;font-size:12px;flex-shrink:0;margin-left:4px">⇌</button>
       </div>
       <div class="song-detail">${buildSongDetail(song, false)}</div>`;
     const detailEl = item.querySelector('.song-detail');
     wireSongDetail(detailEl, false);
+    item.querySelector('.btn-dash-row').addEventListener('click', e => { e.stopPropagation(); openSongModal(song); });
+    item.querySelector('.btn-pat-row').addEventListener('click', e => { e.stopPropagation(); openSongModal(song, null, {patterns: true}); });
+    item.querySelector('.btn-det-dash')?.addEventListener('click', e => { e.stopPropagation(); openSongModal(song); });
+    item.querySelector('.btn-det-pat')?.addEventListener('click', e => { e.stopPropagation(); openSongModal(song, null, {patterns: true}); });
     item.querySelector('.song-row').addEventListener('click', e => {
-      if (e.target.closest('.btn-diff-row') || e.target.closest('.btn-play-row')) return;
+      if (e.target.closest('.btn-diff-row') || e.target.closest('.btn-play-row')
+        || e.target.closest('.btn-dash-row') || e.target.closest('.btn-pat-row')) return;
       const open = item.classList.toggle('open');
       // Similar-songs are O(all songs) to compute, so do it lazily on first expand
       if (open && !item.dataset.simsDone) {
@@ -7243,11 +7354,13 @@ const USB = (() => {
             <span class="sc-ver">${firmStr(song)}</span>
             ${song.hasBundle?'<span class="sc-bundle" title="Bundle">📦</span>':''}
             <span class="sc-badge ${mi.cls}">${mi.lbl}</span>
-            <button class="btn ghost sm btn-play-row" title="Play song" style="padding:1px 6px;font-size:11px;flex-shrink:0;margin-left:auto">▶</button>
+            <button class="btn ghost sm btn-pat-row" title="Open the pattern editor" style="padding:1px 6px;font-size:11px;flex-shrink:0;margin-left:auto">▦</button>
+            <button class="btn ghost sm btn-play-row" title="Play song" style="padding:1px 6px;font-size:11px;flex-shrink:0">▶</button>
             <button class="btn ghost sm btn-diff-row${isPickA(song)?' on':''}" data-sname="${esc(song.name)}" data-spath="${esc(song.filePath)}" title="Compare with…" style="padding:1px 6px;font-size:11px;flex-shrink:0">⇌</button>
           </div>
         </div>`;
-      card.addEventListener('click', e => { if (!e.target.closest('.btn-diff-row') && !e.target.closest('.btn-play-row')) openSongModal(song, sorted); });
+      card.querySelector('.btn-pat-row').addEventListener('click', e => { e.stopPropagation(); openSongModal(song, sorted, {patterns: true}); });
+      card.addEventListener('click', e => { if (!e.target.closest('.btn-diff-row') && !e.target.closest('.btn-play-row') && !e.target.closest('.btn-pat-row')) openSongModal(song, sorted); });
       card.querySelector('.btn-play-row').addEventListener('click', e => { e.stopPropagation(); M8Transport.playSong(song, e.currentTarget); });
       card.querySelector('.btn-diff-row').addEventListener('click', e => handleDiffRowBtn(e, song));
       return card;
@@ -7383,6 +7496,14 @@ const USB = (() => {
     const hasI = song.instruments.length > 0;
     const hasS = song.samplePaths.length > 0;
 
+    // In the expanded row (not the dashboard modal itself), lead with the
+    // two things people reach for: the dashboard and the pattern editor.
+    const actionsHtml = withSims ? '' :
+      `<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn secondary sm btn-det-dash">⧉ Song dashboard</button>
+        <button class="btn secondary sm btn-det-pat">▦ Pattern editor</button>
+      </div>`;
+
     // Song settings strip (BPM / transpose / quantize)
     let settingsHtml = '';
     if (song.tempo != null && !isNaN(song.tempo) && song.tempo > 0) {
@@ -7399,7 +7520,7 @@ const USB = (() => {
       </div>`;
     }
 
-    if (!hasI && !hasS) return settingsHtml + '<div style="color:var(--muted);font-size:12px">Empty song — no instruments.</div>';
+    if (!hasI && !hasS) return actionsHtml + settingsHtml + '<div style="color:var(--muted);font-size:12px">Empty song — no instruments.</div>';
     let instrHtml='', sampHtml='', simHtml='';
 
     if (hasI) {
@@ -7436,12 +7557,12 @@ const USB = (() => {
     const body = hasI && hasS
       ? `<div class="sd-cols"><div class="sd-col">${instrHtml}</div><div class="sd-col">${sampHtml}</div></div>${simHtml}`
       : `${instrHtml||sampHtml}${simHtml}`;
-    return settingsHtml + body;
+    return actionsHtml + settingsHtml + body;
   }
 
   // ── Song modal ─────────────────────────────────────────
   let _modalSong = null;
-  function openSongModal(song, navList) {
+  function openSongModal(song, navList, opts) {
     _modalSong = song;
     if (navList) _modalSongList = navList;
     _modalSongIdx = _modalSongList.indexOf(song);
@@ -7476,6 +7597,7 @@ const USB = (() => {
     body.insertBefore(detail, patSec);
     wireSongDetail(detail);
     $('song-modal').style.display='flex';
+    if (opts?.patterns) $('btn-modal-patterns').click();  // straight into the pattern editor
   }
   function closeSongModal() {
     if (!edGuardClose()) return; // unsaved editor edits — user said keep it open
@@ -8233,9 +8355,12 @@ const USB = (() => {
   const mixRgb = (a, b, t) => ({ r:Math.round(a.r+(b.r-a.r)*t), g:Math.round(a.g+(b.g-a.g)*t), b:Math.round(a.b+(b.b-a.b)*t) });
   const cssRgb = c => `rgb(${c.r},${c.g},${c.b})`;
   function applyAppTheme(colors, save = true) {
-    if (!colors?.background || !colors?.text) return;
-    const bg = colors.background, tx = colors.text;
-    const accent = colors.cursor || colors.play || tx;
+    // textDefault is the 13-role name; 'text' kept for palettes saved
+    // under the old 8-role decode
+    const tx = colors?.textDefault || colors?.text;
+    if (!colors?.background || !tx) return;
+    const bg = colors.background;
+    const accent = colors.cursor || colors.playMarker || colors.play || tx;
     const rs = document.documentElement.style;
     rs.setProperty('--bg', cssRgb(bg));
     rs.setProperty('--surface',  cssRgb(mixRgb(bg, tx, 0.05)));
@@ -8255,34 +8380,59 @@ const USB = (() => {
   try { const t = JSON.parse(localStorage.getItem('m8lib-apptheme')||'null'); if (t) applyAppTheme(t, false); } catch {}
 
   $('theme-q').addEventListener('input', e => { themeFilter=e.target.value.toLowerCase(); renderThemes(); });
+  $('btn-theme-new').addEventListener('click', () => openThemeEditor(null));
+  $('btn-theme-ed-save').addEventListener('click', saveThemeEditor);
+  $('btn-theme-ed-close').addEventListener('click', closeThemeEditor);
+  $('theme-ed-modal').addEventListener('click', e => { if (e.target.id === 'theme-ed-modal') closeThemeEditor(); });
   $('btn-theme-reset').addEventListener('click', resetAppTheme);
   $('tvtog-compact').addEventListener('click', () => { themeExpanded=false; $('tvtog-compact').classList.add('active'); $('tvtog-expanded').classList.remove('active'); renderThemes(); saveUiState(); });
   $('tvtog-expanded').addEventListener('click', () => { themeExpanded=true; $('tvtog-expanded').classList.add('active'); $('tvtog-compact').classList.remove('active'); renderThemes(); saveUiState(); });
 
-  function buildThemePreview(colors) {
-    const c=colors;
-    if (!c||!c.background) return '<div class="no-preview">No preview</div>';
-    const bg=M8.rgbHex(c.background), fg=M8.rgbHex(c.text);
-    const ply=M8.rgbHex(c.play), cur=M8.rgbHex(c.cursor);
-    const sel=M8.rgbHex(c.selection), vw=M8.rgbHex(c.view), mrk=M8.rgbHex(c.marker);
-    const row=(bg2,txt,pre)=>`<div style="background:${bg2};color:${txt};padding:2px 7px;font-size:8px;font-family:monospace;white-space:pre">${pre}</div>`;
-    return `<div style="background:${bg};height:110px;overflow:hidden">
-      <div style="background:${vw};color:${fg};padding:3px 7px;font-size:8px;font-family:monospace;display:flex;justify-content:space-between"><span>SONG</span><span style="color:${mrk}">120.0 BPM</span></div>
-      ${row(ply,fg,'01  A0  B0  C0  D0  E0')}
-      ${row(cur,fg,'02  A1  B1  --  --  --')}
-      ${row(sel,fg,'03  A2  --  --  --  --')}
-      ${row(bg,fg,'04  --  --  --  --  --')}
-      <div style="color:${fg};padding:2px 7px;font-size:8px;font-family:monospace;opacity:.4;white-space:pre">05  --  --  --  --  --</div>
+  // Representative M8 screen in the theme's palette: SONG view with a
+  // play marker, cursor, selection, scope line and meters — every one of
+  // the 13 colour roles is visible somewhere.
+  function buildThemePreview(colors, big = false) {
+    const c = colors;
+    if (!c || !c.background) return '<div class="no-preview">No preview</div>';
+    const hx = n => M8.rgbHex(c[n] || {r:64,g:64,b:64});
+    const bg = hx('background'), emp = hx('textEmpty'), inf = hx('textInfo'),
+      def = hx('textDefault'), val = hx('textValue'), tit = hx('textTitle'),
+      ply = hx('playMarker'), cur = hx('cursor'), sel = hx('selection'),
+      sco = hx('scopeSlider'), mLo = hx('meterLow'), mMd = hx('meterMid'), mPk = hx('meterPeak');
+    const fs = big ? 12 : 8, pad = big ? '3px 10px' : '2px 7px', h = big ? 236 : 128;
+    const cell = (t, col, style='') => `<span style="color:${col};${style}">${t}</span>`;
+    // grid rows: [gutter, 8 chain cells]
+    const mk = (g, cells, gCol) => `<div style="padding:${pad};font-size:${fs}px;font-family:ui-monospace,Menlo,monospace;white-space:pre;letter-spacing:1px">${cell(g, gCol ?? emp)}  ${cells}</div>`;
+    const v = (t) => cell(t, val), d = (t) => cell(t, def), e = () => cell('--', emp);
+    const curCell = cell('07', bg, `background:${cur};padding:0 2px;margin:0 -2px`);
+    const selCells = `<span style="background:${sel};padding:0 2px;margin:0 -2px">${cell('16 ', def)}${cell('16', def)}</span>`;
+    // scope line + meters
+    const meters = `
+      <span style="display:inline-block;width:${big?34:22}px;height:${fs-1}px;background:${mLo};margin-left:6px"></span><span style="display:inline-block;width:${big?18:12}px;height:${fs-1}px;background:${mMd}"></span><span style="display:inline-block;width:${big?7:5}px;height:${fs-1}px;background:${mPk}"></span>`;
+    return `<div style="background:${bg};height:${h}px;overflow:hidden;border-radius:2px">
+      <div style="padding:${pad};font-size:${fs}px;font-family:ui-monospace,Menlo,monospace;display:flex;justify-content:space-between;align-items:center">
+        <span style="color:${tit};font-weight:700">SONG</span>
+        <span style="color:${inf}">NEARLY&nbsp;&nbsp;6.5.0${meters}</span></div>
+      <div style="margin:0 ${big?10:7}px;height:2px;background:${sco}"></div>
+      ${mk(' ', `${cell('1',emp)}   ${cell('2',emp)}   ${cell('3',emp)}   ${cell('4',emp)}`, emp)}
+      ${mk('00', `${d('00')}  ${d('04')}  ${v('40')}  ${e()}`)}
+      ${mk('01', `${d('01')}  ${curCell}  ${v('41')}  ${e()}`)}
+      ${mk('>',  `${cell('02',ply)}  ${cell('05',ply)}  ${cell('42',ply)}  ${cell('--',ply)}`, ply)}
+      ${mk('03', `${selCells}  ${d('06')}  ${e()}`)}
+      ${big ? mk('04', `${e()}  ${e()}  ${e()}  ${e()}`) : ''}
+      ${big ? mk('05', `${d('0A')}  ${v('4E')}  ${e()}  ${e()}`) : ''}
+      <div style="padding:${pad};font-size:${fs}px;font-family:ui-monospace,Menlo,monospace;color:${inf}">CHAIN 07</div>
     </div>`;
   }
 
+  const THEME_SHORT = {background:'BG', textEmpty:'EMPTY', textInfo:'INFO', textDefault:'TEXT',
+    textValue:'VALUE', textTitle:'TITLE', playMarker:'PLAY', cursor:'CUR', selection:'SEL',
+    scopeSlider:'SCOPE', meterLow:'MET-L', meterMid:'MET-M', meterPeak:'MET-P'};
   function buildThemeSwatches(colors) {
     return M8.THEME_COLORS.map(name => {
       const hex=M8.rgbHex(colors[name]);
-      const short={'background':'BG','text':'TEXT','play':'PLAY','cursor':'CUR',
-                   'selection':'SEL','deselect':'DSEL','view':'VIEW','marker':'MRK'}[name]||name;
       return `<div><div class="swatch-box" style="background:${hex}"></div>
-        <div class="swatch-lbl">${short}</div><div class="swatch-hex">${hex}</div></div>`;
+        <div class="swatch-lbl">${THEME_SHORT[name]||name}</div><div class="swatch-hex">${hex}</div></div>`;
     }).join('');
   }
 
@@ -8300,11 +8450,100 @@ const USB = (() => {
       card.className = themeExpanded ? 'theme-card expanded' : 'theme-card';
       card.innerHTML = `${buildThemePreview(theme.colors)}
         <div class="theme-info"><span class="theme-name">${esc(name)}</span><span class="theme-meta">${M8.fmtVer(theme.header.version)}</span>
+          <button class="btn ghost sm theme-edit" title="Open a copy of this theme in the theme creator">✎</button>
           <button class="btn ghost sm theme-apply" title="Use this palette for the app UI">Use</button></div>
         <div class="theme-swatches">${buildThemeSwatches(theme.colors)}</div>`;
       card.querySelector('.theme-apply').addEventListener('click', () => applyAppTheme(theme.colors));
+      card.querySelector('.theme-edit').addEventListener('click', () => openThemeEditor(theme));
       grid.appendChild(card);
     });
+  }
+
+  // ══════════════════════════════════════════════════════
+  // THEME CREATOR — build a .m8t from scratch or from a copy,
+  // with a live device-screen preview (ported from pt-librarian)
+  // ══════════════════════════════════════════════════════
+  const THEME_ED_DEFAULT = { background:{r:0,g:0,b:0}, textEmpty:{r:30,g:30,b:40},
+    textInfo:{r:96,g:96,b:110}, textDefault:{r:140,g:140,b:150}, textValue:{r:250,g:250,b:250},
+    textTitle:{r:50,g:255,b:0}, playMarker:{r:0,g:255,b:112}, cursor:{r:50,g:255,b:0},
+    selection:{r:255,g:0,b:208}, scopeSlider:{r:50,g:255,b:0}, meterLow:{r:0,g:255,b:80},
+    meterMid:{r:255,g:224,b:0}, meterPeak:{r:255,g:32,b:32} };
+  let themeEdColors = null;
+
+  function openThemeEditor(fromTheme) {
+    themeEdColors = {};
+    const src = fromTheme?.colors || THEME_ED_DEFAULT;
+    for (const n of M8.THEME_COLORS) themeEdColors[n] = { ...(src[n] || {r:0,g:0,b:0}) };
+    $('theme-ed-name').value = fromTheme
+      ? fromTheme.fileName.replace(/\.m8t$/i,'') + ' COPY' : 'MY THEME';
+    $('theme-ed-status').textContent = '';
+    renderThemeEditor();
+    $('theme-ed-modal').style.display = 'flex';
+    $('theme-ed-name').focus();
+  }
+  function closeThemeEditor() { $('theme-ed-modal').style.display = 'none'; }
+
+  function renderThemeEditor() {
+    const rows = $('theme-ed-rows');
+    rows.innerHTML = M8.THEME_COLORS.map(n => {
+      const hex = M8.rgbHex(themeEdColors[n]);
+      return `<div class="ted-row">
+        <span class="ted-lbl">${THEME_SHORT[n]}</span>
+        <span class="ted-role">${n.replace(/([A-Z])/g,' $1').toLowerCase()}</span>
+        <input type="color" class="ted-pick" data-role="${n}" value="${hex}">
+        <span class="ted-hex">${hex}</span></div>`;
+    }).join('');
+    rows.querySelectorAll('.ted-pick').forEach(inp => inp.addEventListener('input', () => {
+      const v = inp.value;
+      themeEdColors[inp.dataset.role] = {
+        r: parseInt(v.slice(1,3),16), g: parseInt(v.slice(3,5),16), b: parseInt(v.slice(5,7),16) };
+      inp.nextElementSibling.textContent = v;
+      $('theme-ed-preview').innerHTML = buildThemePreview(themeEdColors, true);
+    }));
+    $('theme-ed-preview').innerHTML = buildThemePreview(themeEdColors, true);
+  }
+
+  function tedDownload(bytes, name) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  async function saveThemeEditor() {
+    const status = $('theme-ed-status');
+    const nameBase = $('theme-ed-name').value.replace(/[^\w \-]+/g,'').trim().slice(0, 24);
+    if (!nameBase) { status.textContent = 'Give the theme a name first.'; return; }
+    const bytes = M8.buildThemeFile(themeEdColors);
+    const parsed = M8.parseTheme(bytes);
+    if (!parsed) { status.textContent = 'Internal error: built theme does not parse.'; return; }
+    if (!sdHandle) { tedDownload(bytes, nameBase + '.m8t'); status.textContent = 'No card open — downloaded instead.'; return; }
+    if (!await ensureWriteAccess()) { status.textContent = 'Write permission declined.'; return; }
+    try {
+      const dir = await sdHandle.getDirectoryHandle('Themes', { create: true });
+      let name = nameBase + '.m8t', free = false;
+      for (let n = 2; n < 200 && !free; n++) {
+        try { await dir.getFileHandle(name); name = `${nameBase}${n}.m8t`; }
+        catch { free = true; }
+      }
+      if (!free) throw new Error('could not find a free filename');
+      const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
+      await w.write(bytes); await w.close();
+      const vfile = await (await dir.getFileHandle(name)).getFile();
+      const vparsed = M8.parseTheme(new Uint8Array(await vfile.arrayBuffer()));
+      if (!vparsed || vfile.size !== bytes.length) throw new Error('write verification failed');
+      themes.push({ ...vparsed, fileName: name, filePath: name, fileSize: vfile.size, lastModified: vfile.lastModified });
+      themes.sort((a, b) => a.fileName.localeCompare(b.fileName));
+      await auditLog({ ts: new Date().toISOString(), mode: 'theme', file: 'Themes/' + name,
+        output: 'Themes/' + name, backup: null, refs: [], verified: true });
+      await persistLibrary();
+      renderThemes();
+      status.textContent = `Saved to Themes/${name} ✓`;
+    } catch (e) {
+      console.warn('theme save:', e);
+      status.textContent = 'Could not write to the card (' + e.message + ') — downloaded instead.';
+      tedDownload(bytes, nameBase + '.m8t');
+    }
   }
 
   // ══════════════════════════════════════════════════════
@@ -13288,9 +13527,27 @@ const USB = (() => {
     let controlOn = false;      // "control mode": keyboard → M8, engaged explicitly
     let everConnected = false;
 
+    // ── Demo screen (animated fake M8, no device needed) ──
+    let demoTimer = null;
+    function stopDemo(repaint = true) {
+      if (!demoTimer) return;
+      clearInterval(demoTimer); demoTimer = null;
+      const b = $('btn-usb-demo'); if (b) b.textContent = '▶ Demo screen';
+      if (repaint) paintStandby();
+    }
+    function startDemo() {
+      if (demoTimer || USB.isConnected()) return;
+      const b = $('btn-usb-demo'); if (b) b.textContent = '■ Stop demo';
+      demoTimer = setInterval(() => {
+        if (USB.isConnected()) { stopDemo(false); return; } // real frames take over
+        USB.paintDemo(performance.now());
+      }, 90);
+    }
+    $('btn-usb-demo')?.addEventListener('click', () => demoTimer ? stopDemo() : startDemo());
+
     // ── Stand-in screen (painted before a device connects) ──
     function paintStandby() {
-      if (USB.isConnected()) return;
+      if (USB.isConnected() || demoTimer) return;
       if (!USB.supported()) {
         USB.paintStandby('M8', ['SCREEN MIRROR', '',
           'WebSerial is not available here.',

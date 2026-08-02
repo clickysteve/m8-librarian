@@ -265,18 +265,34 @@ test('scope=chain: solo channel 0, chain transposes apply', () => {
   assert.equal(M8Player.buildTimeline(pat, makeSong(), { chain: 9 }), null, 'empty chain → null');
 });
 
-test('scope=songRow: all 8 tracks of one row; out of range → null', () => {
+test('scope=songRow plays FROM that row to the end; out of range → null', () => {
   const pat = basicPat();
   pat.grid[0][0] = EMPTY;
   pat.grid[3][0] = 0; pat.grid[3][7] = 0;                // two tracks on row 3
-  pat.grid[4][0] = 0;                                    // other rows must not sound
+  pat.grid[4][0] = 0;                                    // row 4 also plays (from-row semantics)
   pat.lastRow = 4;
   const tl = M8Player.buildTimeline(pat, makeSong(), { songRow: 3 });
   const ons = tl.events.filter(e => e.kind === 'on');
-  assert.equal(ons.length, 32);
+  assert.equal(ons.length, 48, 'row 3 (2 tracks) + row 4 (1 track), 16 steps each');
   assert.deepEqual([...new Set(ons.map(e => e.chan))].sort(), [0, 7]);
-  assert.ok(tl.marks.every(m => m.row === 3));
+  assert.deepEqual([...new Set(tl.marks.map(m => m.row))].sort(), [3, 4], 'plays to the end');
+  assert.ok(!tl.marks.some(m => m.row < 3), 'nothing before the start row');
   assert.equal(M8Player.buildTimeline(pat, makeSong(), { songRow: 9 }), null, 'past lastRow → null');
+});
+
+test('sampler loop modes reach the events as fractions', () => {
+  const pat = basicPat();
+  const song = makeSong();
+  const smp = song.instruments.find(i => i.typeName === 'SAMPLER');
+  smp.sampParams = { play: 4, start: 0, loopStart: 64, length: 255 };  // FWD PP
+  const tl = M8Player.buildTimeline(pat, song, {});
+  const on = tl.events.find(e => e.kind === 'on');
+  assert.ok(on.loopFrac, 'loop fraction present');
+  assert.equal(on.loopFrac.pp, true, 'pingpong flagged');
+  assert.ok(Math.abs(on.loopFrac.start - 64/255) < 1e-6);
+  smp.sampParams = { play: 0, start: 0, loopStart: 0, length: 255 };   // FWD one-shot
+  const tl2 = M8Player.buildTimeline(pat, song, {});
+  assert.equal(tl2.events.find(e => e.kind === 'on').loopFrac, null, 'one-shot has no loop');
 });
 
 test('tempo fallback and empty song', () => {

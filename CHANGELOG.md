@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased — pt-librarian 0.9.11→0.9.16 catch-up round
+
+pt-librarian moved six releases ahead of the parity port; this brings the applicable improvements across, adapted to the M8.
+
+### Playback
+- **Row ▶ plays from that row to the end** (all channels, transport says "from row XX") instead of looping one row in isolation.
+- **Sampler loop modes are honoured**: FWDLOOP and OSC loop natively; **FWD PP and OSC PP actually pingpong** through a composite buffer (the loop region mirrored, interior only — built once per sample per play, live and in WAV renders alike). REV modes stay one-shot forward. Degenerate few-frame loop regions (the granular/timestretch trick) fall back to one-shot rather than buzz. Sample START offsets are applied.
+- Finished notes free their audio nodes (long looped sessions no longer grow the graph).
+
+### Effects (the 0.9.12 round, adapted)
+- **Six new effects** — phosphor trails (a real feedback buffer), pixelate, hue cycle, kaleidoscope, refresh bar, invert/solarise — twenty-five total.
+- **Seven new presets** (Oscilloscope, Rainbow drift, Broadcast, Mosaic, Negative, Kaleidoscope, Séance), seventeen total.
+- **🎲 Random** rolls a curated look; your own wiring survives where the roll keeps that effect.
+- **⇩ / ⇪ Look** — save and load the whole effects state as a small JSON file, imported through the same sanitiser as stored settings.
+- The engine now supports up to three audio routings per effect, each mapping any source to any numeric parameter (presets and Random use them; the panel edits the first route and counts the rest).
+
+### Editors
+- **The active cell is marked**: a persistent high-contrast marker that survives the chain highlight, block selection and the playhead, with the row number and channel header lit up with it.
+- **Grid manners**: clicking an empty grid cell just selects it — the picker opens on typing, Enter or a double-click. Every grid row has a one-click gutter clear (✕, undoable), and every phrase-editor step has a hover ✕ that clears the whole step.
+
+### Library
+- **🗑 from the sample browser**: every WAV row can move to `M8Librarian_Trash/` (restorable from the Trash tab), with a loud warning if songs still use it.
+- **Instrument rows are playable**: instruments whose sample resolves on the card get a ▶ right on the row; missing WAVs and synth types offer nothing rather than a dead button.
+- **ZIP exports batched into 4MB writes** — card/Dropbox backup and set ZIPs no longer crawl through thousands of tiny File System Access writes.
+- The **M8 LIBRARIAN title is a home button** (closes whatever is open, back to Songs) and the version number links to GitHub.
+
 ## Unreleased — discoverability + theme creator round
 
 - **Dashboard and pattern editor, one click away.** Every song row (list, dense and grid views) now has ⧉ (song dashboard) and ▦ (pattern editor) buttons, the ▦ opens the dashboard with the editor already expanded, and the expanded row leads with "Song dashboard" / "Pattern editor" buttons.

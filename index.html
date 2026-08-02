@@ -296,7 +296,7 @@
     /* INSTRUMENTS */
     .instr-item { border-bottom:1px solid var(--border); }
     .instr-row { display:grid;
-      grid-template-columns:16px 105px minmax(120px,1fr) 170px 120px;
+      grid-template-columns:16px 105px minmax(120px,1fr) 170px 120px 26px;
       align-items:center; gap:0 14px; padding:9px 20px;
       cursor:pointer; user-select:none; transition:background .1s; }
     .instr-row:hover { background:var(--surface); }
@@ -888,6 +888,11 @@
       user-select:none; padding:2px 3px; opacity:.45; transition:opacity .1s; }
     .pv-grid:hover .pv-gutter > span { opacity:1; }
     .pv-gutter > span:hover { color:var(--accent); background:var(--accent-dim); }
+    /* Active cell: high-contrast marker that survives the chain
+       highlight, block selection and the playhead */
+    .pv-cell.cur { outline:2px solid var(--text); outline-offset:-2px;
+      box-shadow:0 0 0 1px var(--bg) inset; position:relative; z-index:2; }
+    .pv-cell.rlbl.curline, .pv-cell.clbl.curline { color:var(--accent); font-weight:700; }
     /* rows past the end of the song: available, but visibly not part of it */
     .pv-cell.spare { opacity:.4; }
     .pv-cell.rlbl.spare { opacity:.3; }
@@ -1033,8 +1038,12 @@
     /* PHRASE EDITOR grid — M8 layout: # note vol ins 3×(fx val) */
     .pe-sep { width:1px; height:16px; background:var(--border2); }
     .pe-head, .pe-row { display:grid;
-      grid-template-columns:24px 58px 34px 34px 62px 42px 62px 42px 62px 42px;
+      grid-template-columns:24px 58px 34px 34px 62px 42px 62px 42px 62px 42px 16px;
       gap:2px; align-items:center; font-family:monospace; font-size:11px; }
+    .pe-stepclear { color:var(--border2); font-size:10px; text-align:center; cursor:pointer;
+      opacity:0; border-radius:3px; }
+    .pe-row:hover .pe-stepclear { opacity:1; }
+    .pe-stepclear:hover { color:var(--accent); background:var(--accent-dim); }
     .pe-head { color:var(--muted); font-size:9px; letter-spacing:.5px; text-transform:uppercase;
       padding:0 0 4px; border-bottom:1px solid var(--border); margin-bottom:3px; }
     .pe-grid { display:flex; flex-direction:column; gap:1px; }
@@ -1253,7 +1262,7 @@
 <div id="app">
 
   <header>
-    <div class="logo">M8 LIBRARIAN <span style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px">v0.4.1 Beta</span></div>
+    <div class="logo" id="logo-home" title="Back to Songs — closes whatever is open" style="cursor:pointer">M8 LIBRARIAN <a href="https://github.com/clickysteve/m8-librarian" target="_blank" rel="noopener" title="Source and changelog on GitHub" style="font-size:10px;font-weight:400;opacity:.45;letter-spacing:1px;color:inherit;text-decoration:none">v0.4.1 Beta</a></div>
     <div class="hdr-right">
       <span id="sd-label">No SD card mounted</span>
       <span class="ro-badge" id="ro-badge">🔒 READ ONLY</span>
@@ -1579,6 +1588,9 @@
             <label class="fx-mini" title="0% fits the 4:3 screen inside the frame; 100% fills the frame and crops the sides">Fill <input type="range" id="fx-zoom" min="0" max="100" step="1"><span id="fx-zoom-v" class="fx-pval"></span></label>
             <label class="fx-mini" title="Colour of the letterbox bars and the bezel">Bars <input type="color" id="fx-bg" value="#000000"></label>
             <span class="fx-sep"></span>
+            <button class="btn ghost sm" id="fx-random" title="Roll a random curated look — roll again until something sticks">🎲 Random</button>
+            <button class="btn ghost sm" id="fx-look-save" title="Save the whole effects state as a small JSON file to share">⇩ Look</button>
+            <button class="btn ghost sm" id="fx-look-load" title="Load a saved look file">⇪ Look</button>
             <button class="btn ghost sm" id="fx-record">● Record</button>
             <button class="btn ghost sm" id="fx-reset" title="Turn every effect off and restore defaults">Reset</button>
             <span class="stat-chip" id="fx-fps" style="margin-left:auto"></span>
@@ -1857,8 +1869,13 @@ const M8 = (() => {
       // Modulator types (3.0+ fixed slots) — needed to name 0x92+ FX commands
       let modTypes = null;
       if (v3) modTypes = [0,1,2,3].map(m => MOD_TYPES[b[base + 0x3F + m*6] >> 4] ?? 'LFO');
+      // Sampler playback bytes (play mode, start, loop start, length) —
+      // the player uses these for loop/pingpong regions
+      const sampParams = kind === 0x02
+        ? { play:b[base+18], start:b[base+20], loopStart:b[base+21], length:b[base+22] }
+        : null;
       instruments.push({ slot:i, kind, typeName, kindShort:KIND_SHORT[typeName]||typeName,
-        name:iname, samplePath:kind===0x02?readStr(b,base+SAMP_OFF,127).trim():'', modTypes });
+        name:iname, samplePath:kind===0x02?readStr(b,base+SAMP_OFF,127).trim():'', modTypes, sampParams });
     }
     const samplePaths = [...new Set(instruments.filter(x=>x.samplePath).map(x=>x.samplePath))];
     return { header:h, name, directory, instruments, samplePaths, tempo, transpose, quantize };
@@ -2391,12 +2408,12 @@ const Cache = (() => {
   async function load(key) {
     try {
       const data = await tx(LIB, 'readonly', s => s.get(key));
-      if (!data || data.cacheVer !== 6) return null; // v6 added instrument modTypes + song directory
+      if (!data || data.cacheVer !== 7) return null; // v7 added sampler playback params (loop/pingpong)
       return data;
     } catch { return null; }
   }
   async function save(data) {
-    try { await tx(LIB, 'readwrite', s => s.put({...data, cacheVer:6})); }
+    try { await tx(LIB, 'readwrite', s => s.put({...data, cacheVer:7})); }
     catch(e) { console.warn('Cache.save:', e); }
   }
   async function remove(key) {
@@ -2849,8 +2866,25 @@ const Zip = (() => {
 
   // sink: anything with async write(Uint8Array) — e.g. a FileSystemWritableFileStream
   class Writer {
-    constructor(sink) { this.sink = sink; this.offset = 0; this.entries = []; }
-    async _write(u8) { await this.sink.write(u8); this.offset += u8.length; }
+    // File System Access writes cost real time per call, and a zip is
+    // built from thousands of tiny headers — batch output into ~4MB
+    // chunks (pt-librarian 0.9.14) so card/Dropbox exports don't crawl.
+    constructor(sink) {
+      this.sink = sink; this.offset = 0; this.entries = [];
+      this._buf = []; this._bufBytes = 0;
+    }
+    async _flush() {
+      if (!this._bufBytes) return;
+      const out = new Uint8Array(this._bufBytes);
+      let o = 0;
+      for (const c of this._buf) { out.set(c, o); o += c.length; }
+      this._buf = []; this._bufBytes = 0;
+      await this.sink.write(out);
+    }
+    async _write(u8) {
+      this._buf.push(u8); this._bufBytes += u8.length; this.offset += u8.length;
+      if (this._bufBytes >= 4 * 1024 * 1024) await this._flush();
+    }
     _u16(v) { return new Uint8Array([v & 0xFF, (v >> 8) & 0xFF]); }
     _u32(v) { return new Uint8Array([v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF]); }
     async add(name, data, mtimeMs) {
@@ -2893,6 +2927,7 @@ const Zip = (() => {
         this._u32(cdSize), this._u32(cdStart), this._u16(0),
       ];
       for (const p of parts) await this._write(p);
+      await this._flush();
     }
   }
   return { Writer };
@@ -3957,8 +3992,27 @@ const SongPlayer = (() => {
   //   seek     skip 'on' events before this timeline time
   //   endAt    timeline time at which still-sounding notes are cut
   //   onlyChan render a single channel (stems); undefined = full mix
+  // Web Audio only loops forward, so pingpong plays through a composite
+  // buffer: the sample up to the loop end, then the loop region mirrored
+  // (interior only — the firmware flips direction without repeating the
+  // boundary samples, and so does this). Built once per (sample, region)
+  // per schedule and shared by every note that uses it.
+  function ppComposite(c, buf, ls, le) {
+    const sr = buf.sampleRate;
+    const a = Math.max(0, Math.floor(ls * sr)), b = Math.min(buf.length, Math.floor(le * sr));
+    const mirror = Math.max(0, b - a - 2);   // interior of the loop region
+    const out = c.createBuffer(buf.numberOfChannels, b + mirror, sr);
+    for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+      const s = buf.getChannelData(ch), d = out.getChannelData(ch);
+      d.set(s.subarray(0, b), 0);
+      for (let i = 0; i < mirror; i++) d[b + i] = s[b - 2 - i];
+    }
+    return out;
+  }
+
   function schedule(c, timeline, buffers, { t0, seek, endAt, onlyChan }) {
     const master = buildOutput(c);
+    const ppCache = new Map();   // `${key}:${ls}:${le}` → composite buffer
     // per-channel: compute each note's stop time (next on/off on channel)
     const byCh = Array.from({ length: CHANNELS }, () => []);
     for (const e of timeline.events)
@@ -3976,13 +4030,36 @@ const SongPlayer = (() => {
         let stopAt = t0 + endAt;
         for (let j = i + 1; j < evs.length; j++)
           if (evs[j].kind === 'on' || evs[j].kind === 'off') { stopAt = t0 + evs[j].t; break; }
-        const src = c.createBufferSource();
-        src.buffer = buf;
-        src.playbackRate.value = e.rate > 0 ? e.rate : 1;
+        // Resolve the effective buffer and loop BEFORE touching the
+        // source node: AudioBufferSourceNode.buffer is write-once, and
+        // assigning it twice throws (and silences the note) on Chrome.
+        let useBuf = buf, loop = null;
         if (e.loop && e.loop.end > e.loop.start) {
+          loop = { start: Math.max(0, e.loop.start), end: Math.min(e.loop.end, buf.duration) };
+        } else if (e.loopFrac && e.loopFrac.end > e.loopFrac.start) {
+          const ls = e.loopFrac.start * buf.duration, le = Math.min(e.loopFrac.end, 1) * buf.duration;
+          // Degenerate regions (the granular/timestretch trick uses a
+          // couple of frames) would read as a buzz here — fall back to
+          // one-shot rather than pretend.
+          if (le - ls >= 0.02) {
+            if (e.loopFrac.pp) {
+              const key = `${e.sampleKey}:${ls.toFixed(4)}:${le.toFixed(4)}`;
+              let comp = ppCache.get(key);
+              if (!comp) { comp = ppComposite(c, buf, ls, le); ppCache.set(key, comp); }
+              useBuf = comp;
+              loop = { start: ls, end: comp.duration };
+            } else {
+              loop = { start: ls, end: le };
+            }
+          }
+        }
+        const src = c.createBufferSource();
+        src.buffer = useBuf;
+        src.playbackRate.value = e.rate > 0 ? e.rate : 1;
+        if (loop) {
           src.loop = true;
-          src.loopStart = Math.max(0, e.loop.start);
-          src.loopEnd = Math.min(e.loop.end, buf.duration);
+          src.loopStart = loop.start;
+          src.loopEnd = loop.end;
         }
         const g = c.createGain();
         const gain = e.gain == null ? 1 : e.gain;
@@ -3994,7 +4071,15 @@ const SongPlayer = (() => {
         const start = t0 + e.t;
         g.gain.setValueAtTime(gain, Math.max(start, stopAt - DECLICK));
         g.gain.linearRampToValueAtTime(0, stopAt);   // declick
-        try { src.start(start, 0); src.stop(stopAt); } catch {}
+        // Sample START offset (byte fraction of the WAV); loops ignore it
+        // once past the first pass by construction.
+        const off = e.offFrac ? Math.min(e.offFrac * buf.duration, Math.max(0, buf.duration - 0.001)) : 0;
+        try { src.start(start, off); src.stop(stopAt); } catch {}
+        // Endless-loop hygiene (pt 0.9.15): finished notes free their
+        // nodes, or long sessions leak the whole graph.
+        src.addEventListener?.('ended', () => {
+          try { src.disconnect(); g.disconnect(); if (pan) pan.disconnect(); } catch {}
+        });
       }
     }
   }
@@ -4196,8 +4281,11 @@ const M8Player = (() => {
     let firstRow = 0, lastRow = pat.lastRow;
     if (soloChain || soloPhrase) { firstRow = 0; lastRow = 0; }         // one virtual row
     else if (scope.songRow != null) {
+      // Play FROM this row to the end (pt-librarian 0.9.13 semantics):
+      // looping one row in isolation surprised people; starting the song
+      // here is what the gutter ▶ means on the device too.
       if (scope.songRow < 0 || scope.songRow > pat.lastRow) return null;
-      firstRow = lastRow = scope.songRow;
+      firstRow = scope.songRow;
     } else if (lastRow < 0) return null;                                 // empty song grid
     const nTracks = (soloChain || soloPhrase) ? 1 : N_TRACKS;
 
@@ -4283,13 +4371,32 @@ const M8Player = (() => {
               const instr = lastInstr;
               if (instr) {
                 if (instr.typeName === 'SAMPLER' && instr.samplePath) {
+                  // Sampler region + loop, as byte fractions of the WAV
+                  // (resolved against the decoded buffer at schedule
+                  // time). FWDLOOP/OSC loop natively; the PP modes get a
+                  // composite pingpong buffer in the player. REV modes
+                  // stay one-shot forward (documented limitation).
+                  const sp = instr.sampParams;
+                  let loopFrac = null, offFrac = 0;
+                  if (sp) {
+                    const startF = (sp.start ?? 0) / 255;
+                    const endF   = Math.min(1, startF + ((sp.length ?? 255) + 1) / 256);
+                    const loopF  = Math.max(startF, (sp.loopStart ?? 0) / 255);
+                    offFrac = startF;
+                    const mode = sp.play ?? 0;
+                    if ((mode === 2 || mode === 6) && endF > loopF)       // FWDLOOP / OSC
+                      loopFrac = { start: loopF, end: endF, pp: false };
+                    else if ((mode === 4 || mode === 8) && endF > loopF)  // FWD PP / OSC PP
+                      loopFrac = { start: loopF, end: endF, pp: true };
+                  }
                   events.push({
                     t, chan: tr, kind: 'on',
                     sampleKey: sampleKey(instr.samplePath),
                     rate: Math.pow(2, (step.note - ROOT_NOTE + transpose) / 12),
                     gain: step.vol === EMPTY ? BASE_GAIN : BASE_GAIN * (step.vol / 0xFF),
                     pan: 0,          // no pan tracking in the sketch
-                    loop: null,      // one-shot; sample regions not decoded
+                    loop: null,      // resolved from loopFrac at schedule time
+                    loopFrac, offFrac,
                   });
                 } else {
                   skipped.add(instr.slot);   // synth (or sample-less sampler owner slot)
@@ -4439,6 +4546,29 @@ const FX = (() => {
     { id:'dither', label:'Posterise / dither', react:'levels', hint:'Ordered Bayer dithering down to a few tones per channel.', params:[
       { key:'levels', label:'Tones', def:4, min:2, max:12, step:1, fmt:v=>v===2?'2 (1-bit)':`${v}` },
     ]},
+    { id:'trails', label:'Phosphor trails', react:'decay', hint:'What moved a moment ago is still faintly there, like a slow long-persistence tube.', params:[
+      { key:'decay', label:'Persistence', def:60, min:5, max:97, step:1, fmt:v=>`${v}%` },
+      { key:'colour', type:'seg', label:'Trail colour', def:'source', opts:[['source','Source'],['green','Green'],['amber','Amber'],['blue','Blue']] },
+    ]},
+    { id:'pixelate', label:'Pixelate', react:'size', hint:'Mosaic the picture down to fat blocks.', params:[
+      { key:'size', label:'Block size', def:25, min:2, max:100, step:1, fmt:v=>`${v}` },
+    ]},
+    { id:'huecycle', label:'Hue cycle', react:'shift', hint:'Rotate every colour around the wheel. With Speed up, a slow rainbow.', params:[
+      { key:'shift', label:'Hue shift', def:0, min:0, max:360, step:1, fmt:v=>`${v}°` },
+      { key:'speed', label:'Speed', def:20, min:0, max:100, step:1, fmt:v=>v?`${v}%`:'Still' },
+    ]},
+    { id:'kaleido', label:'Kaleidoscope', react:'blend', hint:'Fold the picture onto itself.', params:[
+      { key:'mode', type:'seg', label:'Fold', def:'h', opts:[['h','Left⇄right'],['v','Top⇄bottom'],['quad','Four-way']] },
+      { key:'blend', label:'Mix', def:100, min:0, max:100, step:1, fmt:v=>`${v}%` },
+    ]},
+    { id:'rollbar', label:'Refresh bar', react:'intensity', hint:'The bright band a camera sees crawling up a CRT.', params:[
+      { key:'intensity', label:'Brightness', def:35, min:0, max:100, step:1, fmt:v=>`${v}%` },
+      { key:'width', label:'Band height', def:30, min:5, max:80, step:1, fmt:v=>`${v}%` },
+      { key:'speed', label:'Speed', def:25, min:1, max:100, step:1, fmt:v=>`${v}%` },
+    ]},
+    { id:'invert', label:'Invert / solarise', react:'amount', hint:'Negative at full, solarised part-way.', params:[
+      { key:'amount', label:'Amount', def:100, min:0, max:100, step:1, fmt:v=>`${v}%` },
+    ]},
   ];
 
   // Applied in this order regardless of the order the user toggles them.
@@ -4450,10 +4580,18 @@ const FX = (() => {
   const REACT_TARGET = {};
   for (const d of DEFS) if (d.react) REACT_TARGET[d.id] = d.react;
 
+  // Routings are a LIST per effect: bloom intensity riding the level and
+  // bloom radius riding the bass are two entries, not a fight over one
+  // slot. Each entry names the parameter it drives; d.react is only the
+  // default for a new entry.
+  const MAX_ROUTES = 3;
   function blankReact() {
     const out = {};
-    for (const d of DEFS) if (d.react) out[d.id] = { src: 'off', depth: 60 };
+    for (const d of DEFS) if (d.react) out[d.id] = [];
     return out;
+  }
+  function reactableParams(d) {
+    return d.params.filter(x => x.type !== 'seg');
   }
 
   // Pure: given the user's parameter values, their react wiring and the
@@ -4461,26 +4599,37 @@ const FX = (() => {
   // A positive depth pushes the parameter towards its maximum, negative
   // towards its minimum, so an effect can duck on a beat as well as
   // swell on one. The user's own value is always the resting point.
-  function modulate(params, react, levels) {
+  function modulate(params, react, levels, enabled) {
     if (!react || !levels) return params;
     let out = params;
     for (const d of DEFS) {
       if (!d.react) continue;
-      const cfg = react[d.id];
-      if (!cfg || !cfg.src || cfg.src === 'off' || !cfg.depth) continue;
-      const lvl = levels[cfg.src];
-      if (!(lvl > 0)) continue;
-      const par = d.params.find(x => x.key === d.react);
-      if (!par || par.type === 'seg') continue;
-      const base = params[d.id] ? params[d.id][d.react] : par.def;
-      if (typeof base !== 'number') continue;
-      const amount = Math.min(1, Math.abs(cfg.depth) / 100) * Math.min(1, Math.max(0, lvl));
-      const target = cfg.depth >= 0 ? par.max : par.min;
-      const value = Math.min(par.max, Math.max(par.min, base + amount * (target - base)));
-      // Copy lazily: with nothing wired up this returns the caller's own
-      // object and the render path allocates nothing per frame.
-      if (out === params) out = { ...params };
-      out[d.id] = { ...out[d.id], [d.react]: value };
+      // A route on a disabled effect would modulate parameters the
+      // renderer forces to zero anyway — skip it, including the per-frame
+      // copy it would otherwise cost.
+      if (enabled && !enabled[d.id]) continue;
+      const routes = react[d.id];
+      if (!Array.isArray(routes) || !routes.length) continue;
+      for (const cfg of routes) {
+        if (!cfg || !cfg.src || cfg.src === 'off' || !cfg.depth) continue;
+        const lvl = levels[cfg.src];
+        if (!(lvl > 0)) continue;
+        const key = cfg.param || d.react;
+        const par = d.params.find(x => x.key === key);
+        if (!par || par.type === 'seg') continue;
+        // Two routes on the same parameter compose: the second one moves
+        // from wherever the first left it, which keeps the result inside
+        // the range without any special-casing.
+        const cur = out[d.id] ? out[d.id][key] : undefined;
+        const base = typeof cur === 'number' ? cur : par.def;
+        const amount = Math.min(1, Math.abs(cfg.depth) / 100) * Math.min(1, Math.max(0, lvl));
+        const target = cfg.depth >= 0 ? par.max : par.min;
+        const value = Math.min(par.max, Math.max(par.min, base + amount * (target - base)));
+        // Copy lazily: with nothing wired up this returns the caller's own
+        // object and the render path allocates nothing per frame.
+        if (out === params) out = { ...params };
+        out[d.id] = { ...out[d.id], [key]: value };
+      }
     }
     return out;
   }
@@ -4533,7 +4682,98 @@ const FX = (() => {
       bloom:{intensity:35,radius:60}, grade:{brightness:118,contrast:112,saturation:106,gamma:92},
       vignette:{falloff:22} },
       r:{ bloom:{src:'level',depth:50} } },
+    { id:'scope', label:'Oscilloscope', on:['tint','trails','bloom','vignette','grid'], p:{
+      tint:{colour:'green',amount:95}, trails:{decay:88,colour:'green'},
+      bloom:{intensity:70,radius:110,colour:'green'}, vignette:{falloff:55}, grid:{opacity:14,weight:1} },
+      r:{ bloom:{src:'level',depth:55}, trails:{src:'hit',depth:-40} } },
+    { id:'rainbow', label:'Rainbow drift', on:['huecycle','bloom','scanlines'], p:{
+      huecycle:{shift:0,speed:35}, bloom:{intensity:60,radius:90},
+      scanlines:{variant:'fine',mix:45} },
+      r:{ huecycle:{src:'low',depth:60}, bloom:{src:'level',depth:45} } },
+    { id:'broadcast', label:'Broadcast', on:['curve','rollbar','interlace','noise','grade','vignette'], p:{
+      curve:{amount:25,corner:12,spec:18}, rollbar:{intensity:40,width:35,speed:22},
+      interlace:{intensity:35}, noise:{amount:16,type:'bands'},
+      grade:{brightness:105,contrast:108,saturation:115,gamma:100}, vignette:{falloff:30} },
+      r:{ rollbar:{src:'level',depth:35} } },
+    { id:'mosaic', label:'Mosaic', on:['pixelate','dither','grid'], p:{
+      pixelate:{size:20}, dither:{levels:5}, grid:{opacity:35,weight:1} },
+      r:{ pixelate:{src:'low',depth:50} } },
+    { id:'negative', label:'Negative', on:['invert','scanlines','vignette','grade'], p:{
+      invert:{amount:100}, scanlines:{variant:'medium',mix:50}, vignette:{falloff:45},
+      grade:{brightness:96,contrast:110,saturation:90,gamma:104} },
+      r:{ invert:{src:'hit',depth:-70} } },
+    { id:'kaleido', label:'Kaleidoscope', on:['kaleido','huecycle','planes','bloom'], p:{
+      kaleido:{mode:'quad',blend:100}, huecycle:{shift:0,speed:18},
+      planes:{shift:35,scatter:30}, bloom:{intensity:50,radius:80} },
+      r:{ kaleido:{src:'level',depth:-45}, planes:{src:'high',depth:50} } },
+    { id:'seance', label:'Séance', on:['trails','ghost','tint','noise','vignette'], p:{
+      trails:{decay:93,colour:'blue'}, ghost:{offset:70,fade:75},
+      tint:{colour:'blue',amount:70}, noise:{amount:14,type:'film'}, vignette:{falloff:60} },
+      r:{ trails:{src:'level',depth:30}, ghost:{src:'mid',depth:40} } },
   ];
+
+  // A random look, deterministic in the rand() it is handed so tests can
+  // pin it down. Curated pools rather than a uniform roll over all 25
+  // effects: one texture, a colour treatment or two, some motion, some
+  // shape, some sparkle — the same instincts as the hand-made presets,
+  // with the destructive extremes kept off the table.
+  function randomLook(rand) {
+    const pickN = (arr, n) => {
+      const a = arr.slice();
+      const out = [];
+      while (out.length < n && a.length) out.push(a.splice(Math.floor(rand() * a.length) % a.length, 1)[0]);
+      return out;
+    };
+    const chosen = new Set([
+      ...pickN(['scanlines', 'lcd', 'grid', 'dot', 'pixelate'], rand() < 0.85 ? 1 : 0),
+      ...pickN(['tint', 'huecycle', 'invert', 'chswap', 'grade'], 1 + (rand() < 0.35 ? 1 : 0)),
+      ...pickN(['jitter', 'glitch', 'warp', 'rollbar', 'interlace', 'noise', 'trails', 'ghost'],
+               1 + (rand() < 0.5 ? 1 : 0)),
+      ...pickN(['curve', 'vignette', 'kaleido'], rand() < 0.7 ? 1 : 0),
+      ...pickN(['bloom', 'rgbshift', 'planes', 'dither'], 1 + (rand() < 0.4 ? 1 : 0)),
+    ]);
+    const params = defaults();
+    const enabled = {};
+    for (const d of DEFS) enabled[d.id] = chosen.has(d.id);
+    // Ranges that keep the picture readable however the dice land.
+    const LIMIT = {
+      'noise.amount': [5, 40], 'glitch.density': [5, 45], 'glitch.shift': [10, 60],
+      'jitter.amount': [5, 45], 'pixelate.size': [4, 40], 'trails.decay': [40, 92],
+      'invert.amount': [35, 100], 'warp.amplitude': [3, 30], 'dither.levels': [3, 10],
+      'grade.brightness': [85, 125], 'grade.contrast': [85, 125], 'grade.saturation': [60, 180],
+      'grade.gamma': [80, 125], 'vignette.falloff': [15, 70], 'curve.amount': [10, 60],
+      'bloom.intensity': [25, 95], 'rollbar.intensity': [15, 60], 'rgbshift.shiftH': [10, 120],
+      'ghost.fade': [55, 90], 'interlace.intensity': [10, 60], 'lcd.bleed': [0, 40],
+    };
+    for (const d of DEFS) {
+      if (!enabled[d.id]) continue;
+      for (const par of d.params) {
+        if (par.type === 'seg') {
+          const opts = par.opts.map(o => o[0]);
+          params[d.id][par.key] = opts[Math.floor(rand() * opts.length) % opts.length];
+          continue;
+        }
+        const [lo, hi] = LIMIT[`${d.id}.${par.key}`]
+          || [par.min + (par.max - par.min) * 0.15, par.min + (par.max - par.min) * 0.75];
+        const v = lo + rand() * (hi - lo);
+        params[d.id][par.key] = Math.round(Math.min(par.max, Math.max(par.min, v)) / par.step) * par.step;
+      }
+    }
+    if (enabled.chswap && params.chswap.mode === 'rgb') params.chswap.mode = 'rbg';
+    // A route or two on whatever landed, so a random look moves with the
+    // music the moment audio is on.
+    const react = blankReact();
+    const reactable = [...chosen].filter(id => REACT_TARGET[id]);
+    for (const id of pickN(reactable, Math.min(reactable.length, 1 + (rand() < 0.5 ? 1 : 0)))) {
+      const srcs = ['low', 'mid', 'high', 'level', 'hit'];
+      react[id].push({
+        src: srcs[Math.floor(rand() * srcs.length) % srcs.length],
+        depth: Math.round(30 + rand() * 60) * (rand() < 0.25 ? -1 : 1),
+        param: REACT_TARGET[id],
+      });
+    }
+    return { enabled, params, react };
+  }
 
   function presetState(id) {
     const pre = PRESETS.find(p => p.id === id) || PRESETS[0];
@@ -4542,7 +4782,8 @@ const FX = (() => {
     const enabled = {};
     for (const d of DEFS) enabled[d.id] = pre.on.includes(d.id);
     const react = blankReact();
-    for (const k in (pre.r || {})) Object.assign(react[k], pre.r[k]);
+    for (const k in (pre.r || {}))
+      if (react[k]) react[k] = [{ src: pre.r[k].src, depth: pre.r[k].depth, param: REACT_TARGET[k] }];
     return { preset: pre.id, enabled, params, react };
   }
 
@@ -4638,6 +4879,12 @@ uniform vec2  uInter;          // intensity, flip
 uniform vec2  uNoise;          // amount, type (0 film,1 static,2 bands)
 uniform vec2  uVig;            // falloff, shape
 uniform float uDither;         // levels, 0 = off
+uniform vec2  uPix;            // block w, block h in content UV (0 = off)
+uniform vec2  uKal;            // mode (0 off, 1 h, 2 v, 3 quad), mix
+uniform vec3  uRoll;           // intensity, band height, phase 0..1
+uniform float uInv;            // invert amount
+uniform sampler2D uTrail;
+uniform vec4  uTrailC;         // rgb tint, decay (0 = off)
 
 const float TAU = 6.28318530718;
 
@@ -4714,7 +4961,29 @@ void main() {
     }
   }
 
+  if (uKal.x > 0.5) {
+    // The amount slides the mirror axis in from the edge rather than
+    // lerping coordinates — a coordinate lerp collapses half the picture
+    // to one repeated line at 50%. At full amount the axis sits at the
+    // centre, the classic fold; part-way, a mirrored band creeps in.
+    float ax = 1.0 - uKal.y * 0.5;
+    if (uKal.x < 1.5) {
+      if (q.x > ax) q.x = max(0.0, 2.0 * ax - q.x);
+    } else if (uKal.x < 2.5) {
+      if (q.y > ax) q.y = max(0.0, 2.0 * ax - q.y);
+    } else {
+      if (q.x > ax) q.x = max(0.0, 2.0 * ax - q.x);
+      if (q.y > ax) q.y = max(0.0, 2.0 * ax - q.y);
+    }
+  }
+
   bool oob = q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0 || corner > 0.5;
+
+  // After the bounds test, and with the block centre clamped inside the
+  // content: a partial last block must resample the picture's edge, not
+  // fall out of bounds and paint a strip of the bars colour.
+  if (uPix.x > 0.0)
+    q = clamp((floor(q / uPix) + 0.5) * uPix, 0.5 * uPix, vec2(1.0) - 0.5 * uPix);
 
   vec3 col = uBg;
   if (!oob) {
@@ -4757,6 +5026,8 @@ void main() {
     col *= uGrade.x;
     col = mix(vec3(lum(col)), col, uGrade.z);
     col = clamp(col, 0.0, 1.0);
+
+    if (uInv > 0.0) col = mix(col, vec3(1.0) - col, uInv);
 
     // ── Masks ────────────────────────────────────────────
     // All of these are measured in DEVICE pixels off q, not in output
@@ -4844,6 +5115,17 @@ void main() {
       col *= 1.0 - smoothstep(inner, outer, rr) * (0.30 + uVig.x * 0.68);
     }
 
+    if (uRoll.x > 0.0) {
+      // The band crawls DOWN the picture the way it does on camera; q.y
+      // is 0 at the top of the content after the flip, so subtract.
+      float centre = 1.0 - uRoll.z;
+      float d = abs(q.y - centre);
+      d = min(d, 1.0 - d);                      // wrap so it re-enters smoothly
+      float band = smoothstep(uRoll.y, 0.0, d);
+      col += vec3(uRoll.x * 0.5 * band);
+      col *= 1.0 - uRoll.x * 0.18;              // dim the rest a touch, like exposure
+    }
+
     if (uCurve.z > 0.0) {
       // Glass glare — a soft highlight across the upper third of the
       // picture. c.y is +1 at the top, since vUv.y is 0 at the bottom.
@@ -4852,6 +5134,13 @@ void main() {
     }
 
     col = clamp(col, 0.0, 1.0);
+
+    // Trails sample LAST FRAME'S finished output, so everything above —
+    // glow, masks, colour — persists, not just the raw screen.
+    if (uTrailC.w > 0.0) {
+      vec3 prev = texture2D(uTrail, p).rgb * uTrailC.rgb * uTrailC.w;
+      col = max(col, prev);
+    }
 
     if (uDither > 1.5) {
       // levels tones means levels-1 steps between black and white.
@@ -4934,6 +5223,16 @@ void main() {
     }
     const srcTex = makeTex(gl.NEAREST);
 
+    // The trails feedback texture holds last frame's finished output.
+    // Seeded 1x1 black so the first frame with trails on samples
+    // something defined rather than driver garbage.
+    const trailTex = makeTex(gl.LINEAR);
+    gl.bindTexture(gl.TEXTURE_2D, trailTex);
+    // RGB, not RGBA: the context is alpha:false, and copyTexImage2D from
+    // an opaque drawing buffer into an RGBA texture is INVALID_OPERATION.
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE,
+      new Uint8Array([0, 0, 0]));
+
     // Two half-resolution ping-pong targets for the bloom blur.
     let bloomW = 0, bloomH = 0;
     const bTex = [makeTex(gl.LINEAR), makeTex(gl.LINEAR)];
@@ -4966,6 +5265,7 @@ void main() {
     sizeBloom(6, 6);
 
     let srcW = 0, srcH = 0, everUploaded = false;
+    let trailW = 0, trailH = 0, trailWas = false;
 
     function render(srcCanvas, st, time, upload) {
       const out = OUTPUTS.find(o => o.id === st.output) || OUTPUTS[0];
@@ -4975,7 +5275,7 @@ void main() {
       const on = id => !!(st.on && st.enabled[id]);
       // Audio modulation sits between the user's settings and the GPU:
       // the sliders stay where they were put and the picture moves.
-      const live = st.react && st.levels ? modulate(st.params, st.react, st.levels) : st.params;
+      const live = st.react && st.levels ? modulate(st.params, st.react, st.levels, st.enabled) : st.params;
       const P = id => live[id] || {};
 
       // Content rect: fit the 4:3 source inside the output, centred.
@@ -5111,9 +5411,29 @@ void main() {
         (gh.fade ?? 70) / 100);
 
       const map = CH_MAPS[P('chswap').mode] || CH_MAPS.rgb;
-      const m = [0,0,0, 0,0,0, 0,0,0];
+      let m = [0,0,0, 0,0,0, 0,0,0];
       if (on('chswap')) { m[map[0] * 3 + 0] = 1; m[map[1] * 3 + 1] = 1; m[map[2] * 3 + 2] = 1; }
       else { m[0] = 1; m[4] = 1; m[8] = 1; }
+      // Hue rotation rides in the same matrix, composed on the CPU: the
+      // shader pays nothing for it. Standard luminance-preserving hue
+      // rotate (the SVG feColorMatrix one).
+      if (on('huecycle')) {
+        const hc = P('huecycle');
+        const deg = (hc.shift ?? 0) + wrap(time * (hc.speed ?? 0) / 100 * 40, 360);
+        const a = deg * Math.PI / 180, cA = Math.cos(a), sA = Math.sin(a);
+        // Column-major, out[row] = sum(col) arr[col*3+row] * in[col].
+        const H = [
+          0.213 + cA * 0.787 - sA * 0.213, 0.213 - cA * 0.213 + sA * 0.143, 0.213 - cA * 0.213 - sA * 0.787,
+          0.715 - cA * 0.715 - sA * 0.715, 0.715 + cA * 0.285 + sA * 0.140, 0.715 - cA * 0.715 + sA * 0.715,
+          0.072 - cA * 0.072 + sA * 0.928, 0.072 - cA * 0.072 - sA * 0.283, 0.072 + cA * 0.928 + sA * 0.072,
+        ];
+        const mm = new Array(9).fill(0);
+        for (let i = 0; i < 3; i++)              // row of the result
+          for (let j = 0; j < 3; j++)            // column of the result
+            for (let k = 0; k < 3; k++)
+              mm[j * 3 + i] += H[k * 3 + i] * m[j * 3 + k];
+        m = mm;
+      }
       gl.uniformMatrix3fv(u(progMain, 'uChMat'), false, new Float32Array(m));
 
       const gr = P('grade');
@@ -5169,7 +5489,55 @@ void main() {
 
       gl.uniform1f(u(progMain, 'uDither'), on('dither') ? (P('dither').levels ?? 4) : 0);
 
+      // ── This round's effects ─────────────────────────────
+      const px2 = P('pixelate');
+      const blocks = 1 + Math.round((px2.size ?? 25) / 100 * 31);   // 1..32 device px
+      gl.uniform2f(u(progMain, 'uPix'),
+        on('pixelate') ? blocks / DEV_W : 0,
+        on('pixelate') ? blocks / DEV_H : 0);
+
+      const kal = P('kaleido');
+      const kmode = { h: 1, v: 2, quad: 3 }[kal.mode] || 1;
+      gl.uniform2f(u(progMain, 'uKal'),
+        on('kaleido') ? kmode : 0, (kal.blend ?? 100) / 100);
+
+      const rb = P('rollbar');
+      gl.uniform3f(u(progMain, 'uRoll'),
+        on('rollbar') ? (rb.intensity ?? 0) / 100 : 0,
+        (rb.width ?? 30) / 100 * 0.25,
+        wrap(time * (0.05 + (rb.speed ?? 25) / 100 * 1.1), 1));
+
+      gl.uniform1f(u(progMain, 'uInv'), on('invert') ? (P('invert').amount ?? 0) / 100 : 0);
+
+      const tr = P('trails');
+      const trailsOn = on('trails') && (tr.decay ?? 0) > 0;
+      // Coming back on (or changing output size) must start from black:
+      // the texture otherwise still holds whatever was on screen when
+      // trails were last active, which flashes over the current picture.
+      if (trailsOn && (!trailWas || trailW !== out.w || trailH !== out.h)) {
+        gl.bindTexture(gl.TEXTURE_2D, trailTex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE,
+          new Uint8Array([0, 0, 0]));
+        trailW = out.w; trailH = out.h;
+      }
+      trailWas = trailsOn;
+      const TRAIL_TINTS = { source: [1, 1, 1], green: [0.3, 1, 0.45], amber: [1, 0.7, 0.2], blue: [0.4, 0.7, 1] };
+      const tt = TRAIL_TINTS[tr.colour] || TRAIL_TINTS.source;
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, trailTex);
+      gl.uniform1i(u(progMain, 'uTrail'), 2);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.uniform4f(u(progMain, 'uTrailC'), tt[0], tt[1], tt[2],
+        trailsOn ? (tr.decay ?? 60) / 100 : 0);
+
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      // Feed the finished frame back for next time. copyTexImage2D reads
+      // the drawing buffer, which preserveDrawingBuffer keeps alive.
+      if (trailsOn) {
+        gl.bindTexture(gl.TEXTURE_2D, trailTex);
+        gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGB, 0, 0, out.w, out.h, 0);
+      }
     }
 
     return { render, gl, dispose() { try { gl.getExtension('WEBGL_lose_context')?.loseContext(); } catch {} } };
@@ -5181,8 +5549,8 @@ void main() {
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
   }
 
-  return { DEFS, ORDER, PRESETS, OUTPUTS, REACT_TARGET, defaults, blankReact,
-           presetState, modulate, createRenderer,
+  return { DEFS, ORDER, PRESETS, OUTPUTS, REACT_TARGET, MAX_ROUTES, defaults, blankReact,
+           reactableParams, presetState, randomLook, modulate, createRenderer,
            SRC_W, SRC_H, DEV_W, DEV_H, hexToRgb };
 })();
 
@@ -5427,10 +5795,11 @@ const Mirror = (() => {
 
   // Merged defensively: a stale or hand-edited blob in localStorage
   // must never be able to stop the mirror from drawing.
-  function loadState() {
+  // One sanitiser for every way settings arrive — stored settings AND
+  // imported look files go through the same scrutiny, so a hand-edited
+  // or hostile file gets exactly the treatment localStorage does.
+  function sanitiseRaw(raw) {
     const st = blankState();
-    let raw = null;
-    try { raw = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch {}
     if (!raw || typeof raw !== 'object') return st;
     const params = FX.defaults();
     for (const d of FX.DEFS) {
@@ -5459,16 +5828,28 @@ const Mirror = (() => {
     st.zoom = Math.min(100, Math.max(0, Number(raw.zoom) || 0));
     st.preset = FX.PRESETS.some(x => x.id === raw.preset) ? raw.preset : 'custom';
 
-    // React wiring: an unknown source or a wild depth must not reach the
-    // modulator, and effects with no react target must not gain one.
+    // React wiring: routes are now a LIST per effect (up to MAX_ROUTES).
+    // Old single-object wiring from stored settings migrates to a
+    // one-entry list; unknown sources, wild depths and unknown params
+    // must not reach the modulator.
     const react = FX.blankReact();
     const srcIds = AudioReact.SOURCES.map(x => x[0]);
     for (const id in react) {
       const got = raw.react && raw.react[id];
       if (!got || typeof got !== 'object') continue;
-      if (srcIds.includes(got.src)) react[id].src = got.src;
-      const d = Number(got.depth);
-      if (isFinite(d)) react[id].depth = Math.min(100, Math.max(-100, Math.round(d)));
+      const list = Array.isArray(got) ? got : [got];   // migration: old one-slot form
+      const def = FX.DEFS.find(d => d.id === id);
+      const paramKeys = def ? FX.reactableParams(def).map(p => p.key) : [];
+      for (const r of list.slice(0, FX.MAX_ROUTES)) {
+        if (!r || typeof r !== 'object' || !srcIds.includes(r.src) || r.src === 'off') continue;
+        const d = Number(r.depth);
+        if (!isFinite(d) || !d) continue;
+        react[id].push({
+          src: r.src,
+          depth: Math.min(100, Math.max(-100, Math.round(d))),
+          param: paramKeys.includes(r.param) ? r.param : FX.REACT_TARGET[id],
+        });
+      }
     }
     st.react = react;
 
@@ -5482,6 +5863,12 @@ const Mirror = (() => {
     };
     st.levels = { ...AudioReact.ZERO };
     return st;
+  }
+
+  function loadState() {
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch {}
+    return sanitiseRaw(raw);
   }
 
   function save() {
@@ -5848,6 +6235,55 @@ const Mirror = (() => {
       state = Object.assign(blankState(), keep);
       syncUI(); save(); invalidate();
     });
+    // 🎲 Random — roll a curated look. Routes the user wired themselves
+    // survive when the roll keeps that effect on; the roll's own wiring
+    // fills the rest.
+    $('fx-random')?.addEventListener('click', () => {
+      const roll = FX.randomLook(Math.random);
+      const react = roll.react;
+      for (const id in state.react) {
+        const mine = state.react[id];
+        if (roll.enabled[id] && Array.isArray(mine) && mine.length && mine[0].src !== 'off')
+          react[id] = mine;
+      }
+      state.enabled = roll.enabled;
+      state.params = roll.params;
+      state.react = react;
+      state.on = true;
+      markCustom(); syncUI(); save(); invalidate();
+    });
+    // ⇩ / ⇪ Look — the whole effects state as a small JSON file, loaded
+    // back through the same sanitiser as stored settings.
+    $('fx-look-save')?.addEventListener('click', () => {
+      const { levels, audio, ...look } = state;
+      const blob = new Blob([JSON.stringify({ m8librarianLook: 1, ...look }, null, 2)],
+        { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'm8-mirror-look.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    $('fx-look-load')?.addEventListener('click', () => {
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = '.json,application/json';
+      inp.addEventListener('change', async () => {
+        const f = inp.files && inp.files[0];
+        if (!f) return;
+        let raw = null;
+        try { raw = JSON.parse(await f.text()); } catch {}
+        if (!raw || typeof raw !== 'object') { setNote('That file is not a look.'); return; }
+        const next = sanitiseRaw(raw);
+        // A look is the picture, not the plumbing: keep output/bars/fill
+        // and the audio input exactly as they are.
+        next.output = state.output; next.bg = state.bg; next.zoom = state.zoom;
+        next.audio = state.audio; next.levels = state.levels;
+        state = next;
+        state.preset = 'custom';
+        syncUI(); save(); invalidate();
+      });
+      inp.click();
+    });
     $('fx-record').addEventListener('click', toggleRecord);
 
     grid.addEventListener('change', e => {
@@ -5892,13 +6328,15 @@ const Mirror = (() => {
     grid.addEventListener('change', e => {
       const sel = e.target.closest('.fx-rsrc');
       if (!sel) return;
-      state.react[sel.dataset.fx].src = sel.value;
+      const r0 = route0(sel.dataset.fx);
+      if (r0) r0.src = sel.value;
       markCustom(); syncUI(); save(); invalidate();
     });
     grid.addEventListener('input', e => {
       const r = e.target.closest('.fx-rdepth');
       if (!r) return;
-      state.react[r.dataset.fx].depth = +r.value;
+      const r0 = route0(r.dataset.fx);
+      if (r0) r0.depth = +r.value;
       paintReact(r.dataset.fx);
       markCustom(); save(); invalidate();
     });
@@ -5959,19 +6397,30 @@ const Mirror = (() => {
     }
   }
 
+  // Routes are a LIST per effect in the engine (presets and Random can
+  // install several); this panel edits the first one. Extra routes keep
+  // working and are counted in the readout.
+  function route0(fxId) {
+    const list = state.react[fxId];
+    if (!Array.isArray(list)) return null;
+    if (!list.length) list.push({ src: 'off', depth: 60, param: FX.REACT_TARGET[fxId] });
+    return list[0];
+  }
   function paintReact(fxId) {
-    const cfg = state.react[fxId];
+    const list = state.react[fxId];
     const row = document.querySelector(`.fx-react[data-fx="${fxId}"]`);
-    if (!cfg || !row) return;
-    const wired = cfg.src && cfg.src !== 'off';
+    if (!Array.isArray(list) || !row) return;
+    const cfg = list[0];
+    const wired = !!(cfg && cfg.src && cfg.src !== 'off');
     row.classList.toggle('wired', wired);
+    const extra = list.length > 1 ? ` (+${list.length - 1})` : '';
     const val = row.querySelector('.fx-rval');
     if (val) val.textContent = !wired ? '—'
-      : (cfg.depth > 0 ? '+' : '') + cfg.depth + '%';
+      : (cfg.depth > 0 ? '+' : '') + cfg.depth + '%' + extra;
     const dep = row.querySelector('.fx-rdepth');
-    if (dep) { dep.value = cfg.depth; dep.disabled = !wired; }
+    if (dep) { dep.value = cfg ? cfg.depth : 0; dep.disabled = !wired; }
     const sel = row.querySelector('.fx-rsrc');
-    if (sel) sel.value = cfg.src;
+    if (sel) sel.value = cfg ? cfg.src : 'off';
   }
 
   function markCustom() {
@@ -7033,6 +7482,13 @@ const USB = (() => {
     await loadSDHandle(h);
   }
   $('btn-open').addEventListener('click', openSD);
+  // The title is a home button: close whatever is open, back to Songs.
+  // (Clicking the version number inside it goes to GitHub instead.)
+  $('logo-home').addEventListener('click', e => {
+    if (e.target.closest('a')) return;                  // the version link
+    closeSongModal(); closeDiffModal(); closeSampModal(); closeFixModal(); closeSearch();
+    if ($('main').classList.contains('visible')) switchTab('songs');
+  });
   $('btn-open-empty').addEventListener('click', openSD);
   // Demo mode: a synthetic in-memory card — read-write in memory, but
   // nothing (cache, handles, library records) is persisted for it.
@@ -8206,13 +8662,20 @@ const USB = (() => {
     dh += `<div class="drow"><span class="dlabel">File</span><span class="dval dim">${esc(instr.filePath)} · ${M8.fmtVer(instr.header.version)}</span></div>`;
     if (instr.params) dh += buildInstrParamsHtml(instr.params);
 
+    // Row-level preview (pt 0.9.16): instruments whose sample resolves on
+    // the card get a ▶ right on the row; missing WAVs and synth types
+    // offer nothing rather than a dead button.
+    const rowPlay = (instr.kind === 0x02 && instr.samplePath && sampIndexed && !miss && sdHandle
+        && instr.samplePath.toLowerCase().endsWith('.wav'))
+      ? `<button class="play-btn i-rowplay" data-playpath="${esc(instr.samplePath)}" title="Preview sample">▶</button>`
+      : `<span></span>`;
     const item = document.createElement('div');
     item.className = 'instr-item';
     item.innerHTML = `<div class="instr-row">
       <span class="i-chev">▶</span>
       <span class="tb ${instr.typeName}">${instr.typeName}</span>
       <span class="i-lname">${esc(instr.name)}</span>
-      ${sc}${ub}</div>
+      ${sc}${ub}${rowPlay}</div>
       <div class="instr-det">${dh}</div>`;
     item.querySelector('.instr-row').addEventListener('click', () => item.classList.toggle('open'));
 
@@ -10857,14 +11320,15 @@ const USB = (() => {
 
     // ── Song grid ─────────────────────────────────────────
     let gridHtml = `<div class="pv-cell clbl"></div><div class="pv-cell clbl"></div>`;
-    for (let t = 0; t < ED_TRACKS; t++) gridHtml += `<div class="pv-cell clbl">T${t + 1}</div>`;
+    for (let t = 0; t < ED_TRACKS; t++) gridHtml += `<div class="pv-cell clbl" data-clbl="${t}">T${t + 1}</div>`;
     for (let r = 0; r < shownRows; r++) {
       const spare = r > last;
       gridHtml += `<div class="pv-gutter${spare ? ' spare' : ''}" data-row="${r}">
         <span class="pv-rowcopy" data-row="${r}" title="copy this row">⧉</span>
         <span class="pv-rowpaste" data-row="${r}" title="paste the copied row here"${pvRowClip ? '' : ' style="display:none"'}>⤓</span>
+        <span class="pv-rowclear" data-row="${r}" title="clear this row (undoable)">✕</span>
       </div>`;
-      gridHtml += `<div class="pv-cell rlbl${spare ? ' spare' : ''}">${edHx(r)}</div>`;
+      gridHtml += `<div class="pv-cell rlbl${spare ? ' spare' : ''}" data-rlbl="${r}">${edHx(r)}</div>`;
       for (let t = 0; t < ED_TRACKS; t++) {
         const v = pat.grid[r][t];
         gridHtml += v === ED_EMPTY
@@ -10934,7 +11398,12 @@ const USB = (() => {
     if (st.viewPhrase != null) renderPhraseEd(st.viewPhrase, { keepCursor: true });
     const wrap = host.querySelector('.pv-grid-wrap');
     if (wrap) wrap.scrollTop = keepScroll;   // adding rows must not jump to the top
-    if (pvFocus) host.querySelector(`.pv-cell[data-row="${pvFocus.r}"][data-ch="${pvFocus.t}"]`)?.focus();
+    if (pvFocus) {
+      host.querySelector(`.pv-cell[data-row="${pvFocus.r}"][data-ch="${pvFocus.t}"]`)?.focus();
+      host.querySelector(`.pv-cell[data-row="${pvFocus.r}"][data-ch="${pvFocus.t}"]`)?.classList.add('cur');
+      host.querySelector(`.pv-cell.rlbl[data-rlbl="${pvFocus.r}"]`)?.classList.add('curline');
+      host.querySelector(`.pv-cell.clbl[data-clbl="${pvFocus.t}"]`)?.classList.add('curline');
+    }
   }
   function hasColorOverrides(st) {
     const pre = `${st.song.filePath}:`;
@@ -11030,7 +11499,20 @@ const USB = (() => {
       t = Math.max(0, Math.min(ED_TRACKS - 1, t));
       pvFocus = { r, t };
       host.querySelector(`.pv-cell[data-row="${r}"][data-ch="${t}"]`)?.focus();
+      paintCur();
       return { r, t };
+    };
+    // The active cell carries a persistent high-contrast marker (a
+    // class, not just :focus, so it holds while a picker is open) and
+    // its row number and channel header light up with it — the 1px
+    // focus outline vanished inside the related-chain highlight.
+    const paintCur = () => {
+      host.querySelectorAll('.pv-cell.cur').forEach(c => c.classList.remove('cur'));
+      host.querySelectorAll('.curline').forEach(c => c.classList.remove('curline'));
+      if (!pvFocus) return;
+      host.querySelector(`.pv-cell[data-row="${pvFocus.r}"][data-ch="${pvFocus.t}"]`)?.classList.add('cur');
+      host.querySelector(`.pv-cell.rlbl[data-rlbl="${pvFocus.r}"]`)?.classList.add('curline');
+      host.querySelector(`.pv-cell.clbl[data-clbl="${pvFocus.t}"]`)?.classList.add('curline');
     };
     const doUndo = () => { if (edUndo(st)) { edDirtyChanged(); renderPatternEd(); } };
     const doRedo = () => { if (edRedo(st)) { edDirtyChanged(); renderPatternEd(); } };
@@ -11040,7 +11522,7 @@ const USB = (() => {
       if (!cell) return;
       const r = +cell.dataset.row, t = +cell.dataset.ch;
       if (ev.shiftKey && pvFocus) { ev.preventDefault(); extendSel(r, t); return; }
-      pvFocus = { r, t }; pvSel = null; paintSel();
+      pvFocus = { r, t }; pvSel = null; paintSel(); paintCur();
     });
     gridEl.addEventListener('click', ev => {
       const rc = ev.target.closest('.pv-rowcopy');
@@ -11052,10 +11534,19 @@ const USB = (() => {
         for (let t = 0; t < ED_TRACKS; t++) pat.grid[r][t] = pvRowClip[t];
         edDirtyChanged(); renderPatternEd(); return;
       }
+      const rx = ev.target.closest('.pv-rowclear');
+      if (rx) {
+        const r = +rx.dataset.row;
+        edPushUndo(st);
+        for (let t = 0; t < ED_TRACKS; t++) pat.grid[r][t] = ED_EMPTY;
+        edDirtyChanged(); renderPatternEd(); return;
+      }
       const cell = ev.target.closest('.pv-cell[data-row]');
       if (!cell || ev.shiftKey) return;
       if (cell.classList.contains('chain')) renderChainEd(+cell.dataset.chain);   // click = open
-      else editGridCell(cell);                                                    // empty: click = edit
+      // Empty cell: click just SELECTS it (mousedown already moved the
+      // focus) — the picker opens on typing, Enter or a double-click,
+      // the same contract as every other cell in the app.
     });
     gridEl.addEventListener('dblclick', ev => {
       const cell = ev.target.closest('.pv-cell[data-row]');
@@ -11505,7 +11996,7 @@ const USB = (() => {
           data-step="${s}" data-f="${f}" data-col="${col}" tabindex="0"${title ? ` title="${esc(title)}"` : ''}>${esc(txt)}</span>`;
       }
       rows += `<div class="pe-row${s % 4 === 0 ? ' beat' : ''}${blank ? ' blank' : ''}${s === peCursor.step ? ' cur' : ''}" data-step="${s}">
-        <span class="pe-i">${edHx(s)}</span>${cellsHtml}</div>`;
+        <span class="pe-i">${edHx(s)}</span>${cellsHtml}<span class="pe-stepclear" data-step="${s}" title="clear this whole step (undoable)">✕</span></div>`;
     }
 
     const pianoHelp = pianoOn
@@ -11545,6 +12036,14 @@ const USB = (() => {
     const pat = st.pat;
     const mask = lockedMask(sc);
     const markAndRender = () => { edDirtyChanged(); renderPhraseEd(ph, { keepCursor: true, noScroll: true }); };
+    // Hover ✕ clears the whole step, undoably (pt 0.9.11 grid manners)
+    det.addEventListener('click', ev => {
+      const x = ev.target.closest('.pe-stepclear');
+      if (!x) return;
+      edPushUndo(st);
+      for (let col = 0; col < PE_FIELDS.length; col++) peClearCell(pat, ph, +x.dataset.step, col);
+      markAndRender();
+    });
     const focusCell = () => {
       const el = det.querySelector(`.pe-c[data-step="${peCursor.step}"][data-col="${peCursor.col}"]`);
       det.querySelectorAll('.pe-row.cur').forEach(r => r.classList.remove('cur'));
@@ -12995,6 +13494,34 @@ const USB = (() => {
         metaSpan.className = 'sb-fmeta'; metaSpan.textContent = fmtWavMeta(f);
         row.appendChild(metaSpan);
         row.insertAdjacentHTML('beforeend', badge);
+        // 🗑 straight from the browser (pt 0.9.15): moves to the card
+        // trash, never deletes; trashing a sample songs still use warns
+        // loudly first.
+        if (sdHandle) {
+          const delBtn = document.createElement('button');
+          delBtn.className = 'play-btn sb-trash';
+          delBtn.textContent = '🗑';
+          delBtn.title = `Move to ${TRASH_DIR}/ on the card (restorable from the Trash tab)`;
+          delBtn.addEventListener('click', async e => {
+            e.stopPropagation();
+            const warn = usedCount > 0
+              ? `⚠ ${f.name} is USED by ${usedCount} song(s)/instrument(s) — they will show it as missing until you restore it.\n\n`
+              : '';
+            if (!confirm(`${warn}Move ${f.name} to ${TRASH_DIR}/ on the card?\n\nNothing is deleted — restore any time from the Trash tab.`)) return;
+            if (!await ensureWriteAccess()) return;
+            delBtn.disabled = true; delBtn.textContent = '…';
+            try {
+              await trashSample(f.path.replace(/^\//, ''));
+              sampbrData = sampbrData.filter(x => x !== f);
+              trashScanned = false;
+              renderSampBrowser();
+            } catch (err) {
+              alert('Could not move to trash: ' + err.message);
+              delBtn.disabled = false; delBtn.textContent = '🗑';
+            }
+          });
+          row.appendChild(delBtn);
+        }
         container.appendChild(row);
         sampbrRows.push({row, path: f.path, btn: playBtn});
       }
@@ -14010,7 +14537,7 @@ const USB = (() => {
       start(song, {}, `song:${song.filePath}`, song.name, `${bpmOf(song)} BPM · full song`, btn);
     const playSongRow = (song, row, btn) =>
       start(song, { songRow: row }, `row:${song.filePath}:${row}`,
-        `${song.name} — row ${hx(row)}`, 'song row, all channels', btn);
+        `${song.name} — from row ${hx(row)}`, 'playing to the end, all channels', btn);
     const playChain = (song, chain, btn) =>
       start(song, { chain }, `chain:${song.filePath}:${chain}`,
         `${song.name} — chain ${hx(chain)}`, 'chain preview', btn);

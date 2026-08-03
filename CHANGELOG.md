@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — the pt 1.2.0/1.3.0 catch-up: background feedback + Lottes CRT
+
+### Effects
+- **Background feedback** (31st effect): the letterbox region becomes a live video-enhancer feedback loop. Last frame's own output is resampled through a zoom/rotate/hue-spin transform at near-unity **loop gain** and soft-clipped like a saturating tube, so it self-oscillates into swirling analogue colour instead of whiting out. The loop is excited by **screen bleed** (the display's own spilled glow — the bloom prepass now runs whenever the background needs it, even with the glow effect off) and a slow video-synth **oscillator** for colour waves when the screen is dark. **Drift** wanders the resample point on a slow Lissajous so the loop never settles, and **Screen echo** rescans last frame's finished picture — every effect included — into the loop at wandering offsets. **Picture inset** floats the display smaller over the churn. All of it audio-routable. With a Custom wide output, the display sits on a wall of feedback: the "camera pointed at the monitor" rig with none of the cables.
+- **CRT (Lottes)** (32nd effect): a port of Timothy Lottes' public-domain CRT shader (the RetroArch `crt-lottes`). A gaussian beam is drawn per scanline in linear light (beam hardness and pixel sharpness exposed), through his shadow masks: aperture **grille**, compressed **TV** mask, or stretched **VGA** mask, with a depth control. It replaces the plain sampler while on (RGB offset/planes pause; everything else composes) and runs in device-pixel space so the beam sits on the M8's real 320×240 scanlines at any output size.
+- **Two new presets** — **Enhancer loop** and **Lottes CRT** — 23 total. Both new effects join 🎲 Random's curated pools.
+
 ## Unreleased — the "port everything" round
 
 The remaining pt-librarian features, previously deferred as too large, now ported in full.

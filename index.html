@@ -4756,6 +4756,23 @@ const FX = (() => {
       { key:'bands',  label:'Bands',   def:30, min:5, max:100, step:1, fmt:v=>`${v}%` },
       { key:'sweep',  label:'Sweep',   def:15, min:0, max:100, step:1, fmt:v=>v?`${v}%`:'Still' },
     ]},
+    { id:'bgfeed', label:'Background feedback', react:'bleed', hint:'The bars become a live enhancer feedback loop — swirling analogue colour fed by the screen\'s own glow, with the display floating on top. Inset shrinks the picture so more background shows.', params:[
+      { key:'gain',   label:'Loop gain',    def:96, min:60, max:104, step:1, fmt:v=>`${v}%` },
+      { key:'zoom',   label:'Zoom',         def:12, min:-100, max:100, step:1, fmt:v=>v?`${v}%`:'Off' },
+      { key:'rotate', label:'Rotate',       def:8,  min:-100, max:100, step:1, fmt:v=>v?`${v}%`:'Off' },
+      { key:'hue',    label:'Hue spin',     def:18, min:0, max:100, step:1, fmt:v=>v?`${v}%`:'Off' },
+      { key:'bleed',  label:'Screen bleed', def:55, min:0, max:100, step:1, fmt:v=>`${v}%` },
+      { key:'osc',    label:'Oscillator',   def:20, min:0, max:100, step:1, fmt:v=>v?`${v}%`:'Off' },
+      { key:'drift',  label:'Drift',        def:25, min:0, max:100, step:1, fmt:v=>v?`${v}%`:'Off' },
+      { key:'echo',   label:'Screen echo',  def:30, min:0, max:100, step:1, fmt:v=>v?`${v}%`:'Off' },
+      { key:'inset',  label:'Picture inset',def:0,  min:0, max:60, step:1, fmt:v=>v?`${v}%`:'Full size' },
+    ]},
+    { id:'lottes', label:'CRT (Lottes)', react:'beam', hint:'Timothy Lottes\' public-domain CRT shader: a gaussian beam drawn per scanline in linear light, with his shadow masks. Replaces the plain sampler while on.', params:[
+      { key:'beam', label:'Beam hardness',  def:33, min:0, max:100, step:1, fmt:v=>`${v}%` },
+      { key:'sharp', label:'Pixel sharpness', def:40, min:0, max:100, step:1, fmt:v=>`${v}%` },
+      { key:'mask', type:'seg', label:'Mask', def:'grille', opts:[['none','None'],['grille','Grille'],['tv','TV'],['vga','VGA']] },
+      { key:'maskamt', label:'Mask depth', def:60, min:0, max:100, step:1, fmt:v=>`${v}%` },
+    ]},
   ];
 
   // Applied in this order regardless of the order the user toggles them.
@@ -4914,6 +4931,16 @@ const FX = (() => {
       trails:{decay:90,zoom:18,rotate:10,hue:12,colour:'source'},
       bloom:{intensity:55,radius:90}, curve:{amount:25,corner:14,spec:15}, vignette:{falloff:40} },
       r:{ trails:{src:'level',depth:25}, bloom:{src:'hit',depth:45} } },
+    { id:'enhancerloop', label:'Enhancer loop', on:['bgfeed','bloom','curve','scanlines'], p:{
+      bgfeed:{gain:97,zoom:14,rotate:9,hue:22,bleed:65,osc:25,drift:30,echo:35,inset:18},
+      bloom:{intensity:60,radius:100}, curve:{amount:30,corner:16,spec:20},
+      scanlines:{variant:'medium',mix:40} },
+      r:{ bgfeed:{src:'level',depth:35}, bloom:{src:'hit',depth:40} } },
+    { id:'lottescrt', label:'Lottes CRT', on:['lottes','curve','vignette','bloom'], p:{
+      lottes:{beam:33,sharp:40,mask:'grille',maskamt:60},
+      curve:{amount:30,corner:16,spec:22}, vignette:{falloff:35},
+      bloom:{intensity:35,radius:70} },
+      r:{ bloom:{src:'level',depth:40} } },
   ];
 
   // A random look, deterministic in the rand() it is handed so tests can
@@ -4929,12 +4956,13 @@ const FX = (() => {
       return out;
     };
     const chosen = new Set([
-      ...pickN(['scanlines', 'lcd', 'grid', 'dot', 'pixelate'], rand() < 0.85 ? 1 : 0),
+      ...pickN(['scanlines', 'lcd', 'grid', 'dot', 'pixelate', 'lottes'], rand() < 0.85 ? 1 : 0),
       ...pickN(['tint', 'huecycle', 'invert', 'chswap', 'grade', 'rainbowmap'], 1 + (rand() < 0.35 ? 1 : 0)),
       ...pickN(['jitter', 'glitch', 'warp', 'rollbar', 'interlace', 'noise', 'trails', 'ghost',
                 'composite', 'taperot', 'syncrot', 'bent'],
                1 + (rand() < 0.5 ? 1 : 0)),
       ...pickN(['curve', 'vignette', 'kaleido'], rand() < 0.7 ? 1 : 0),
+      ...pickN(['bgfeed'], rand() < 0.3 ? 1 : 0),
       ...pickN(['bloom', 'rgbshift', 'planes', 'dither'], 1 + (rand() < 0.4 ? 1 : 0)),
     ]);
     const params = defaults();
@@ -4950,6 +4978,10 @@ const FX = (() => {
       'syncrot.wobble': [0, 40], 'syncrot.roll': [0, 30], 'syncrot.hum': [10, 55],
       'bent.ring': [15, 65], 'bent.lumahue': [0, 50], 'bent.flicker': [0, 35],
       'rainbowmap.amount': [25, 75], 'rainbowmap.bands': [10, 70],
+      'lottes.beam': [15, 70], 'lottes.sharp': [20, 70], 'lottes.maskamt': [25, 80],
+      'bgfeed.gain': [85, 101], 'bgfeed.zoom': [-30, 30], 'bgfeed.rotate': [-25, 25],
+      'bgfeed.hue': [0, 45], 'bgfeed.bleed': [30, 85], 'bgfeed.osc': [5, 45], 'bgfeed.inset': [0, 30],
+      'bgfeed.drift': [10, 60], 'bgfeed.echo': [10, 60],
       'invert.amount': [35, 100], 'warp.amplitude': [3, 30], 'dither.levels': [3, 10],
       'grade.brightness': [85, 125], 'grade.contrast': [85, 125], 'grade.saturation': [60, 180],
       'grade.gamma': [80, 125], 'vignette.falloff': [15, 70], 'curve.amount': [10, 60],
@@ -5119,6 +5151,11 @@ uniform float uHumPos;         // hum bar phase 0..1
 uniform vec4  uBent;           // ring, ring space, luma hue, unused
 uniform vec2  uFlick;          // inversion amount while gate open, threshold
 uniform vec3  uRmap;           // amount, bands, sweep phase
+uniform vec4  uBgFb;           // gain, zoom, rotate, hue spin
+uniform vec4  uBgSeed;         // screen bleed, oscillator, osc phase, osc scale
+uniform vec4  uLot;            // hardScan, hardPix, mask type, mask strength
+uniform float uLotOn;
+uniform vec4  uBgFb2;          // drift shift x, drift shift y, echo, echo phase
 
 const float TAU = 6.28318530718;
 
@@ -5140,6 +5177,70 @@ float hash(vec2 p) {
 }
 
 float lum(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+
+// ── CRT (Lottes) ─────────────────────────────────────────
+// A port of Timothy Lottes' public-domain CRT shader (the RetroArch
+// crt-lottes): gaussian beam per scanline sampled in linear light,
+// with his TV / aperture-grille / VGA shadow masks. Replaces the plain
+// sampler when on; runs in DEVICE pixel space so the beam sits on real
+// scanlines whatever the output size.
+float ToLinL(float c) { return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4); }
+vec3 ToLin(vec3 c) { return vec3(ToLinL(c.r), ToLinL(c.g), ToLinL(c.b)); }
+float ToSrgbL(float c) { return c < 0.0031308 ? c * 12.92 : 1.055 * pow(c, 0.41666) - 0.055; }
+vec3 ToSrgb(vec3 c) { return vec3(ToSrgbL(c.r), ToSrgbL(c.g), ToSrgbL(c.b)); }
+vec3 FetchL(vec2 pos, vec2 off) {
+  pos = (floor(pos * vec2(${DEV_W}.0, ${DEV_H}.0) + off) + 0.5) / vec2(${DEV_W}.0, ${DEV_H}.0);
+  return ToLin(texture2D(uSrc, pos).rgb);
+}
+vec2 DistL(vec2 pos) {
+  pos = pos * vec2(${DEV_W}.0, ${DEV_H}.0);
+  return -((pos - floor(pos)) - vec2(0.5));
+}
+float GausL(float pos, float scale) { return exp2(scale * pos * pos); }
+vec3 Horz3L(vec2 pos, float off) {
+  vec3 b = FetchL(pos, vec2(-1.0, off));
+  vec3 c = FetchL(pos, vec2(0.0, off));
+  vec3 d = FetchL(pos, vec2(1.0, off));
+  float dst = DistL(pos).x;
+  float wb = GausL(dst - 1.0, uLot.y), wc = GausL(dst, uLot.y), wd = GausL(dst + 1.0, uLot.y);
+  return (b * wb + c * wc + d * wd) / (wb + wc + wd);
+}
+vec3 Horz5L(vec2 pos, float off) {
+  vec3 a = FetchL(pos, vec2(-2.0, off));
+  vec3 b = FetchL(pos, vec2(-1.0, off));
+  vec3 c = FetchL(pos, vec2(0.0, off));
+  vec3 d = FetchL(pos, vec2(1.0, off));
+  vec3 e = FetchL(pos, vec2(2.0, off));
+  float dst = DistL(pos).x;
+  float wa = GausL(dst - 2.0, uLot.y), wb = GausL(dst - 1.0, uLot.y), wc = GausL(dst, uLot.y),
+        wd = GausL(dst + 1.0, uLot.y), we = GausL(dst + 2.0, uLot.y);
+  return (a * wa + b * wb + c * wc + d * wd + e * we) / (wa + wb + wc + wd + we);
+}
+float ScanL(vec2 pos, float off) { return GausL(DistL(pos).y + off, uLot.x); }
+vec3 TriL(vec2 pos) {
+  return Horz3L(pos, -1.0) * ScanL(pos, -1.0)
+       + Horz5L(pos, 0.0) * ScanL(pos, 0.0)
+       + Horz3L(pos, 1.0) * ScanL(pos, 1.0);
+}
+vec3 MaskL(vec2 pos) {
+  float dark = 1.0 - 0.5 * uLot.w, light = 1.0 + 0.5 * uLot.w;
+  vec3 mask = vec3(dark);
+  if (uLot.z < 1.5) {                      // 1: compressed TV shadow mask
+    float line = light;
+    float odd = fract(pos.x * 0.166666666) < 0.5 ? 1.0 : 0.0;
+    if (fract((pos.y + odd) * 0.5) < 0.5) line = dark;
+    float f = fract(pos.x * 0.333333333);
+    if (f < 0.333) mask.r = light; else if (f < 0.666) mask.g = light; else mask.b = light;
+    mask *= line;
+  } else if (uLot.z < 2.5) {               // 2: aperture grille
+    float f = fract(pos.x * 0.333333333);
+    if (f < 0.333) mask.r = light; else if (f < 0.666) mask.g = light; else mask.b = light;
+  } else {                                 // 3: stretched VGA shadow mask
+    float f = fract((pos.x + pos.y * 3.0) * 0.166666666);
+    if (f < 0.333) mask.r = light; else if (f < 0.666) mask.g = light; else mask.b = light;
+  }
+  return mask;
+}
 
 float bayer4(vec2 p) {
   // 4x4 ordered dither matrix, unrolled — GLSL ES 1.0 has no dynamic
@@ -5242,6 +5343,48 @@ void main() {
     q = clamp((floor(q / uPix) + 0.5) * uPix, 0.5 * uPix, vec2(1.0) - 0.5 * uPix);
 
   vec3 col = uBg;
+  // ── Background synth ─────────────────────────────────────
+  // The letterbox region becomes a video-enhancer feedback loop: last
+  // frame's OWN output resampled through a zoom/rotate/hue transform at
+  // near-unity gain, soft-clipped so it self-oscillates instead of
+  // whiting out. Seeded by the display's spilled glow (the bloom
+  // prepass) and by slow video-synth colour waves — the screen quite
+  // literally feeds the background, and the picture floats on top.
+  if (oob && uBgFb.x > 0.0) {
+    vec2 d = p - 0.5;
+    float ang = uBgFb.z * 0.35;
+    float ca = cos(ang), sa = sin(ang);
+    d = mat2(ca, -sa, sa, ca) * d;
+    d *= 1.0 - uBgFb.y * 0.12;
+    d += uBgFb2.xy;              // genlocked drift: the loop wanders
+    vec3 prev = texture2D(uTrail, d + 0.5).rgb;
+    if (uBgFb.w > 0.0) {
+      vec3 py = rgb2yiq(prev);
+      float ha = uBgFb.w * 1.2;
+      float hc = cos(ha), hs = sin(ha);
+      py.yz = mat2(hc, -hs, hs, hc) * py.yz;
+      prev = max(yiq2rgb(py), 0.0);
+    }
+    vec3 fb = prev * uBgFb.x;
+    vec3 seed = vec3(0.0);
+    if (uBgSeed.x > 0.0)
+      seed += texture2D(uBloom, p).rgb * uBgSeed.x * 0.9;
+    if (uBgSeed.y > 0.0) {
+      vec2 op = p * uBgSeed.w;
+      vec3 wave = 0.5 + 0.5 * cos(TAU * (op.x * 1.7 + op.y * 1.1 + uBgSeed.z + vec3(0.0, 0.33, 0.67)));
+      wave *= 0.5 + 0.5 * cos(TAU * (op.y * 2.3 - op.x * 0.7 - uBgSeed.z * 1.3));
+      seed += wave * uBgSeed.y * 0.22;
+    }
+    if (uBgFb2.z > 0.0) {
+      // Echo: rescan LAST FRAME'S finished PICTURE — every effect
+      // included — at a wandering offset, so whatever the display is
+      // doing (glitches, rainbows, the lot) smears into the loop.
+      vec2 ep = uOff + fract(p * 1.7 + vec2(uBgFb2.w, 1.0 - uBgFb2.w)) * uSize;
+      seed += texture2D(uTrail, ep).rgb * uBgFb2.z * 0.5;
+    }
+    // exp soft clip: bright feedback saturates smoothly, like a tube
+    col = 1.0 - exp(-(fb + seed) * 1.35);
+  }
   if (!oob) {
     // ── Sampling ─────────────────────────────────────────
     vec2 unit = vec2(1.0 / ${DEV_W}.0, 1.0 / ${DEV_H}.0);
@@ -5260,9 +5403,19 @@ void main() {
       bOff.x -= (0.35 - n * uPlanes.y) * base;
     }
 
-    col.r = texture2D(uSrc, q + rOff).r;
-    col.g = texture2D(uSrc, q).g;
-    col.b = texture2D(uSrc, q + bOff).b;
+    if (uLotOn > 0.5) {
+      // Lottes replaces the plain sampler: gaussian beam over three
+      // scanlines in linear light, then the shadow mask in output px.
+      // (RGB offset / planes offsets pause while it is on — the beam IS
+      // the sampler.)
+      col = TriL(q);
+      if (uLot.w > 0.0 && uLot.z > 0.5) col *= MaskL(floor(p * uOutRes));
+      col = clamp(ToSrgb(col), 0.0, 1.0);
+    } else {
+      col.r = texture2D(uSrc, q + rOff).r;
+      col.g = texture2D(uSrc, q).g;
+      col.b = texture2D(uSrc, q + bOff).b;
+    }
 
     if (uGhost.x > 0.0) {
       float o = uGhost.x * unit.x;
@@ -5676,7 +5829,11 @@ void main() {
       const fit  = Math.min(out.w / sw, out.h / sh);
       const fill = Math.max(out.w / sw, out.h / sh);
       const z    = Math.min(100, Math.max(0, st.zoom ?? 0)) / 100;
-      const scale = fit + (fill - fit) * z;
+      let scale = fit + (fill - fit) * z;
+      // Background feedback can float the picture smaller, so the loop
+      // has room to breathe around it.
+      const bgOn = on('bgfeed') && (P('bgfeed').gain || 0) > 0;
+      if (bgOn && (P('bgfeed').inset || 0) > 0) scale *= 1 - (P('bgfeed').inset || 0) / 100;
       const cw = sw * scale, ch = sh * scale;
       const offX = (out.w - cw) / 2 / out.w, offY = (out.h - ch) / 2 / out.h;
       const sizeX = cw / out.w, sizeY = ch / out.h;
@@ -5701,7 +5858,10 @@ void main() {
 
       // ── Bloom passes ─────────────────────────────────────
       const bloomOn = on('bloom') && (P('bloom').intensity || 0) > 0;
-      if (bloomOn) {
+      // The background loop's screen bleed samples the bloom texture, so
+      // the prepass also runs when only the background needs it.
+      const bloomNeeded = bloomOn || (bgOn && (P('bgfeed').bleed || 0) > 0);
+      if (bloomNeeded) {
         sizeBloom(out.w, out.h);
         const tint = PHOSPHOR[P('bloom').colour] || PHOSPHOR.none;
         gl.useProgram(progPre);
@@ -5941,9 +6101,34 @@ void main() {
         on('rainbowmap') ? (rm.amount ?? 0) / 100 : 0,
         0.3 + (rm.bands ?? 30) / 100 * 4.7,
         wrap(time * (rm.sweep ?? 0) / 100 * 0.55, 1));
+      const bgp = P('bgfeed');
+      gl.uniform4f(u(progMain, 'uBgFb'),
+        bgOn ? (bgp.gain ?? 0) / 100 : 0,
+        (bgp.zoom ?? 0) / 100,
+        (bgp.rotate ?? 0) / 100,
+        (bgp.hue ?? 0) / 100);
+      gl.uniform4f(u(progMain, 'uBgSeed'),
+        (bgp.bleed ?? 0) / 100,
+        (bgp.osc ?? 0) / 100,
+        wrap(time * 0.11, 1),
+        2.0 + (bgp.osc ?? 0) / 100 * 3.0);
+      const drift = (bgp.drift ?? 0) / 100;
+      gl.uniform4f(u(progMain, 'uBgFb2'),
+        Math.sin(wrap(time * (0.05 + drift * 0.18), 1) * 6.2832) * drift * 0.05,
+        Math.cos(wrap(time * (0.037 + drift * 0.13), 1) * 6.2832) * drift * 0.05,
+        bgOn ? (bgp.echo ?? 0) / 100 : 0,
+        wrap(time * 0.07, 1));
+      const lo = P('lottes');
+      const LMASK = { none: 0, tv: 1, grille: 2, vga: 3 };
+      gl.uniform1f(u(progMain, 'uLotOn'), on('lottes') ? 1 : 0);
+      gl.uniform4f(u(progMain, 'uLot'),
+        -4 - (lo.beam ?? 33) / 100 * 12,       // hardScan -4 .. -16
+        -1 - (lo.sharp ?? 40) / 100 * 5,       // hardPix  -1 .. -6
+        LMASK[lo.mask] ?? 2,
+        (lo.maskamt ?? 60) / 100);
 
       const tr = P('trails');
-      const trailsOn = on('trails') && (tr.decay ?? 0) > 0;
+      const trailsOn = (on('trails') && (tr.decay ?? 0) > 0) || bgOn;
       // Coming back on (or changing output size) must start from black:
       // the texture otherwise still holds whatever was on screen when
       // trails were last active, which flashes over the current picture.
@@ -5961,7 +6146,7 @@ void main() {
       gl.uniform1i(u(progMain, 'uTrail'), 2);
       gl.activeTexture(gl.TEXTURE0);
       gl.uniform4f(u(progMain, 'uTrailC'), tt[0], tt[1], tt[2],
-        trailsOn ? (tr.decay ?? 60) / 100 : 0);
+        on('trails') && (tr.decay ?? 0) > 0 ? (tr.decay ?? 60) / 100 : 0);
       gl.uniform3f(u(progMain, 'uTrailXf'),
         trailsOn ? (tr.zoom ?? 0) / 100 : 0,
         trailsOn ? (tr.rotate ?? 0) / 100 : 0,
@@ -6341,7 +6526,9 @@ const Mirror = (() => {
     const sw = src.width || FX.SRC_W, sh = src.height || FX.SRC_H;
     const fit  = Math.min(o.w / sw, o.h / sh);
     const fill = Math.max(o.w / sw, o.h / sh);
-    const s = fit + (fill - fit) * (Math.min(100, Math.max(0, state.zoom || 0)) / 100);
+    let s = fit + (fill - fit) * (Math.min(100, Math.max(0, state.zoom || 0)) / 100);
+    if (state.enabled?.bgfeed && (state.params?.bgfeed?.inset || 0) > 0)
+      s *= 1 - (state.params.bgfeed.inset || 0) / 100;
     const cw = sw * s, ch = sh * s;
     ctx2d.imageSmoothingEnabled = false;
     ctx2d.drawImage(src, (o.w - cw) / 2, (o.h - ch) / 2, cw, ch);
@@ -6425,7 +6612,9 @@ const Mirror = (() => {
     const reacting = state.on && state.audio.on && AudioReact.isRunning();
     if (reacting) { state.levels = AudioReact.sample(state.audio.gain / 100); paintMeters(); }
     else if (state.levels.level || state.levels.hit) { state.levels = { ...AudioReact.ZERO }; paintMeters(); }
-    const moving = (state.on && state.animate) || reacting;
+    // Trails and the background loop are temporal by nature: they need
+    // frames to decay, whatever the Motion switch says.
+    const moving = (state.on && (state.animate || state.enabled.trails || state.enabled.bgfeed)) || reacting;
     // takeSrcDirty() clears the flag, so read it exactly once per step.
     const dirty = takeSrcDirty();
     // captureStream only emits a frame when the canvas is drawn to, so a

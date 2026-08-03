@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased — the "port everything" round
+
+The remaining pt-librarian features, previously deferred as too large, now ported in full.
+
+### Playback
+- **Seamless looping**: the loop toggle no longer restarts the song at the end — playback is scheduled in rolling 25-second windows ahead of the playhead, so a looping song rolls straight over the boundary with no gap and no re-click. Applies to whole songs, from-row, chains and phrases alike.
+- **Row ▶ plays the section**, not just to the end of the song: from the clicked row down to the next blank row (a blank grid row is a section break on the M8, as it is on the picoTracker). Blank rows decline to play.
+
+### Effects
+- **The full multi-route audio routing UI**: every effect card can now hold up to three audio→parameter routes, each with its own source (bass/mid/high/level/hit), target parameter and depth, added with a ＋ react button and deleted per-row. Previously the panel edited only the first route; presets that shipped multi-route wiring now show all of it.
+
+### Editors
+- **Table editor** — the ⊞ Tables button in the pattern editor opens the M8's 256 instrument/FX tables: a chip list with state dots for tables holding data, and a 16-step editor (transpose, volume, three FX columns) with hex cell entry, arrow-key movement and undo. FX names resolve through the owning instrument, version-aware like the phrase editor. Edits ride the same in-memory dirty state, save preview, and backup/verify/rollback write path as everything else.
+- **⌥↓ / ⌥↑ walk the hierarchy**: from a grid cell dive into its chain, from a chain step into its phrase, and back up — without touching the mouse.
+- **Insert-paste for grid rows**: the row gutter paste now inserts, shifting rows down (with a warning if content would fall off the end of the grid) instead of overwriting.
+- **🔍 INS in the phrase editor** — jump straight from a phrase to a full read-only inspector of the instrument under the cursor (synth, filter, amp/mixer and modulator parameters, decoded fresh from the file bytes). Esc or click-away closes it.
+
 ## Unreleased — the SIGNAL//ROT round (pt-librarian 1.0.1→1.1.0 catch-up)
 
 ### Effects: a real video-effects rig

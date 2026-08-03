@@ -361,3 +361,20 @@ test('renderOffline smoke', async t => {
   assert.equal(stems.length, 1);
   assert.equal(stems[0].chan, 0);
 });
+
+test('scope=songRow is a SECTION: stops at the next blank row; blank row declines', () => {
+  const pat = basicPat();
+  pat.grid[0][0] = EMPTY;
+  pat.grid[3][0] = 0;                                    // section A: rows 3-4
+  pat.grid[4][0] = 0;
+  for (let t = 0; t < 8; t++) pat.grid[5][t] = EMPTY;    // blank separator
+  pat.grid[6][0] = 0;                                    // section B
+  pat.lastRow = 6;
+  const tl = M8Player.buildTimeline(pat, makeSong(), { songRow: 3 });
+  assert.deepEqual([...new Set(tl.marks.map(m => m.row))].sort(), [3, 4],
+    'section ends at the blank row — row 6 is the next section');
+  const tlB = M8Player.buildTimeline(pat, makeSong(), { songRow: 6 });
+  assert.deepEqual([...new Set(tlB.marks.map(m => m.row))], [6]);
+  assert.equal(M8Player.buildTimeline(pat, makeSong(), { songRow: 5 }), null,
+    'a blank row declines');
+});

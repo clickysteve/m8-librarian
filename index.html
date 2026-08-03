@@ -1040,6 +1040,28 @@
     .pe-head, .pe-row { display:grid;
       grid-template-columns:24px 58px 34px 34px 62px 42px 62px 42px 62px 42px 16px;
       gap:2px; align-items:center; font-family:monospace; font-size:11px; }
+    /* TABLE EDITOR */
+    .te-wrap { display:flex; gap:8px; align-items:flex-start; }
+    .te-list { display:flex; flex-direction:column; gap:2px; max-height:340px; overflow-y:auto;
+      flex-shrink:0; padding-right:2px; }
+    .te-list::-webkit-scrollbar { width:4px; }
+    .te-list::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+    .te-chip { display:flex; align-items:center; gap:5px; background:var(--surface2);
+      border:1px solid var(--border); color:var(--muted); font-family:monospace; font-size:11px;
+      padding:2px 7px; border-radius:4px; cursor:pointer; }
+    .te-chip i { width:6px; height:6px; border-radius:50%; background:var(--border2); }
+    .te-chip.data i { background:var(--c-found); }
+    .te-chip.on { border-color:var(--accent); color:var(--text); }
+    .te-grid { display:flex; flex-direction:column; gap:1px; flex:1; }
+    .te-row { display:grid; grid-template-columns:22px 34px 34px 46px 30px 46px 30px 46px 30px;
+      gap:2px; align-items:center; font-family:monospace; font-size:11px; padding:1px 0; border-radius:3px; }
+    .te-row.beat { background:rgba(255,255,255,.028); }
+    .te-row.te-head { color:var(--muted); font-size:9px; letter-spacing:.5px;
+      border-bottom:1px solid var(--border); margin-bottom:2px; }
+    .te-i { color:var(--border2); font-size:10px; text-align:center; }
+    .te-c { padding:2px 4px; border-radius:3px; cursor:text; outline:none; }
+    .te-c.dim { color:var(--muted); opacity:.55; }
+    .te-c:focus { outline:2px solid var(--text); outline-offset:-2px; }
     .pe-stepclear { color:var(--border2); font-size:10px; text-align:center; cursor:pointer;
       opacity:0; border-radius:3px; }
     .pe-row:hover .pe-stepclear { opacity:1; }
@@ -1213,10 +1235,21 @@
       background:var(--accent); transition:width .05s linear; }
     .fx-meter-hit i::after { background:var(--warn); }
     .fx-meter b { font-size:9px; color:var(--muted); font-weight:500; letter-spacing:.3px; }
-    .fx-react { border-top:1px dashed var(--border2); margin-top:4px; padding-top:5px; }
+    .fx-react { border-top:1px dashed var(--border2); margin-top:4px; padding-top:5px;
+      display:flex; flex-direction:column; gap:3px; }
     .fx-react select { background:var(--surface2); border:1px solid var(--border2); color:var(--text);
       font-size:10px; padding:1px 4px; border-radius:4px; outline:none; }
-    .fx-react.wired .fx-plab { color:var(--accent); }
+    .fx-rrow { gap:4px; }
+    .fx-rrow select { max-width:88px; }
+    .fx-rarr { color:var(--muted); font-size:10px; flex-shrink:0; }
+    .fx-rrow .fx-rdepth { flex:1; min-width:30px; }
+    .fx-rrow .fx-rval { width:40px; }
+    .fx-rdel { background:none; border:none; color:var(--muted); cursor:pointer; font-size:10px;
+      padding:1px 3px; border-radius:3px; flex-shrink:0; }
+    .fx-rdel:hover { color:var(--c-miss); background:var(--surface2); }
+    .fx-radd { background:none; border:1px dashed var(--border2); color:var(--muted); cursor:pointer;
+      font-size:10px; padding:2px 7px; border-radius:4px; align-self:flex-start; font-family:inherit; }
+    .fx-radd:hover { color:var(--accent); border-color:var(--accent-brd); }
     .fx-panel:not(.fx-reacting) .fx-react { display:none; }
 
     /* Additions — connect toolbar & experimental remote control */
@@ -1658,6 +1691,17 @@
   <div id="tr-info"><div id="tr-title"></div><div id="tr-sub"></div></div>
   <div id="tr-barwrap" title="Click or drag to jump"><div id="tr-bar"></div><div id="tr-head"></div></div>
   <span id="tr-time"></span>
+</div>
+
+<!-- Instrument inspector (jump from the phrase editor) -->
+<div id="instr-inspect-modal" class="song-modal-overlay" style="display:none;z-index:120">
+  <div class="song-modal-box" style="width:min(560px,94vw)">
+    <div class="song-modal-hdr">
+      <span class="song-modal-title" id="instr-inspect-title"></span>
+      <button class="btn ghost sm" id="btn-instr-inspect-close">✕</button>
+    </div>
+    <div class="song-modal-body" id="instr-inspect-body"></div>
+  </div>
 </div>
 
 <!-- Theme creator -->
@@ -2310,7 +2354,23 @@ const M8 = (() => {
       }
       phrases.push(steps);
     }
-    return { grid, chains, phrases, lastRow, grooves };
+    // Tables: 256 × 16 steps × {transpose, vol, 3×(cmd,val)} — straight
+    // after the chains, ending exactly at the instrument table.
+    const TBL_OFF = 0xBA3E;
+    let tables = null;
+    if (b.length >= TBL_OFF + 256 * 128) {
+      tables = [];
+      for (let t = 0; t < 256; t++) {
+        const steps = [];
+        for (let s = 0; s < 16; s++) {
+          const o = TBL_OFF + t * 128 + s * 8;
+          steps.push({ transpose: b[o], vol: b[o+1],
+            fx: [{cmd:b[o+2],val:b[o+3]},{cmd:b[o+4],val:b[o+5]},{cmd:b[o+6],val:b[o+7]}] });
+        }
+        tables.push(steps);
+      }
+    }
+    return { grid, chains, phrases, lastRow, grooves, tables };
   }
 
   // ── MIDI export ─────────────────────────────────────────
@@ -3179,7 +3239,12 @@ const Demo = (() => {
     b.fill(0xFF, GRID_OFF, GRID_OFF + 256 * 8);
     b.fill(0xFF, PHRASE_OFF, PHRASE_OFF + 255 * 16 * 9);
     b.fill(0xFF, CHAIN_OFF, CHAIN_OFF + 255 * 32);
-    b.fill(0x00, TABLE_OFF, TABLE_OFF + 256 * 128);
+    // empty table steps: transpose 0, vol FF, 3×(cmd FF, val 00)
+    for (let ti = 0; ti < 256 * 16; ti++) {
+      const o = TABLE_OFF + ti * 8;
+      b[o] = 0x00; b[o+1] = 0xFF;
+      b[o+2] = 0xFF; b[o+3] = 0x00; b[o+4] = 0xFF; b[o+5] = 0x00; b[o+6] = 0xFF; b[o+7] = 0x00;
+    }
     for (const [row, tr, ch] of o.grid || []) b[GRID_OFF + row * 8 + tr] = ch;
     for (const [ch, st, ph, tp] of o.chains || []) {
       const co = CHAIN_OFF + ch * 32 + st * 2;
@@ -3452,6 +3517,15 @@ const M8Edit = (() => {
     return { offset: TABLE_OFF + table * STEPS * TABLE_STEP_SZ + step * TABLE_STEP_SZ, bytes: out };
   }
 
+  // Whole-table region: 16 steps, 128 contiguous bytes.
+  function encodeTable(table, steps) {
+    chk('table', table, N_TABLES - 1);
+    const out = new Uint8Array(STEPS * TABLE_STEP_SZ);
+    for (let s = 0; s < STEPS; s++)
+      out.set(encodeTableStep(table, s, steps?.[s]).bytes, s * TABLE_STEP_SZ);
+    return { offset: TABLE_OFF + table * STEPS * TABLE_STEP_SZ, bytes: out };
+  }
+
   // ── Instrument params ───────────────────────────────────
   // One raw byte inside an instrument slot. offsetInSlot is relative to
   // the slot base (0 = kind byte, 1..12 = name, …). The caller owns
@@ -3499,7 +3573,7 @@ const M8Edit = (() => {
   return {
     encodeGridCell, encodeChainStep, encodeChain,
     encodePhraseStep, encodePhrase, encodeGroove,
-    encodeTableStep, encodeInstrParamByte,
+    encodeTableStep, encodeTable, encodeInstrParamByte,
     applyRegions, verifyRegions,
     hx,
     OFFSETS: { GROOVE_OFF, GRID_OFF, PHRASE_OFF, CHAIN_OFF, TABLE_OFF, INSTR_TABLE, ISIZE,
@@ -4015,7 +4089,8 @@ const AudioPlayer = (() => {
 //                                        // buffers under distinct keys
 const SongPlayer = (() => {
   let ctx = null, timer = null, state = null;
-  let loopMode = false;   // when set, playback restarts instead of ending
+  let loopMode = true;    // endless by default, the way the device plays;
+                          // scheduling is windowed so the loop is seamless
   let playToken = 0;
 
   const CHANNELS = 8;
@@ -4163,22 +4238,41 @@ const SongPlayer = (() => {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     const seek = Math.max(0, opts?.startAt || 0);
     const t0 = ctx.currentTime + LEAD - seek;   // shift the whole schedule back to start mid-song
-    // Everything is scheduled up front on the audio clock; the interval
-    // below only reports position and detects the end.
-    schedule(ctx, timeline, buffers, { t0, seek, endAt: timeline.duration });
-    state = { onEnd, duration: timeline.duration, t0, tl: timeline,
+    const dur = timeline.duration;
+    // Playback is scheduled in windows of WHOLE PASSES, extended ahead of
+    // the playhead from the same deterministic schedule — so looping is
+    // seamless rather than a restart with a gap, and hours of looping
+    // never grow the schedule quadratically (pt 0.9.15/0.9.17: schedule
+    // by time, not passes). The scrub bar and marks cycle within one pass.
+    const WINDOW = 25;   // seconds kept scheduled ahead of the playhead
+    let scheduledPasses = 0;
+    const schedulePass = p => {
+      schedule(ctx, timeline, buffers, { t0: t0 + p * dur, seek: p === 0 ? seek : 0, endAt: dur });
+      scheduledPasses = p + 1;
+    };
+    schedulePass(0);
+    const extend = () => {
+      while (ctx && loopMode
+             && (t0 + scheduledPasses * dur) - ctx.currentTime < WINDOW
+             && scheduledPasses < 100000)
+        schedulePass(scheduledPasses);
+    };
+    extend();
+    state = { onEnd, duration: dur, t0, tl: timeline,
               args: { timeline, buffers, onProgress, onEnd, opts } };
-    onProgress?.(seek, timeline.duration);
+    onProgress?.(seek, dur);
     timer = setInterval(() => {
       if (!ctx) return;
       const t = ctx.currentTime - t0;
-      onProgress?.(Math.max(0, t), state.duration);
-      if (t >= state.duration + 0.3) {
-        if (loopMode && state.args) {
-          const a = state.args;
-          play(a.timeline, a.buffers, a.onProgress, a.onEnd,
-               { ...(a.opts || {}), startAt: 0, internal: true });
-        } else stop();
+      if (loopMode) {
+        extend();
+        onProgress?.(Math.max(0, t % dur), dur);
+      } else {
+        // Loop just turned off (or was off): finish the pass in flight,
+        // then stop — everything scheduled beyond it dies with the ctx.
+        const endOfPass = Math.max(dur, Math.ceil(Math.max(0, t) / dur - 0.001) * dur);
+        onProgress?.(Math.max(0, scheduledPasses > 1 ? t % dur : t), dur);
+        if (t >= endOfPass + 0.3) stop();
       }
     }, 200);
     return true;
@@ -4337,11 +4431,17 @@ const M8Player = (() => {
     let firstRow = 0, lastRow = pat.lastRow;
     if (soloChain || soloPhrase) { firstRow = 0; lastRow = 0; }         // one virtual row
     else if (scope.songRow != null) {
-      // Play FROM this row to the end (pt-librarian 0.9.13 semantics):
-      // looping one row in isolation surprised people; starting the song
-      // here is what the gutter ▶ means on the device too.
+      // Play THIS SECTION (pt 0.9.15 islands, as a preview gesture, not
+      // an emulation claim): from this row to the next fully blank row,
+      // and with the transport's loop on — the default — it cycles that
+      // section, which is how sections get auditioned live. A blank row
+      // declines rather than surprising you.
       if (scope.songRow < 0 || scope.songRow > pat.lastRow) return null;
+      const blank = r => pat.grid[r].every(v => v === EMPTY);
+      if (blank(scope.songRow)) return null;
       firstRow = scope.songRow;
+      lastRow = scope.songRow;
+      while (lastRow < pat.lastRow && !blank(lastRow + 1)) lastRow++;
     } else if (lastRow < 0) return null;                                 // empty song grid
     const nTracks = (soloChain || soloPhrase) ? 1 : N_TRACKS;
 
@@ -6556,15 +6656,7 @@ const Mirror = (() => {
                    min="${p.min}" max="${p.max}" step="${p.step}">
             <span class="fx-pval" id="val-${d.id}-${p.key}" data-fx="${d.id}" data-key="${p.key}"></span>
           </div>`).join('')}${d.react ? `
-          <div class="fx-p fx-react" data-fx="${d.id}">
-            <span class="fx-plab">React</span>
-            <select class="fx-rsrc" data-fx="${d.id}" aria-label="${d.label}: audio source driving ${d.react}">${
-              AudioReact.SOURCES.map(o => `<option value="${o[0]}">${o[1]}</option>`).join('')
-            }</select>
-            <input type="range" class="fx-rdepth" data-fx="${d.id}" min="-100" max="100" step="1"
-                   aria-label="${d.label}: how far the audio moves ${d.react}">
-            <span class="fx-pval fx-rval" data-fx="${d.id}"></span>
-          </div>` : ''}</div>
+          <div class="fx-react" data-fx="${d.id}"></div>` : ''}</div>
       </div>`).join('');
 
     // ── Events ──
@@ -6731,19 +6823,43 @@ const Mirror = (() => {
       save();
     });
     grid.addEventListener('change', e => {
-      const sel = e.target.closest('.fx-rsrc');
+      const sel = e.target.closest('.fx-rsrc, .fx-rparam');
       if (!sel) return;
-      const r0 = route0(sel.dataset.fx);
-      if (r0) r0.src = sel.value;
-      markCustom(); syncUI(); save(); invalidate();
+      const route = state.react[sel.dataset.fx][+sel.dataset.i];
+      if (!route) return;
+      if (sel.classList.contains('fx-rsrc')) route.src = sel.value;
+      else route.param = sel.value;
+      markCustom(); save(); invalidate();
     });
     grid.addEventListener('input', e => {
       const r = e.target.closest('.fx-rdepth');
       if (!r) return;
-      const r0 = route0(r.dataset.fx);
-      if (r0) r0.depth = +r.value;
-      paintReact(r.dataset.fx);
+      const route = state.react[r.dataset.fx][+r.dataset.i];
+      if (!route) return;
+      route.depth = +r.value;
+      const val = r.parentElement.querySelector('.fx-rval');
+      if (val) val.textContent = (route.depth > 0 ? '+' : '') + route.depth + '%';
       markCustom(); save(); invalidate();
+    });
+    grid.addEventListener('click', e => {
+      const add = e.target.closest('.fx-radd');
+      if (add) {
+        const id = add.dataset.fx;
+        if (state.react[id].length < FX.MAX_ROUTES) {
+          state.react[id].push({ src: 'level', depth: 60, param: FX.REACT_TARGET[id] });
+          // Wiring audio to an effect means you want to see it: enable
+          // the card AND the master, like ticking the card does.
+          if (!state.enabled[id]) state.enabled[id] = true;
+          state.on = true;
+          markCustom(); syncUI(); save(); invalidate();
+        }
+        return;
+      }
+      const del = e.target.closest('.fx-rdel');
+      if (del) {
+        state.react[del.dataset.fx].splice(+del.dataset.i, 1);
+        markCustom(); syncUI(); save(); invalidate();
+      }
     });
     AudioReact.setOnChange(() => {
       const el = $('fx-audio-status');
@@ -6802,30 +6918,35 @@ const Mirror = (() => {
     }
   }
 
-  // Routes are a LIST per effect in the engine (presets and Random can
-  // install several); this panel edits the first one. Extra routes keep
-  // working and are counted in the readout.
-  function route0(fxId) {
-    const list = state.react[fxId];
-    if (!Array.isArray(list)) return null;
-    if (!list.length) list.push({ src: 'off', depth: 60, param: FX.REACT_TARGET[fxId] });
-    return list[0];
-  }
+  // Rebuilds the routing list inside one card: a row per route with a
+  // source, the parameter it drives, a signed depth, and a remove; plus
+  // an add button while there is room (pt-librarian's full routing UI).
   function paintReact(fxId) {
-    const list = state.react[fxId];
-    const row = document.querySelector(`.fx-react[data-fx="${fxId}"]`);
-    if (!Array.isArray(list) || !row) return;
-    const cfg = list[0];
-    const wired = !!(cfg && cfg.src && cfg.src !== 'off');
-    row.classList.toggle('wired', wired);
-    const extra = list.length > 1 ? ` (+${list.length - 1})` : '';
-    const val = row.querySelector('.fx-rval');
-    if (val) val.textContent = !wired ? '—'
-      : (cfg.depth > 0 ? '+' : '') + cfg.depth + '%' + extra;
-    const dep = row.querySelector('.fx-rdepth');
-    if (dep) { dep.value = cfg ? cfg.depth : 0; dep.disabled = !wired; }
-    const sel = row.querySelector('.fx-rsrc');
-    if (sel) sel.value = cfg ? cfg.src : 'off';
+    const routes = state.react[fxId];
+    const box = document.querySelector(`.fx-react[data-fx="${fxId}"]`);
+    if (!routes || !box) return;
+    const d = FX.DEFS.find(x => x.id === fxId);
+    box.classList.toggle('wired', routes.length > 0);
+    box.innerHTML = routes.map((r, i) => `
+      <div class="fx-p fx-rrow">
+        <select class="fx-rsrc" data-fx="${fxId}" data-i="${i}" aria-label="${d.label}: audio source">${
+          AudioReact.SOURCES.filter(o => o[0] !== 'off').map(o =>
+            `<option value="${o[0]}"${o[0] === r.src ? ' selected' : ''}>${o[1]}</option>`).join('')
+        }</select>
+        <span class="fx-rarr">→</span>
+        <select class="fx-rparam" data-fx="${fxId}" data-i="${i}" aria-label="${d.label}: parameter to drive">${
+          FX.reactableParams(d).map(pp =>
+            `<option value="${pp.key}"${pp.key === (r.param || FX.REACT_TARGET[fxId]) ? ' selected' : ''}>${pp.label}</option>`).join('')
+        }</select>
+        <input type="range" class="fx-rdepth" data-fx="${fxId}" data-i="${i}" min="-100" max="100" step="1"
+               value="${r.depth}" aria-label="${d.label}: modulation depth">
+        <span class="fx-pval fx-rval">${(r.depth > 0 ? '+' : '') + r.depth}%</span>
+        <button type="button" class="fx-rdel" data-fx="${fxId}" data-i="${i}"
+                title="Remove this routing" aria-label="${d.label}: remove routing">✕</button>
+      </div>`).join('')
+      + (routes.length < FX.MAX_ROUTES
+        ? `<button type="button" class="fx-radd" data-fx="${fxId}"
+             title="Drive a parameter of this effect from an audio source">＋ react</button>` : '');
   }
 
   function markCustom() {
@@ -9284,6 +9405,11 @@ const USB = (() => {
   $('btn-theme-new').addEventListener('click', () => openThemeEditor(null));
   $('btn-theme-ed-save').addEventListener('click', saveThemeEditor);
   $('btn-theme-ed-close').addEventListener('click', closeThemeEditor);
+  $('btn-instr-inspect-close').addEventListener('click', () => { $('instr-inspect-modal').style.display = 'none'; });
+  $('instr-inspect-modal').addEventListener('click', e => { if (e.target.id === 'instr-inspect-modal') $('instr-inspect-modal').style.display = 'none'; });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && $('instr-inspect-modal').style.display !== 'none') { $('instr-inspect-modal').style.display = 'none'; e.stopPropagation(); }
+  }, true);
   $('theme-ed-modal').addEventListener('click', e => { if (e.target.id === 'theme-ed-modal') closeThemeEditor(); });
   $('btn-theme-reset').addEventListener('click', resetAppTheme);
   $('tvtog-compact').addEventListener('click', () => { themeExpanded=false; $('tvtog-compact').classList.add('active'); $('tvtog-expanded').classList.remove('active'); renderThemes(); saveUiState(); });
@@ -11257,6 +11383,45 @@ const USB = (() => {
     jumpPhraseFrom = null;
   }
 
+  // ⌥↓ / ⌥↑ walk the editor hierarchy (pt 0.9.14): grid cell → its
+  // chain → a phrase, and back out, from anywhere in the patterns view.
+  document.addEventListener('keydown', ev => {
+    if (!ev.altKey || (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp')) return;
+    const st = edCur;
+    if (!st || !st.host || !st.host.isConnected) return;
+    if ($('song-modal').style.display !== 'flex') return;
+    const down = ev.key === 'ArrowDown';
+    const phraseOpen = st.viewPhrase != null;
+    const chainOpen = st.viewChain != null;
+    ev.preventDefault(); ev.stopPropagation();
+    if (down) {
+      if (phraseOpen) return;                                // already at the bottom
+      if (chainOpen) {
+        // Into the chain's phrase — the first step that HAS one; an empty
+        // step must not open a "Phrase NaN" editor (pt 0.9.14 bugfix).
+        const steps = st.pat.chains[st.viewChain] || [];
+        const idx = steps.findIndex(s2 => s2 && s2.phrase !== 0xFF && st.pat.phrases[s2.phrase]);
+        if (idx < 0) return;
+        jumpPhraseFrom = { chain: st.viewChain, step: idx };
+        renderPhraseEd(steps[idx].phrase);
+        return;
+      }
+      const cell = pvFocus && st.host.querySelector(`.pv-cell[data-row="${pvFocus.r}"][data-ch="${pvFocus.t}"]`);
+      const chain = cell && cell.dataset.chain != null ? +cell.dataset.chain : null;
+      if (chain != null && st.pat.chains[chain]) renderChainEd(chain);
+    } else {
+      if (phraseOpen) {
+        const from = jumpPhraseFrom;
+        jumpPhraseFrom = null;
+        renderChainEd(from ? from.chain : (st.viewChain ?? 0));
+        return;
+      }
+      if (chainOpen) {
+        (st.host.querySelector('.pv-cell.cur') || st.host.querySelector('.pv-cell[data-row]'))?.focus();
+      }
+    }
+  }, true);
+
   // ── Snapshots / undo (ONE stack for everything) ────────
   // A single snapshot of everything editable means undo works the same
   // wherever you are (grid, chain, phrase, groove) and survives
@@ -11267,6 +11432,8 @@ const USB = (() => {
       chains: pat.chains.map(c => c.map(s => ({ phrase: s.phrase, transpose: s.transpose }))),
       phrases: pat.phrases.map(p => p.map(Gen.cloneStep)),
       grooves: pat.grooves.map(g => g.slice()),
+      tables: pat.tables ? pat.tables.map(t => t.map(s => ({ transpose: s.transpose, vol: s.vol,
+        fx: s.fx.map(f => ({ cmd: f.cmd, val: f.val })) }))) : null,
     };
   }
   function edRestore(pat, snap) {
@@ -11280,6 +11447,13 @@ const USB = (() => {
       for (let s = 0; s < ED_STEPS; s++) Object.assign(pat.phrases[p][s], Gen.cloneStep(snap.phrases[p][s]));
     for (let g = 0; g < pat.grooves.length; g++)
       for (let s = 0; s < 16; s++) pat.grooves[g][s] = snap.grooves[g][s];
+    if (pat.tables && snap.tables)
+      for (let t = 0; t < pat.tables.length; t++)
+        for (let s = 0; s < 16; s++) {
+          const a = pat.tables[t][s], b = snap.tables[t][s];
+          a.transpose = b.transpose; a.vol = b.vol;
+          for (let i = 0; i < 3; i++) { a.fx[i].cmd = b.fx[i].cmd; a.fx[i].val = b.fx[i].val; }
+        }
   }
   function edPushUndo(st = edCur) {
     st.undo.push(edSnapshot(st.pat));
@@ -11307,6 +11481,7 @@ const USB = (() => {
   function edRecomputeDirty(st) {
     const { pat, clean } = st;
     st.dirtyGrid.clear(); st.dirtyChains.clear(); st.dirtyPhrases.clear(); st.dirtyGrooves.clear();
+    st.dirtyTables.clear();
     for (let r = 0; r < ED_ROWS; r++)
       for (let t = 0; t < ED_TRACKS; t++)
         if (pat.grid[r][t] !== clean.grid[r][t]) st.dirtyGrid.set(`${r},${t}`, pat.grid[r][t]);
@@ -11322,15 +11497,25 @@ const USB = (() => {
     for (let g = 0; g < pat.grooves.length; g++)
       for (let s = 0; s < 16; s++)
         if (pat.grooves[g][s] !== clean.grooves[g][s]) { st.dirtyGrooves.set(g, pat.grooves[g]); break; }
+    if (pat.tables && clean.tables)
+      for (let t = 0; t < pat.tables.length; t++)
+        for (let s = 0; s < 16; s++) {
+          const a = pat.tables[t][s], b = clean.tables[t][s];
+          if (a.transpose !== b.transpose || a.vol !== b.vol ||
+              a.fx.some((f, i) => f.cmd !== b.fx[i].cmd || f.val !== b.fx[i].val)) {
+            st.dirtyTables.set(t, pat.tables[t]); break;
+          }
+        }
   }
   const edIsDirty = st => !!st && (st.dirtyGrid.size > 0 || st.dirtyChains.size > 0 ||
-    st.dirtyPhrases.size > 0 || st.dirtyGrooves.size > 0);
+    st.dirtyPhrases.size > 0 || st.dirtyGrooves.size > 0 || st.dirtyTables.size > 0);
   function edDirtySummary(st) {
     const parts = [];
     if (st.dirtyGrid.size) parts.push(`the song grid (${st.dirtyGrid.size} cell${st.dirtyGrid.size !== 1 ? 's' : ''})`);
     if (st.dirtyChains.size) parts.push(`${st.dirtyChains.size} chain${st.dirtyChains.size !== 1 ? 's' : ''}`);
     if (st.dirtyPhrases.size) parts.push(`${st.dirtyPhrases.size} phrase${st.dirtyPhrases.size !== 1 ? 's' : ''}`);
     if (st.dirtyGrooves.size) parts.push(`${st.dirtyGrooves.size} groove${st.dirtyGrooves.size !== 1 ? 's' : ''}`);
+    if (st.dirtyTables.size) parts.push(`${st.dirtyTables.size} table${st.dirtyTables.size !== 1 ? 's' : ''}`);
     return parts.join(', ') || 'nothing';
   }
   // Called after every mutation (and undo/redo — the restored state may
@@ -11716,6 +11901,7 @@ const USB = (() => {
     if (!st || st.pat !== pat) {
       st = { song, pat, clean: edSnapshot(pat), undo: [], redo: [],
         dirtyGrid: new Map(), dirtyChains: new Map(), dirtyPhrases: new Map(), dirtyGrooves: new Map(),
+        dirtyTables: new Map(),
         viewChain: null, viewPhrase: null, host: null, lastPhrase: null };
       edStates.set(song.filePath, st);
     }
@@ -11763,7 +11949,7 @@ const USB = (() => {
       const spare = r > last;
       gridHtml += `<div class="pv-gutter${spare ? ' spare' : ''}" data-row="${r}">
         <span class="pv-rowcopy" data-row="${r}" title="copy this row">⧉</span>
-        <span class="pv-rowpaste" data-row="${r}" title="paste the copied row here"${pvRowClip ? '' : ' style="display:none"'}>⤓</span>
+        <span class="pv-rowpaste" data-row="${r}" title="insert the copied row here — rows below move down"${pvRowClip ? '' : ' style="display:none"'}>⤓</span>
         <span class="pv-rowclear" data-row="${r}" title="clear this row (undoable)">✕</span>
       </div>`;
       gridHtml += `<div class="pv-cell rlbl${spare ? ' spare' : ''}" data-rlbl="${r}">${edHx(r)}</div>`;
@@ -11802,6 +11988,7 @@ const USB = (() => {
           <b>shift+arrows</b> select · <b>⌘/Ctrl+C/V</b> copy & paste · <b>Del</b> clear · <b>⌘/Ctrl+Z</b> undo
           <span id="pv-selinfo"></span> <span id="pv-status" style="margin-left:8px"></span></span>
         <button class="btn secondary sm" id="btn-pv-jump" title="Jump to any chain or phrase (⌘/Ctrl+G)">⤳ Go to…</button>
+        <button class="btn secondary sm" id="btn-pv-tables" title="Edit instrument tables — 16 steps of transpose, volume and three FX columns per table">⊞ Tables</button>
         <button class="btn secondary sm" id="btn-pv-recolour"
           title="${hasColorOverrides(st) ? 'Remove your custom chain colours for this song' : 'No custom chain colours to remove'}"
           ${hasColorOverrides(st) ? '' : 'disabled'}>↺ Recolour</button>
@@ -11815,6 +12002,7 @@ const USB = (() => {
         <div class="pv-side">
           <div id="pv-chain-detail" class="pv-detail" style="display:none"></div>
           <div id="pv-phrase-detail" class="pv-detail" style="display:none"></div>
+          <div id="pv-tables-detail" class="pv-detail" style="display:none"></div>
           <div id="pv-side-hint" class="pv-side-hint">Click a chain in the grid to edit its steps here,
             then "edit" on a step to open its phrase in the note editor. Use <b>⤳ Go to…</b> to reach
             chains and phrases that aren't placed yet. Edits stay in memory until you press
@@ -11834,6 +12022,7 @@ const USB = (() => {
     // (undo, grid edit…) must not close the phrase editor the user is in.
     if (st.viewChain != null) renderChainEd(st.viewChain, { keepPhrase: true });
     if (st.viewPhrase != null) renderPhraseEd(st.viewPhrase, { keepCursor: true });
+    if (tblOpen) renderTablesEd(tblView);
     const wrap = host.querySelector('.pv-grid-wrap');
     if (wrap) wrap.scrollTop = keepScroll;   // adding rows must not jump to the top
     if (pvFocus) {
@@ -11967,9 +12156,20 @@ const USB = (() => {
       if (rc) { pvRowClip = pat.grid[+rc.dataset.row].slice(); renderPatternEd(); return; }
       const rp = ev.target.closest('.pv-rowpaste');
       if (rp && pvRowClip) {
+        // Row paste INSERTS (pt 0.9.11): the copied row lands where you
+        // point and everything below moves down one — with a warning if
+        // content would fall off the end of the format.
         const r = +rp.dataset.row;
+        if (pat.grid[255].some(v => v !== ED_EMPTY)
+            && !confirm('Inserting here pushes row FF off the end of the song format — its contents will be lost.\n\nInsert anyway?')) return;
         edPushUndo(st);
+        for (let row = 255; row > r; row--)
+          for (let t = 0; t < ED_TRACKS; t++) pat.grid[row][t] = pat.grid[row - 1][t];
         for (let t = 0; t < ED_TRACKS; t++) pat.grid[r][t] = pvRowClip[t];
+        let lr = -1;
+        for (let row = 255; row >= 0; row--)
+          if (pat.grid[row].some(v => v !== ED_EMPTY)) { lr = row; break; }
+        pat.lastRow = lr;
         edDirtyChanged(); renderPatternEd(); return;
       }
       const rx = ev.target.closest('.pv-rowclear');
@@ -12045,6 +12245,7 @@ const USB = (() => {
 
     host.querySelector('#btn-pv-morerows')?.addEventListener('click', () => { pvSpareRows += 8; renderPatternEd(); });
     host.querySelector('#btn-pv-jump').addEventListener('click', ev => openJump(ev.currentTarget));
+    host.querySelector('#btn-pv-tables')?.addEventListener('click', () => renderTablesEd());
     host.querySelector('#btn-pv-recolour').addEventListener('click', () => {
       const pre = `${st.song.filePath}:`;
       for (const key of Object.keys(chainColors)) if (key.startsWith(pre)) delete chainColors[key];
@@ -12103,8 +12304,153 @@ const USB = (() => {
   // ═══════════════════════════════════════════════════════
   // CHAIN EDITOR (side panel)
   // ═══════════════════════════════════════════════════════
+  // ── TABLE EDITOR ───────────────────────────────────────
+  // 16 steps of transpose, volume and three FX columns per table; a
+  // table runs on its own instrument (slot = table id) and TBL triggers
+  // others, so FX names follow the owning instrument. Ported outline
+  // from pt-librarian 0.9.11: list down the left with a state dot per
+  // table, the editor to the right, everything through the same undo
+  // and save path as every other edit.
+  let tblView = 0, tblOpen = false;
+  function tblHasData(steps) {
+    return steps.some(s => s.transpose !== 0 || s.vol !== 0xFF || s.fx.some(f => f.cmd !== 0xFF));
+  }
+  function closeTablesEd() {
+    tblOpen = false;
+    const st = edCur; if (!st || !st.host) return;
+    const det = st.host.querySelector('#pv-tables-detail');
+    if (det) { det.style.display = 'none'; det.innerHTML = ''; }
+    const hint = st.host.querySelector('#pv-side-hint');
+    if (hint && st.viewChain == null) hint.style.display = '';
+  }
+  function renderTablesEd(t) {
+    const st = edCur; if (!st || !st.host) return;
+    if (!st.pat.tables) { alert('This file has no table region — nothing to edit.'); return; }
+    const host = st.host, pat = st.pat;
+    // The tables view owns the side panel
+    st.viewChain = null; st.viewPhrase = null; jumpPhraseFrom = null;
+    for (const id of ['pv-chain-detail', 'pv-phrase-detail']) {
+      const el = host.querySelector('#' + id);
+      if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+    }
+    const hint = host.querySelector('#pv-side-hint');
+    if (hint) hint.style.display = 'none';
+    host.querySelectorAll('.pv-cell.chain.hi').forEach(el => el.classList.remove('hi'));
+    const det = host.querySelector('#pv-tables-detail');
+    if (!det) return;
+    det.style.display = 'block';
+    tblOpen = true;
+    const bySlot = new Map((st.song.instruments || []).map(i => [i.slot, i]));
+    const ids = new Set([...bySlot.keys()]);
+    pat.tables.forEach((steps, i) => { if (tblHasData(steps)) ids.add(i); });
+    if (t != null) tblView = t;
+    else if (!ids.has(tblView)) tblView = [...ids].sort((a, b) => a - b)[0] ?? 0;
+    ids.add(tblView);
+    const list = [...ids].sort((a, b) => a - b);
+    const vn = st.song.header ? M8.verNum(st.song.header.version) : null;
+    const owner = bySlot.get(tblView);
+    const steps = pat.tables[tblView];
+    const cell = (s, f, txt, dim) => `<span class="te-c${dim ? ' dim' : ''}" tabindex="0" data-step="${s}" data-f="${f}">${txt}</span>`;
+    let rows = `<div class="te-row te-head"><span class="te-i">#</span><span>TSP</span><span>VOL</span><span>FX1</span><span>V1</span><span>FX2</span><span>V2</span><span>FX3</span><span>V3</span></div>`;
+    steps.forEach((sp, s) => {
+      let r = `<span class="te-i">${edHx(s)}</span>`
+        + cell(s, 'tsp', edHx(sp.transpose), sp.transpose === 0)
+        + cell(s, 'vol', sp.vol === 0xFF ? '--' : edHx(sp.vol), sp.vol === 0xFF);
+      for (let i = 0; i < 3; i++) {
+        const f = sp.fx[i];
+        const name = f.cmd === 0xFF ? '---'
+          : (M8.fxName(f.cmd, owner?.typeName, vn, owner?.modTypes) || edHx(f.cmd) + '?');
+        r += cell(s, 'cmd' + i, esc(name), f.cmd === 0xFF)
+           + cell(s, 'val' + i, edHx(f.val), f.cmd === 0xFF);
+      }
+      rows += `<div class="te-row${s % 4 === 0 ? ' beat' : ''}">${r}</div>`;
+    });
+    const chips = list.map(i => {
+      const own = bySlot.get(i);
+      return `<button class="te-chip${i === tblView ? ' on' : ''}${tblHasData(pat.tables[i]) ? ' data' : ''}" data-t="${i}"
+        title="${own ? esc(own.name) + ' — instrument slot ' + edHx(i) : 'table ' + edHx(i) + ' (no owning instrument)'}"><i></i>${edHx(i)}</button>`;
+    }).join('');
+    det.innerHTML = `
+      <div class="pv-detail-title" style="display:flex;align-items:center;gap:8px">
+        Table ${edHx(tblView)}${owner ? ` <span style="font-weight:400;opacity:.7;font-size:10px">${esc(owner.name)} · ${esc(owner.typeName)}</span>` : ''}
+        <span style="flex:1"></span>
+        <input class="search" id="te-jump" style="width:52px;padding:2px 6px;font-size:11px" maxlength="2" placeholder="go…" title="Jump to a table by hex id">
+        <button class="btn ghost sm" id="te-close" title="Close the table editor">✕</button>
+      </div>
+      <div class="te-wrap">
+        <div class="te-list">${chips}</div>
+        <div class="te-grid">${rows}</div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px">Click a cell and type hex — two digits (or <b>Enter</b>) commit, <b>Del</b> clears, arrows move, <b>⌘/Ctrl+Z</b> undoes. FX names follow the owning instrument. Edits stay in memory until "Save edits to card".</div>`;
+    wireTablesEd(st, det);
+  }
+  function wireTablesEd(st, det) {
+    const pat = st.pat;
+    det.querySelector('#te-close').addEventListener('click', closeTablesEd);
+    det.querySelectorAll('.te-chip').forEach(ch =>
+      ch.addEventListener('click', () => renderTablesEd(+ch.dataset.t)));
+    det.querySelector('#te-jump').addEventListener('keydown', ev => {
+      if (ev.key !== 'Enter') return;
+      const v = parseInt(ev.target.value, 16);
+      if (!isNaN(v) && v >= 0 && v <= 0xFF) renderTablesEd(v);
+    });
+    let buf = '';
+    const refocus = (s, f) =>
+      st.host.querySelector(`.te-c[data-step="${s}"][data-f="${f}"]`)?.focus();
+    const commit = (el, digits) => {
+      const s = +el.dataset.step, f = el.dataset.f;
+      const v = parseInt(digits, 16);
+      if (isNaN(v)) return;
+      edPushUndo(st);
+      const sp = pat.tables[tblView][s];
+      if (f === 'tsp') sp.transpose = v & 0xFF;
+      else if (f === 'vol') sp.vol = v & 0xFF;
+      else if (f.startsWith('cmd')) sp.fx[+f.slice(3)].cmd = v & 0xFF;
+      else sp.fx[+f.slice(3)].val = v & 0xFF;
+      edDirtyChanged();
+      renderTablesEd(tblView);
+      refocus(s, f);
+    };
+    det.addEventListener('keydown', ev => {
+      const el = ev.target.closest('.te-c');
+      if (!el) return;
+      const s = +el.dataset.step, f = el.dataset.f;
+      const FIELDS = ['tsp', 'vol', 'cmd0', 'val0', 'cmd1', 'val1', 'cmd2', 'val2'];
+      const fi = FIELDS.indexOf(f);
+      const move = (ds, df) => {
+        buf = '';
+        refocus(Math.max(0, Math.min(15, s + ds)),
+                FIELDS[Math.max(0, Math.min(FIELDS.length - 1, fi + df))]);
+      };
+      if (ev.key === 'ArrowUp')    { ev.preventDefault(); ev.stopPropagation(); move(-1, 0); return; }
+      if (ev.key === 'ArrowDown')  { ev.preventDefault(); ev.stopPropagation(); move(1, 0); return; }
+      if (ev.key === 'ArrowLeft')  { ev.preventDefault(); ev.stopPropagation(); move(0, -1); return; }
+      if (ev.key === 'ArrowRight') { ev.preventDefault(); ev.stopPropagation(); move(0, 1); return; }
+      if (ev.key === 'Delete' || ev.key === 'Backspace') {
+        ev.preventDefault(); ev.stopPropagation();
+        edPushUndo(st);
+        const sp = pat.tables[tblView][s];
+        if (f === 'tsp') sp.transpose = 0;
+        else if (f === 'vol') sp.vol = 0xFF;
+        else if (f.startsWith('cmd')) { const i = +f.slice(3); sp.fx[i].cmd = 0xFF; sp.fx[i].val = 0; }
+        else sp.fx[+f.slice(3)].val = 0;
+        edDirtyChanged(); renderTablesEd(tblView); refocus(s, f);
+        return;
+      }
+      if (ev.key === 'Enter' && buf) { ev.preventDefault(); const d = buf; buf = ''; commit(el, d); return; }
+      if (/^[0-9a-fA-F]$/.test(ev.key)) {
+        ev.preventDefault(); ev.stopPropagation();
+        buf += ev.key;
+        if (buf.length >= 2) { const d = buf; buf = ''; commit(el, d); }
+        return;
+      }
+      if (ev.key === 'Escape') { ev.stopPropagation(); buf = ''; }
+    });
+  }
+
   function renderChainEd(c, opts = {}) {
     const st = edCur; if (!st) return;
+    if (tblOpen) closeTablesEd();
     const host = st.host, pat = st.pat;
     const det = host.querySelector('#pv-chain-detail');
     if (!det) return;
@@ -12375,6 +12721,7 @@ const USB = (() => {
       </div>
       <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:8px">
         <button class="btn secondary sm${pianoOn ? ' on' : ''}" id="btn-ph-piano" title="QWERTY piano note entry (Z-M lower, Q-P upper, [ ] octave)">🎹 Piano</button>
+        <button class="btn secondary sm" id="btn-ph-inspect" title="Inspect the instrument governing the current step — full parameters, filter, mixer and modulators (pt 0.9.18)">🔍 INS</button>
         <span class="pe-piano-cfg"><button class="btn secondary sm" id="btn-ph-octdn">−</button>
           oct <b id="ph-oct">${pianoOct}</b><button class="btn secondary sm" id="btn-ph-octup">+</button></span>
         <button class="btn secondary sm${advanceOn ? ' on' : ''}" id="btn-ph-adv" title="Move the cursor down after entering a note">↓ Advance${advanceOn ? '' : ' off'}</button>
@@ -12741,6 +13088,27 @@ const USB = (() => {
       const from = jumpPhraseFrom;
       jumpPhraseFrom = null;
       if (from) renderChainEd(from.chain);
+    });
+    q('#btn-ph-inspect')?.addEventListener('click', async () => {
+      const inst = peStepInstr(st, ph, peCursor.step);
+      if (!inst) { alert('No instrument is in scope at the cursor — set an INS on or above this step first.'); return; }
+      try {
+        // Song-bank instruments live in the song file; decode fresh bytes
+        const parts = ('Songs/' + st.song.filePath).replace(/\\/g,'/').split('/').filter(Boolean);
+        let dir = sdHandle;
+        for (let i = 0; i < parts.length - 1; i++) dir = await dir.getDirectoryHandle(parts[i]);
+        const file = await (await dir.getFileHandle(parts[parts.length - 1])).getFile();
+        const b = new Uint8Array(await file.arrayBuffer());
+        const base = M8.OFFSETS.INSTR_TABLE + inst.slot * M8.OFFSETS.ISIZE;
+        const p = M8.decodeInstrParams(b, base, st.song.header.version);
+        if (!p) throw new Error('slot is empty');
+        $('instr-inspect-title').textContent = `${inst.name} — slot ${edHx(inst.slot)} · ${inst.typeName}`;
+        $('instr-inspect-body').innerHTML = buildInstrParamsHtml(p)
+          + (inst.samplePath ? `<div class="drow"><span class="dlabel">Sample</span><span class="dval dim">${esc(inst.samplePath)}</span></div>` : '');
+        $('instr-inspect-modal').style.display = 'flex';
+      } catch (e) {
+        alert('Could not inspect the instrument: ' + e.message);
+      }
     });
     q('#btn-ph-piano').addEventListener('click', () => {
       pianoOn = !pianoOn;
@@ -13186,6 +13554,7 @@ const USB = (() => {
       html += idList('Chains rewritten', st.dirtyChains);
       html += idList('Phrases rewritten', st.dirtyPhrases);
       html += idList('Grooves rewritten', st.dirtyGrooves);
+      html += idList('Tables rewritten', st.dirtyTables);
     }
     $('savep-body').innerHTML = html;
     // clone-replace the buttons to drop stale handlers
@@ -13210,6 +13579,7 @@ const USB = (() => {
     for (const c of st.dirtyChains.keys()) regions.push(M8Edit.encodeChain(c, st.pat.chains[c]));
     for (const p of st.dirtyPhrases.keys()) regions.push(M8Edit.encodePhrase(p, st.pat.phrases[p]));
     for (const g of st.dirtyGrooves.keys()) regions.push(M8Edit.encodeGroove(g, st.pat.grooves[g]));
+    for (const t of st.dirtyTables.keys()) regions.push(M8Edit.encodeTable(t, st.pat.tables[t]));
     return regions;
   }
   function editAuditRefs(st) {
@@ -14998,7 +15368,7 @@ const USB = (() => {
       start(song, {}, `song:${song.filePath}`, song.name, `${bpmOf(song)} BPM · full song`, btn);
     const playSongRow = (song, row, btn) =>
       start(song, { songRow: row }, `row:${song.filePath}:${row}`,
-        `${song.name} — from row ${hx(row)}`, 'playing to the end, all channels', btn);
+        `${song.name} — from row ${hx(row)}`, 'this section, to the next blank row', btn);
     const playChain = (song, chain, btn) =>
       start(song, { chain }, `chain:${song.filePath}:${chain}`,
         `${song.name} — chain ${hx(chain)}`, 'chain preview', btn);

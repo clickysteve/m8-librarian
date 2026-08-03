@@ -254,3 +254,18 @@ test('a batched edit (grid+chain+phrase+groove) round-trips together', () => {
   assert.deepEqual(pat.grooves[0].slice(0, 2), [6, 6]);
   assert.equal(M8.parseSong(b).name, 'EDITTEST'); // rest of the file untouched
 });
+
+// ── Tables (port round) ────────────────────────────────────
+test('encodeTable writes a whole 128-byte table region that round-trips', () => {
+  const steps = [];
+  for (let s = 0; s < 16; s++) steps.push({ transpose: 0, vol: 0xFF,
+    fx: [{cmd:0xFF,val:0},{cmd:0xFF,val:0},{cmd:0xFF,val:0}] });
+  steps[2] = { transpose: 0x0C, vol: 0x40, fx: [{cmd:0x03,val:0x02},{cmd:0xFF,val:0},{cmd:0x81,val:0x7F}] };
+  const r = M8Edit.encodeTable(5, steps);
+  assert.equal(r.offset, 0xBA3E + 5 * 128);
+  assert.equal(r.bytes.length, 128);
+  // step 2 bytes: tsp vol c v c v c v
+  assert.deepEqual([...r.bytes.slice(16, 24)], [0x0C, 0x40, 0x03, 0x02, 0xFF, 0x00, 0x81, 0x7F]);
+  // untouched step stays the empty pattern
+  assert.deepEqual([...r.bytes.slice(0, 8)], [0x00, 0xFF, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00]);
+});

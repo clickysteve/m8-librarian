@@ -187,3 +187,40 @@ test('multiple tracks land on separate channels, empty tracks omitted', () => {
   assert.equal(smf.tracks[1].find(e => e.kind === 0x90).ch, 0);
   assert.equal(smf.tracks[2].find(e => e.kind === 0x90).ch, 7);
 });
+
+// ── MIDI channel mapping + stems (pt-librarian 1.0.1 port) ────
+test('MIDI OUT instruments export on their configured channel', () => {
+  const pat = emptyPat();
+  pat.lastRow = 0;
+  pat.grid[0][0] = 0;
+  pat.chains[0][0] = {phrase: 0, transpose: 0};
+  pat.phrases[0][0] = {note: 24, vol: 0xFF, instr: 5, fx: []};
+  pat.phrases[0][2] = {note: 26, vol: 0xFF, instr: 0xFF, fx: []};  // carries instrument
+  const s = song();
+  s.instruments = [{ slot: 5, kind: 0x03, typeName: 'MIDIOUT', name: 'MPC', midiChannel: 9 }];
+  const smf = parseSmf(M8.buildMidi(s, pat));
+  const ons = smf.tracks[1].filter(e => e.kind === 0x90);
+  assert.equal(ons.length, 2);
+  for (const on of ons) assert.equal(on.ch, 9, 'configured channel, carried across steps');
+  const offs = smf.tracks[1].filter(e => e.kind === 0x80);
+  for (const off of offs) assert.equal(off.ch, 9, 'note-offs close on the same channel');
+});
+
+test('buildMidiStems: one SMF per playing track, valid and channel-correct', () => {
+  const pat = emptyPat();
+  pat.lastRow = 0;
+  pat.grid[0][0] = 0; pat.grid[0][3] = 1;
+  pat.chains[0][0] = {phrase: 0, transpose: 0};
+  pat.chains[1][0] = {phrase: 1, transpose: 0};
+  pat.phrases[0][0] = {note: 24, vol: 0xFF, instr: 0xFF, fx: []};
+  pat.phrases[1][0] = {note: 30, vol: 0xFF, instr: 0xFF, fx: []};
+  const files = M8.buildMidiStems(song(), pat);
+  assert.equal(files.length, 2);
+  assert.deepEqual(files.map(f => f.name), ['T1.mid', 'T4.mid']);
+  for (const f of files) {
+    const smf = parseSmf(f.bytes);           // parseSmf asserts structure
+    assert.equal(smf.tracks.length, 2);      // meta track + the one channel
+  }
+  const t4 = parseSmf(files[1].bytes);
+  assert.equal(t4.tracks[1].find(e => e.kind === 0x90).ch, 3, 'stem keeps its track channel');
+});

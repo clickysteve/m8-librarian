@@ -49,7 +49,7 @@ All edits are held in memory until you explicitly save; the save previews every 
 ### Device (USB)
 
 - **Live screen mirror** — connect the M8 over USB (WebSerial) and watch the device screen in the browser, with PNG snapshots, pop-out window, fullscreen, and recording straight to `.webm`. Reachable from the landing page, no SD card needed. Requires Chrome/Edge on `https://` or localhost. A **demo screen** animates a fake M8 display so the mirror, effects and recording can be tried without hardware.
-- **Output effects** — twenty-five GPU effects over the mirror (CRT, glitch, VHS, scanlines, phosphor trails, kaleidoscope, hue cycle and more) with seventeen presets, a 🎲 Random look roller, per-parameter control and persistent settings, reimplemented from [DMG Darkroom](https://github.com/clickysteve/dmg-darkroom) as a single WebGL pass. **⇩/⇪ Look** saves and loads the whole effects state as a small JSON file to trade.
+- **Output effects** — thirty GPU effects over the mirror, from CRT, glitch and VHS through the SIGNAL//ROT signal path (composite decode, tape rot, sync damage, bent enhancer, feedback rescan trails), with twenty-one presets, a 🎲 Random look roller, per-parameter audio routing and persistent settings, in a single WebGL pass, living in a slide-out drawer beside the mirror. **⇩/⇪ Look** saves and loads the whole effects state as a small JSON file to trade. Output sizes include **custom dimensions** for wide banners and capture rigs, and a **Text** field stamps your own title over the screen (demo or connected device).
 - **Audio-reactive effects** — drive any effect from a live audio input (bass/mids/highs/level/transients), riding on top of your slider settings.
 - **Experimental input** — an off-by-default control mode sends key states using the community-documented remote protocol. The protocol details are marked and degrade gracefully; the display side is read-only and safe.
 
@@ -81,7 +81,7 @@ Everything runs locally. There is no server, no telemetry, and no network access
 
 File parsing works across firmware 1.x through 6.x — the core song layout (grid, phrases, chains, instrument table) is byte-identical across versions, verified against [m8-js](https://github.com/whitlockjc/m8-js) and [m8-files](https://github.com/AlexCharlton/m8-files) and against real 6.x song files. All instrument types are recognised, including HyperSynth and External Instrument (3.0+). FX command names are version-aware: the sequencer/mixer tables changed in firmware 3.0 and 4.0, and the right table is chosen from each file's own header. Instrument-specific commands (0x80+) resolve through the instrument's type and its modulator types, including the extra commands (`SLI`, `TRG`, `FMP`, `CVO`/`SNC`, `ADD`/`CHD`). Known limitations:
 
-- MIDI export uses groove 0 for timing; per-phrase `GRV` commands and flow commands (`HOP`) are not applied.
+- MIDI export (single file or per-track **MIDI stems**, zipped) uses groove 0 for timing; per-phrase `GRV` commands and flow commands (`HOP`) are not applied. MIDI OUT and External Inst instruments export on their configured channels.
 - MIDI export models the 8 tracks independently (as the M8 does); cross-track sync assumes conventionally aligned chain lengths.
 - Commands newer than the 4.x-era tables display as hex.
 

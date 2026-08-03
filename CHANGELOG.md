@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased — the SIGNAL//ROT round (pt-librarian 1.0.1→1.1.0 catch-up)
+
+### Effects: a real video-effects rig
+- **Five new / upgraded effects (30 total)**, the circuit-bent signal path from SIGNAL//ROT: **composite signal** (YIQ chroma bleed, NTSC rainbows, dot crawl, ringing), **tape rot** (streaky luma noise, chroma speckle, comet-tail dropouts, generation loss), **sync damage** (H-sync wobble, slipping V-hold with a blanking bar, mains hum bar), **bent enhancer** (oscillating edge ghosts, luma-hue chasing, strobing keyed inversion), **rainbow map**, and **trails → trails/rescan** — the feedback buffer can be zoomed, rotated and hue-spun as it decays, compounding into tunnels and colour spirals. Old looks load unchanged.
+- **Four new presets** (Signal rot, Third-gen tape, Bent enhancer, Rescan feedback) — 21 total. Everything is audio-reactive through the per-parameter routing and included in 🎲 Random's pools.
+- **Custom output dimensions**: the Output picker gains **Custom…** with free width × height (320-3840 × 240-2160) — wide banners, ultrawide walls. Custom dims persist, survive Reset, travel in look files, and are locked while recording.
+
+### MIDI
+- **⬇ MIDI stems** — one .mid per track that plays, zipped; the MIDI counterpart of the audio stems.
+- **MIDI OUT / EXTERNAL INST instruments export on their configured channel** (carried across steps like the device does; note-offs close on the same channel). Everything else stays on the track's own channel.
+
+### Mirror
+- **The effects moved into a drawer** (pt 0.9.11's layout, by request): the mirror owns the left of the Device tab and the whole effects panel lives in a slide-out sidebar down the right — single-column cards, remembers whether it was open, and at narrow windows it overlays the mirror rather than crushing it (never the toolbar, which holds the button that closes it).
+- **Screen text stamp** — a Text field stamps over the mirror (demo screen AND a connected M8) right before each frame reaches the effects, so the device redrawing its own title never wins the race. Top covers the title area, Bottom writes along the last row, colour picker included; blank shows the device's own text.
+- **Live opcode counters** — while connected the status chip counts received draw commands (T text · R rects · W waveforms · ? unknown), so "the mirror isn't showing X" can be diagnosed as client-side or firmware-side at a glance.
+
+Not ported: the Advance 720×720 panel/font work (pico-specific hardware) and pt's island/endless-loop scheduling (picoTracker firmware semantics).
+
 ## Unreleased — pt-librarian 0.9.11→0.9.16 catch-up round
 
 pt-librarian moved six releases ahead of the parity port; this brings the applicable improvements across, adapted to the M8.

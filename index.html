@@ -2339,7 +2339,11 @@ const M8 = (() => {
       const steps = [];
       for (let s = 0; s < 16; s++) {
         const o = CHAIN_OFF + c * 32 + s * 2;
-        steps.push({ phrase: b[o], transpose: b[o+1] });
+        // An empty step (phrase FF) with an FF transpose byte is
+        // uninitialised fill, not a real -1 transpose — read it as 0,
+        // matching what the firmware writes for blank steps.
+        steps.push({ phrase: b[o],
+          transpose: b[o] === 0xFF && b[o+1] === 0xFF ? 0 : b[o+1] });
       }
       chains.push(steps);
     }
@@ -3239,6 +3243,9 @@ const Demo = (() => {
     b.fill(0xFF, GRID_OFF, GRID_OFF + 256 * 8);
     b.fill(0xFF, PHRASE_OFF, PHRASE_OFF + 255 * 16 * 9);
     b.fill(0xFF, CHAIN_OFF, CHAIN_OFF + 255 * 32);
+    // empty chain steps are phrase FF / transpose 00 on real firmware —
+    // an FF transpose byte reads as -1 in the editor
+    for (let ci = 0; ci < 255 * 16; ci++) b[CHAIN_OFF + ci * 2 + 1] = 0x00;
     // empty table steps: transpose 0, vol FF, 3×(cmd FF, val 00)
     for (let ti = 0; ti < 256 * 16; ti++) {
       const o = TABLE_OFF + ti * 8;

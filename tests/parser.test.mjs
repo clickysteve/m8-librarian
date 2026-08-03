@@ -176,6 +176,20 @@ test('parseSongPatterns returns null for short buffers', () => {
   assert.equal(M8.parseSongPatterns(new Uint8Array(1000)), null);
 });
 
+test('empty chain steps with FF-fill transpose read as 0, not -1', () => {
+  const b = makeSong();
+  // chain 2 step 0: uninitialised fill — phrase FF, transpose FF
+  b[CHAIN_OFF + 2 * 32] = 0xFF;
+  b[CHAIN_OFF + 2 * 32 + 1] = 0xFF;
+  // chain 3 step 0: a REAL -1 transpose on a placed phrase must survive
+  b[CHAIN_OFF + 3 * 32] = 0x07;
+  b[CHAIN_OFF + 3 * 32 + 1] = 0xFF;
+  const pat = M8.parseSongPatterns(b);
+  assert.equal(pat.chains[2][0].phrase, 0xFF);
+  assert.equal(pat.chains[2][0].transpose, 0, 'FF fill on an empty step normalises to 0');
+  assert.equal(pat.chains[3][0].transpose, 0xFF, 'real -1 transpose kept on a placed phrase');
+});
+
 // ── Other file types ───────────────────────────────────────
 test('parseInstrFile reads kind, name, sample path', () => {
   const i = M8.parseInstrFile(makeInstrFile());

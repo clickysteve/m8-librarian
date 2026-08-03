@@ -7,6 +7,9 @@
 - **CRT (Lottes)** (32nd effect): a port of Timothy Lottes' public-domain CRT shader (the RetroArch `crt-lottes`). A gaussian beam is drawn per scanline in linear light (beam hardness and pixel sharpness exposed), through his shadow masks: aperture **grille**, compressed **TV** mask, or stretched **VGA** mask, with a depth control. It replaces the plain sampler while on (RGB offset/planes pause; everything else composes) and runs in device-pixel space so the beam sits on the M8's real 320×240 scanlines at any output size.
 - **Two new presets** — **Enhancer loop** and **Lottes CRT** — 23 total. Both new effects join 🎲 Random's curated pools.
 
+### Fixed
+- **Empty chain steps no longer show a -1 transpose.** An empty step (phrase `--`) whose transpose byte is FF-fill now reads as transpose 0, matching what the firmware writes for blank steps; a real -1 transpose on a placed phrase is untouched. The demo card generator also now blanks chain steps the way the firmware does (phrase FF, transpose 00).
+
 ## Unreleased — the "port everything" round
 
 The remaining pt-librarian features, previously deferred as too large, now ported in full.

@@ -29,8 +29,8 @@ No card handy? **Try with demo data** on the landing screen loads a synthetic in
 
 ### Play
 
-- **In-browser playback** — press ▶ on any song and hear it. A Web Audio engine walks the song grid the way the tracker does: grooves, per-track `GRV` switches, `HOP` flow, chain transposes, the volume column, and `KIL`, with the mix run through a limiter. Sampler loop modes are honoured — `FWDLOOP`/`OSC` loop natively and the pingpong modes play through a mirrored composite buffer — and sample `START` offsets apply. An honest sketch, not an emulation: only SAMPLER instruments sound (synth voices are silent and counted in the transport bar), and `TPO` tempo changes are ignored.
-- **Play anything** — the whole song, a **section** (from any row down to the next blank row, all 8 tracks), one chain, or one phrase. **Space** plays whatever you're looking at.
+- **In-browser playback** — press ▶ on any song and hear it. A Web Audio engine walks the song grid the way the tracker does: grooves, per-track `GRV` switches, `HOP` flow, the song and chain transposes, the volume column, instrument pan, and `KIL`, with the mix run through a limiter. Sampler loop modes are honoured — `FWDLOOP`/`OSC` loop natively and the pingpong modes play through a mirrored composite buffer — and sample `START` offsets apply. An honest sketch, not an emulation: only SAMPLER instruments sound (synth voices are silent and counted in the transport bar), and `TPO` tempo changes are ignored.
+- **Play anything** — the whole song, a **section** (the ▶ in any row's gutter plays from that row down to the next blank row, all 8 tracks), one chain (▶ on any chain in the list or in its editor), or one phrase. **Space** plays whatever you're looking at, innermost first.
 - **Transport** — a bottom bar with what's playing, a draggable scrub bar, loop toggle, elapsed/total and stop; while anything plays the grid outlines each track's current cell and the open chain/phrase highlights its current step. Looping is **seamless**: scheduling runs in rolling windows ahead of the playhead, so a looped song rolls over the boundary with no gap.
 - **Render to WAV** — bounce the mix to a stereo 16-bit WAV, or to **stems**, one WAV per track, zipped. Rendered offline through the same scheduling as the preview.
 
@@ -82,7 +82,7 @@ Everything runs locally. There is no server, no telemetry, and no network access
 
 File parsing works across firmware 1.x through 6.x — the core song layout (grid, phrases, chains, instrument table) is byte-identical across versions, verified against [m8-js](https://github.com/whitlockjc/m8-js) and [m8-files](https://github.com/AlexCharlton/m8-files) and against real 6.x song files. All instrument types are recognised, including HyperSynth and External Instrument (3.0+). FX command names are version-aware: the sequencer/mixer tables changed in firmware 3.0 and 4.0, and the right table is chosen from each file's own header. Instrument-specific commands (0x80+) resolve through the instrument's type and its modulator types, including the extra commands (`SLI`, `TRG`, `FMP`, `CVO`/`SNC`, `ADD`/`CHD`). Known limitations:
 
-- MIDI export (single file or per-track **MIDI stems**, zipped) uses groove 0 for timing; per-phrase `GRV` commands and flow commands (`HOP`) are not applied. MIDI OUT and External Inst instruments export on their configured channels.
+- MIDI export (single file or per-track **MIDI stems**, zipped) uses groove 0 for timing; per-phrase `GRV` commands and flow commands (`HOP`) are not applied, so a song that leans on them exports a different groove and arrangement from the one the audio preview plays. Song and chain transposes do apply. MIDI OUT and External Inst instruments export on their configured channels.
 - MIDI export models the 8 tracks independently (as the M8 does); cross-track sync assumes conventionally aligned chain lengths.
 - Commands newer than the 4.x-era tables display as hex.
 
@@ -100,6 +100,7 @@ node tests/editor.test.mjs      # editing-suite byte encoders, round-tripped thr
 node tests/player.test.mjs      # playback timeline builder + WAV encoding
 node tests/usb.test.mjs         # SLIP decoder + display-command parser
 node tests/generators.test.mjs  # phrase generators: determinism, scale purity
+node tests/markup.test.mjs      # single-file structural invariants
 ```
 
 The M8 file format knowledge is derived from [whitlockjc/m8-js](https://github.com/whitlockjc/m8-js) and [AlexCharlton/m8-files](https://github.com/AlexCharlton/m8-files) (both Apache 2.0) — thank you to both authors.

@@ -2,7 +2,7 @@
 // the app opens instantly offline and still picks up deployed updates on
 // the next visit. The cache name doubles as the version: bump it on
 // release and activate purges the old caches.
-const CACHE = 'm8lib-v1';
+const CACHE = 'm8lib-v2';
 const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

@@ -224,3 +224,21 @@ test('buildMidiStems: one SMF per playing track, valid and channel-correct', () 
   const t4 = parseSmf(files[1].bytes);
   assert.equal(t4.tracks[1].find(e => e.kind === 0x90).ch, 3, 'stem keeps its track channel');
 });
+
+test('song-level transpose applies to the MIDI export too', () => {
+  const mk = transpose => {
+    const pat = emptyPat();
+    pat.lastRow = 0;
+    pat.grid[0][0] = 0;
+    pat.chains[0][0] = {phrase: 0, transpose: 0};
+    pat.phrases[0][0].note = 24;      // C-3 -> MIDI 48 with no transpose
+    pat.phrases[0][0].vol = 0xFF;
+    return parseSmf(M8.buildMidi({name: 'T', tempo: 120, transpose}, pat));
+  };
+  const noteOf = smf => smf.tracks[1].find(e => e.kind === 0x90).d1;
+  assert.equal(noteOf(mk(0)), 48, 'no transpose');
+  assert.equal(noteOf(mk(12)), 60, '+12 semitones');
+  assert.equal(noteOf(mk(-12)), 36, '-12 semitones');
+  // The audio player and the MIDI export must agree on pitch.
+  assert.equal(noteOf(mk(7)), 55);
+});

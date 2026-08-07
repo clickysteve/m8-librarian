@@ -378,3 +378,36 @@ test('scope=songRow is a SECTION: stops at the next blank row; blank row decline
   assert.equal(M8Player.buildTimeline(pat, makeSong(), { songRow: 5 }), null,
     'a blank row declines');
 });
+
+// ── Regressions from the deep review ───────────────────────
+test("song-level transpose applies to playback (was parsed but ignored)", () => {
+  const pat = basicPat();
+  const base = M8Player.buildTimeline(pat, makeSong(), {});
+  const up = M8Player.buildTimeline(pat, makeSong({ transpose: 12 }), {});
+  const dn = M8Player.buildTimeline(pat, makeSong({ transpose: -12 }), {});
+  const rate = tl => tl.events.find(e => e.kind === 'on').rate;
+  approx(rate(base), 1, 'no transpose');
+  approx(rate(up), 2, '+12 semitones doubles the rate');
+  approx(rate(dn), 0.5, '-12 semitones halves the rate');
+});
+
+test("song transpose stacks with the chain-step transpose", () => {
+  const pat = basicPat();
+  pat.chains[0][0] = { phrase: 0, transpose: 12 };       // +12 on the chain step
+  const tl = M8Player.buildTimeline(pat, makeSong({ transpose: -12 }), {});
+  approx(tl.events.find(e => e.kind === 'on').rate, 1, '+12 and -12 cancel');
+});
+
+test("instrument mixer pan reaches the timeline (was hardcoded centre)", () => {
+  const pat = basicPat();
+  const panned = over => makeSong({ instruments: [
+    { slot: 0, kind: 2, typeName: 'SAMPLER', name: 'KICK', samplePath: '/Samples/Drums/Kick.wav', ...over },
+  ]});
+  const panOf = song => M8Player.buildTimeline(pat, song, {}).events.find(e => e.kind === 'on').pan;
+  approx(panOf(panned({ pan: 0x7F })), 0, '0x7F is centre');
+  approx(panOf(panned({ pan: 0x00 })), -1, '0x00 is hard left');
+  assert.ok(Math.abs(panOf(panned({ pan: 0xFF })) - 1) < 0.02, '0xFF is hard right');
+  approx(panOf(panned({})), 0, 'no pan byte falls back to centre');
+  const p = panOf(panned({ pan: 0xFF }));
+  assert.ok(p >= -1 && p <= 1, 'pan stays inside the StereoPanner range');
+});

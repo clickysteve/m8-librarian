@@ -888,6 +888,10 @@
       user-select:none; padding:2px 3px; opacity:.45; transition:opacity .1s; }
     .pv-grid:hover .pv-gutter > span { opacity:1; }
     .pv-gutter > span:hover { color:var(--accent); background:var(--accent-dim); }
+    .pv-chainrow .cp-play { cursor:pointer; color:var(--border2); font-size:9px; padding:1px 3px;
+      border-radius:3px; opacity:0; transition:opacity .1s; user-select:none; }
+    .pv-chainrow:hover .cp-play { opacity:1; }
+    .pv-chainrow .cp-play:hover { color:var(--accent); background:var(--accent-dim); }
     /* Active cell: high-contrast marker that survives the chain
        highlight, block selection and the playhead */
     .pv-cell.cur { outline:2px solid var(--text); outline-offset:-2px;
@@ -1951,12 +1955,16 @@ const M8 = (() => {
       const sampParams = kind === 0x02
         ? { play:b[base+18], start:b[base+20], loopStart:b[base+21], length:b[base+22] }
         : null;
+      // Mixer pan for the sampler block (see decodeInstrParams): the
+      // player needs it, and re-decoding every instrument there would
+      // be wasteful. 0x00 left .. 0x7F centre .. 0xFF right.
+      const pan = kind === 0x02 ? b[base+29] : null;
       // Configured MIDI channel (0-based byte) for MIDI OUT / EXTERNAL
       // INST — the MIDI export keeps these on their own channel
       const midiChannel = kind === 0x03 ? (b[base+16] & 0x0F)
                         : kind === 0x06 ? (b[base+19] & 0x0F) : null;
       instruments.push({ slot:i, kind, typeName, kindShort:KIND_SHORT[typeName]||typeName,
-        name:iname, samplePath:kind===0x02?readStr(b,base+SAMP_OFF,127).trim():'', modTypes, sampParams, midiChannel });
+        name:iname, samplePath:kind===0x02?readStr(b,base+SAMP_OFF,127).trim():'', modTypes, sampParams, pan, midiChannel });
     }
     const samplePaths = [...new Set(instruments.filter(x=>x.samplePath).map(x=>x.samplePath))];
     return { header:h, name, directory, instruments, samplePaths, tempo, transpose, quantize };
@@ -2421,7 +2429,7 @@ const M8 = (() => {
             if (step.fx?.some(f => f.cmd === KIL)) noteOff(tick);
             if (step.instr !== 0xFF) lastInstr = slotMap.get(step.instr) || lastInstr;
             if (step.note !== 0xFF && step.note <= 0x7F) {
-              const note = step.note + 24 + tr;
+              const note = step.note + 24 + tr + (song?.transpose | 0);
               if (note >= 0 && note <= 127) {
                 noteOff(tick);
                 const ch = (lastInstr && lastInstr.midiChannel != null) ? (lastInstr.midiChannel & 0x0F) : t;
@@ -2905,7 +2913,20 @@ const Scanner = (() => {
     if (n < 1024*1024) return (n/1024).toFixed(0)+'KB';
     return (n/1024/1024).toFixed(1)+'MB';
   }
-  function fmtDate(ts) { return new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'2-digit'}); }
+  // One shared formatter, memoised per timestamp: constructing an
+  // Intl.DateTimeFormat per call was the single most expensive thing in
+  // the Stats render.
+  const _dfmt = new Intl.DateTimeFormat(undefined, { month:'short', day:'numeric', year:'2-digit' });
+  const _dcache = new Map();
+  function fmtDate(ts) {
+    let v = _dcache.get(ts);
+    if (v === undefined) {
+      v = _dfmt.format(new Date(ts));
+      if (_dcache.size > 20000) _dcache.clear();   // bound it
+      _dcache.set(ts, v);
+    }
+    return v;
+  }
 
   return {
     scanFast, catalogueSamples, sampleFound, isJunkName, mapLimit,
@@ -4485,7 +4506,10 @@ const M8Player = (() => {
           if (st.phrase === EMPTY) continue;              // empty step — no time
           const ph = pat.phrases[st.phrase];
           if (!ph) continue;                              // missing phrase — skip like empty
-          const transpose = st.transpose > 127 ? st.transpose - 256 : st.transpose; // signed 8-bit
+          // Chain-step transpose PLUS the song's global transpose (byte
+          // 0x8E, already signed by the parser). Both apply on hardware.
+          const transpose = (st.transpose > 127 ? st.transpose - 256 : st.transpose)
+                          + (song?.transpose | 0);
 
           // A pending HOP entry is consumed by the next phrase actually
           // played on this channel (it survives empty steps/rows above).
@@ -4557,7 +4581,10 @@ const M8Player = (() => {
                     sampleKey: sampleKey(instr.samplePath),
                     rate: Math.pow(2, (step.note - ROOT_NOTE + transpose) / 12),
                     gain: step.vol === EMPTY ? BASE_GAIN : BASE_GAIN * (step.vol / 0xFF),
-                    pan: 0,          // no pan tracking in the sketch
+                    // Instrument mixer pan, -1..1. FX PAN commands are
+                    // still not tracked; the static position is.
+                    pan: instr.pan == null ? 0
+                       : Math.max(-1, Math.min(1, (instr.pan - 0x7F) / 0x7F)),
                     loop: null,      // resolved from loopFrac at schedule time
                     loopFrac, offFrac,
                   });
@@ -7932,7 +7959,9 @@ const USB = (() => {
   // Lazy tabs (renders / samples / bundles) scan on first activation.
   // Centralised here so keyboard tab-switching and restored UI state
   // trigger the scan too, not just tab-button clicks.
+  let statsDirty = true;
   function onTabActivated(name) {
+    if (name === 'stats' && statsDirty) { statsDirty = false; renderStats(); }
     if (name === 'renders') {
       if (sdHandle && !rendersScanned) scanAndRenderRenders();
       else renderRendersTab();
@@ -8196,7 +8225,11 @@ const USB = (() => {
     renderSongs(); renderInstrs(); renderThemes();
     renderProblems(); renderGrooves(); renderBackupCounts();
     renderHealthBar();
-    renderStats();
+    // Stats is expensive and usually not on screen: mark it stale and
+    // rebuild when the tab is actually shown (same contract as the
+    // other lazy tabs).
+    statsDirty = true;
+    if (document.querySelector('.tab-btn.active')?.dataset.tab === 'stats') { statsDirty = false; renderStats(); }
     renderSets();
     // Renders tab re-checks if already scanned
     if (rendersScanned) renderRendersTab();
@@ -8473,10 +8506,10 @@ const USB = (() => {
       renderSongsTreeNode(child, groupEl.querySelector('.sf-body'), depth+1);
       container.appendChild(groupEl);
     }
-    sortSongsArr(node.songs.filter(matchesSong)).forEach(song => {
+    appendChunked(container, sortSongsArr(node.songs.filter(matchesSong)), song => {
       const item = buildSongListItem(song);
       item.querySelector('.song-row').style.paddingLeft = `${indent}px`;
-      container.appendChild(item);
+      return item;
     });
   }
 
@@ -8498,30 +8531,38 @@ const USB = (() => {
       <button class="btn ghost sm btn-play-row" title="Play song" style="padding:2px 7px;font-size:12px;flex-shrink:0;margin-left:4px">▶</button>
       <button class="btn ghost sm btn-diff-row${isPickA(song)?' on':''}" data-sname="${esc(song.name)}" data-spath="${esc(song.filePath)}" title="Compare with…" style="padding:2px 7px;font-size:12px;flex-shrink:0;margin-left:4px">⇌</button>
       </div>
-      <div class="song-detail">${buildSongDetail(song, false)}</div>`;
+      <div class="song-detail"></div>`;
     const detailEl = item.querySelector('.song-detail');
-    wireSongDetail(detailEl, false);
     item.querySelector('.btn-dash-row').addEventListener('click', e => { e.stopPropagation(); openSongModal(song); });
     item.querySelector('.btn-pat-row').addEventListener('click', e => { e.stopPropagation(); openSongModal(song, null, {patterns: true}); });
-    item.querySelector('.btn-det-dash')?.addEventListener('click', e => { e.stopPropagation(); openSongModal(song); });
-    item.querySelector('.btn-det-pat')?.addEventListener('click', e => { e.stopPropagation(); openSongModal(song, null, {patterns: true}); });
+    // The detail panel is built on first expand. Building it up front
+    // cost ~150 DOM nodes per row for content nobody had opened, which
+    // dominated both card load and every filter keystroke.
+    const buildDetail = () => {
+      if (item.dataset.detDone) return;
+      item.dataset.detDone = '1';
+      detailEl.innerHTML = buildSongDetail(song, false);
+      wireSongDetail(detailEl, false);
+      detailEl.querySelector('.btn-det-dash')?.addEventListener('click', e => { e.stopPropagation(); openSongModal(song); });
+      detailEl.querySelector('.btn-det-pat')?.addEventListener('click', e => { e.stopPropagation(); openSongModal(song, null, {patterns: true}); });
+      // Similar-songs are O(all songs) to compute, so they stay lazy too
+      const simHtml = buildSimilarSection(song);
+      if (simHtml) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = simHtml;
+        const sec = tmp.firstElementChild;
+        detailEl.appendChild(sec);
+        wireSongDetail(sec, false);
+      }
+    };
     item.querySelector('.song-row').addEventListener('click', e => {
       if (e.target.closest('.btn-diff-row') || e.target.closest('.btn-play-row')
         || e.target.closest('.btn-dash-row') || e.target.closest('.btn-pat-row')) return;
-      const open = item.classList.toggle('open');
-      // Similar-songs are O(all songs) to compute, so do it lazily on first expand
-      if (open && !item.dataset.simsDone) {
-        item.dataset.simsDone = '1';
-        const simHtml = buildSimilarSection(song);
-        if (simHtml) {
-          const tmp = document.createElement('div');
-          tmp.innerHTML = simHtml;
-          const sec = tmp.firstElementChild;
-          detailEl.appendChild(sec);
-          wireSongDetail(sec, false);
-        }
-      }
+      if (item.classList.contains('open')) { item.classList.remove('open'); return; }
+      buildDetail();
+      item.classList.add('open');
     });
+    item.expandDetail = () => { buildDetail(); item.classList.add('open'); };
     item.querySelector('.btn-play-row').addEventListener('click', e => { e.stopPropagation(); M8Transport.playSong(song, e.currentTarget); });
     item.querySelector('.btn-diff-row').addEventListener('click', e => handleDiffRowBtn(e, song));
     return item;
@@ -9410,7 +9451,18 @@ const USB = (() => {
       }
     }
     if (usedIn.length) {
-      dh += `<div class="drow"><span class="dlabel">Used in</span><div class="schips">${usedIn.map(s=>`<span class="schip" data-songname="${esc(s.name)}" data-songpath="${esc(s.filePath)}">${esc(s.name)}</span>`).join('')}</div></div>`;
+      // Cap the eagerly-built chip list. Building one chip per song per
+      // instrument is quadratic in a normal collection (instrument names
+      // are shared across songs by design), and this panel starts
+      // collapsed — so it was megabytes of DOM nobody had asked to see.
+      // The overflow expands on click, from the same usage map.
+      const CHIP_CAP = 8;
+      const shown = usedIn.slice(0, CHIP_CAP);
+      const rest = usedIn.length - shown.length;
+      const chip = s => `<span class="schip" data-songname="${esc(s.name)}" data-songpath="${esc(s.filePath)}">${esc(s.name)}</span>`;
+      dh += `<div class="drow"><span class="dlabel">Used in</span><div class="schips" data-iname="${esc(instr.name)}">${
+        shown.map(chip).join('')}${rest > 0
+          ? `<span class="schip more" title="show the remaining ${rest}">+${rest} more…</span>` : ''}</div></div>`;
     } else {
       dh += `<div class="drow"><span class="dlabel">Used in</span><span class="dval dim">Not in any scanned song</span></div>`;
     }
@@ -9449,6 +9501,22 @@ const USB = (() => {
       const iname = ubEl.dataset.iname;
       songFilter = iname.toLowerCase(); $('song-q').value = songFilter;
       switchTab('songs'); renderSongs();
+    });
+    // "+N more…" expands the capped chip list on demand.
+    item.querySelectorAll('.schip.more').forEach(more => {
+      more.addEventListener('click', e => {
+        e.stopPropagation();
+        const wrap = more.parentElement;
+        const all = usageMap.get((wrap.dataset.iname || '').toLowerCase()) || [];
+        wrap.innerHTML = all.map(s =>
+          `<span class="schip" data-songname="${esc(s.name)}" data-songpath="${esc(s.filePath)}">${esc(s.name)}</span>`).join('');
+        wrap.querySelectorAll('.schip[data-songname]').forEach(c => c.addEventListener('click', ev => {
+          ev.stopPropagation();
+          const s = songs.find(x => x.filePath === c.dataset.songpath)
+                 || songs.find(x => x.name === c.dataset.songname);
+          if (s) openSongModal(s);
+        }));
+      });
     });
     // Song chip clicks → open that song (matched by path, name fallback)
     item.querySelectorAll('.schip[data-songname]').forEach(chip => {
@@ -9532,16 +9600,19 @@ const USB = (() => {
     }
     const matched = sortInstrsArr(node.instrs.filter(matchesInstr));
     if (!matched.length) return;
+    // Stream both instrument views, like the song views: an instrument
+    // row carries a full (collapsed) parameter panel, so rendering a
+    // whole library up front was the other half of the load cost.
     if (useGrid) {
       const grid = document.createElement('div');
       grid.className = 'instr-grid';
-      matched.forEach(i => grid.appendChild(buildInstrCard(i)));
       container.appendChild(grid);
+      appendChunked(grid, matched, i => buildInstrCard(i));
     } else {
-      matched.forEach(i => {
+      appendChunked(container, matched, i => {
         const item = buildInstrItem(i);
         item.querySelector('.instr-row').style.paddingLeft = `${indent}px`;
-        container.appendChild(item);
+        return item;
       });
     }
   }
@@ -11651,6 +11722,25 @@ const USB = (() => {
           for (let i = 0; i < 3; i++) { a.fx[i].cmd = b.fx[i].cmd; a.fx[i].val = b.fx[i].val; }
         }
   }
+  // The three side panels (#pv-chain-detail / #pv-phrase-detail /
+  // #pv-tables-detail) persist across renders while their contents are
+  // replaced. Their wiring attaches listeners to the PANEL, not to the
+  // replaced children, so re-rendering into the same node stacks a new
+  // listener on top of the old ones — and each old one closes over the
+  // chain/phrase index that was open when it was wired. That silently
+  // edited chains the user never touched (and the save path verified
+  // the damage as correct), and doubled the listener count per edit
+  // until the tab froze. Swapping in a fresh node drops every listener
+  // with the element it was bound to.
+  function edFreshPanel(host, id) {
+    const old = host.querySelector('#' + id);
+    if (!old) return null;
+    const fresh = old.cloneNode(false);   // attributes only: no children, no listeners
+    fresh.innerHTML = '';
+    old.replaceWith(fresh);
+    return fresh;
+  }
+
   function edPushUndo(st = edCur) {
     st.undo.push(edSnapshot(st.pat));
     if (st.undo.length > 40) st.undo.shift();
@@ -12134,6 +12224,7 @@ const USB = (() => {
         <input type="color" value="${esc(color(c))}" data-chain="${c}" title="pick a colour for chain ${edHx(c)}">
         <span class="cp-open" data-chain="${c}" style="color:${esc(color(c))}">${edHx(c)}</span>
         <span class="cp-count" title="times used in the song grid">×${chainUse.get(c) || 0}</span>
+        <span class="cp-play pv-detail-play" data-chain="${c}" title="play chain ${edHx(c)}">▶</span>
       </div>`;
     }
     if (!usedChains.length) chainRows += '<div class="pv-chaingroup">none placed</div>';
@@ -12147,8 +12238,10 @@ const USB = (() => {
         <span class="pv-rowcopy" data-row="${r}" title="copy this row">⧉</span>
         <span class="pv-rowpaste" data-row="${r}" title="insert the copied row here — rows below move down"${pvRowClip ? '' : ' style="display:none"'}>⤓</span>
         <span class="pv-rowclear" data-row="${r}" title="clear this row (undoable)">✕</span>
+        <span class="pv-rowplay" data-row="${r}" title="play this section — from row ${edHx(r)} down to the next blank row, all 8 tracks">▶</span>
       </div>`;
-      gridHtml += `<div class="pv-cell rlbl${spare ? ' spare' : ''}" data-rlbl="${r}">${edHx(r)}</div>`;
+      gridHtml += `<div class="pv-cell rlbl${spare ? ' spare' : ''}" data-rlbl="${r}" data-row="${r}"
+        title="Row ${edHx(r)} — click to play this section">${edHx(r)}</div>`;
       for (let t = 0; t < ED_TRACKS; t++) {
         const v = pat.grid[r][t];
         gridHtml += v === ED_EMPTY
@@ -12532,7 +12625,7 @@ const USB = (() => {
     const hint = host.querySelector('#pv-side-hint');
     if (hint) hint.style.display = 'none';
     host.querySelectorAll('.pv-cell.chain.hi').forEach(el => el.classList.remove('hi'));
-    const det = host.querySelector('#pv-tables-detail');
+    const det = edFreshPanel(host, 'pv-tables-detail');
     if (!det) return;
     det.style.display = 'block';
     tblOpen = true;
@@ -12624,6 +12717,7 @@ const USB = (() => {
       if (ev.key === 'ArrowRight') { ev.preventDefault(); ev.stopPropagation(); move(0, 1); return; }
       if (ev.key === 'Delete' || ev.key === 'Backspace') {
         ev.preventDefault(); ev.stopPropagation();
+        buf = '';                       // drop any half-typed hex digit
         edPushUndo(st);
         const sp = pat.tables[tblView][s];
         if (f === 'tsp') sp.transpose = 0;
@@ -12648,7 +12742,7 @@ const USB = (() => {
     const st = edCur; if (!st) return;
     if (tblOpen) closeTablesEd();
     const host = st.host, pat = st.pat;
-    const det = host.querySelector('#pv-chain-detail');
+    const det = edFreshPanel(host, 'pv-chain-detail');
     if (!det) return;
     st.viewChain = c;
     if (!opts.keepPhrase) {
@@ -12686,6 +12780,7 @@ const USB = (() => {
     }
     det.innerHTML = `
       <div class="pv-detail-title" style="display:flex;align-items:center;gap:8px">
+        <button class="btn ghost sm pv-detail-play" data-chain="${c}" title="Play this chain (Space)">▶</button>
         Chain ${edHx(c)}
         <button class="btn secondary sm" id="btn-chain-clone"
           title="Copy this chain into the first empty slot and point the grid cells at the copy">⧉ Clone</button>
@@ -12878,7 +12973,7 @@ const USB = (() => {
   function renderPhraseEd(ph, opts = {}) {
     const st = edCur; if (!st) return;
     const host = st.host, pat = st.pat;
-    const det = host.querySelector('#pv-phrase-detail');
+    const det = edFreshPanel(host, 'pv-phrase-detail');
     if (!det) return;
     if (st.lastPhrase !== ph && !opts.keepCursor) { peCursor = { step: 0, col: 0 }; peSel = null; }
     st.lastPhrase = ph;
@@ -12908,7 +13003,9 @@ const USB = (() => {
       : 'No scale to lock to — pick one with ▾ first.';
     const head = `
       <div class="pv-detail-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        ${crumb} Phrase ${edHx(ph)}
+        ${crumb}
+        <button class="btn ghost sm pv-detail-play" data-phrase="${ph}" title="Play this phrase (Space)">▶</button>
+        Phrase ${edHx(ph)}
         <button class="btn secondary sm" id="btn-ph-clone"
           title="${usage.length > 1 ? 'Copy this phrase to a free slot and repoint only the chain step you came through'
                                      : 'Copy this phrase into the first empty slot'}">⧉ Clone</button>
@@ -13781,7 +13878,8 @@ const USB = (() => {
   function editAuditRefs(st) {
     const refs = [];
     if (st.dirtyGrid.size) refs.push({ instr: 'song grid', from: `${st.dirtyGrid.size} cell(s)`, to: 'edited' });
-    for (const [lbl, map] of [['chains', st.dirtyChains], ['phrases', st.dirtyPhrases], ['grooves', st.dirtyGrooves]])
+    for (const [lbl, map] of [['chains', st.dirtyChains], ['phrases', st.dirtyPhrases],
+                              ['grooves', st.dirtyGrooves], ['tables', st.dirtyTables]])
       if (map.size) refs.push({ instr: lbl, from: [...map.keys()].sort((a, b) => a - b).map(edHx).join(' '), to: 'rewritten' });
     return refs;
   }
@@ -14534,10 +14632,10 @@ const USB = (() => {
     renderNode(root, 20, el);
   }
 
-  $('sampbr-q').addEventListener('input', e => {
+  $('sampbr-q').addEventListener('input', debounce(e => {
     sampbrFilter = e.target.value.toLowerCase();
     if (sampbrScanned) renderSampBrowser();
-  });
+  }));
   // (tab activation handled centrally in onTabActivated)
   $('btn-sampbr-scan').addEventListener('click', () => { sampbrScanned=false; sampbrData=[]; scanSampBrowser(); });
 
@@ -15502,18 +15600,23 @@ const USB = (() => {
       if (!tl?.marks) return;
       const latest = Array(8).fill(null);
       for (const m of tl.marks) { if (m.t > t) break; latest[m.track] = m; }
-      const det = document.querySelector('#modal-pattern-section .pv-detail');
-      const openChain  = det && det.style.display !== 'none' && det.dataset.chain  != null ? +det.dataset.chain  : null;
-      const openPhrase = det && det.style.display !== 'none' && det.dataset.phrase != null ? +det.dataset.phrase : null;
+      // The two panels are separate elements, so they must be resolved by
+      // id: a bare '.pv-detail' always matched the chain panel, and the
+      // phrase editor consequently never lit its playing step.
+      const shown = el => el && el.style.display !== 'none' ? el : null;
+      const chDet = shown(document.querySelector('#pv-chain-detail'));
+      const phDet = shown(document.querySelector('#pv-phrase-detail'));
+      const openChain  = chDet && chDet.dataset.chain  != null ? +chDet.dataset.chain  : null;
+      const openPhrase = phDet && phDet.dataset.phrase != null ? +phDet.dataset.phrase : null;
       for (const m of latest) {
         if (!m) continue;
         if (m.row >= 0)
           document.querySelector(`#modal-pattern-section .pv-cell.chain[data-row="${m.row}"][data-ch="${m.track}"]`)
             ?.classList.add('live');
         if (openChain === m.chain)
-          det.querySelector(`.pv-cstep[data-step="${m.chainStep}"]`)?.classList.add('live');
+          chDet.querySelector(`.pv-cstep[data-step="${m.chainStep}"]`)?.classList.add('live');
         if (openPhrase === m.phrase)
-          det.querySelector(`.pv-pstep[data-step="${m.phraseStep}"]`)?.classList.add('live');
+          phDet.querySelector(`.pv-pstep[data-step="${m.phraseStep}"]`)?.classList.add('live');
       }
     }
 
@@ -15578,10 +15681,14 @@ const USB = (() => {
       if (SongPlayer.isPlaying()) { SongPlayer.stop(); return; }
       const song = _modalSong;
       if (!song) return;
-      const det = document.querySelector('#modal-pattern-section .pv-detail');
-      const vis = det && det.style.display !== 'none';
-      if (vis && det.dataset.phrase != null)     playPhrase(song, +det.dataset.phrase);
-      else if (vis && det.dataset.chain != null) playChain(song, +det.dataset.chain);
+      // Innermost open panel wins. These are separate elements, so they
+      // must be looked up by id: a bare '.pv-detail' always resolves to
+      // the chain panel (first in the DOM) and the phrase never played.
+      const vis = el => el && el.style.display !== 'none' && el.offsetParent !== null;
+      const phDet = document.querySelector('#pv-phrase-detail');
+      const chDet = document.querySelector('#pv-chain-detail');
+      if (vis(phDet) && phDet.dataset.phrase != null)     playPhrase(song, +phDet.dataset.phrase);
+      else if (vis(chDet) && chDet.dataset.chain != null) playChain(song, +chDet.dataset.chain);
       else playSong(song, $('btn-modal-play'));
     }
 
@@ -15636,6 +15743,9 @@ const USB = (() => {
         else if (pb.dataset.phrase != null) playPhrase(_modalSong, +pb.dataset.phrase, pb);
         return;
       }
+      // Section play: the gutter ▶ and the row number both trigger it.
+      const rp = e.target.closest('#modal-pattern-section .pv-rowplay[data-row]');
+      if (rp) { e.stopPropagation(); playSongRow(_modalSong, +rp.dataset.row, null); return; }
       const rl = e.target.closest('#modal-pattern-section .pv-cell.rlbl[data-row]');
       if (rl) playSongRow(_modalSong, +rl.dataset.row, null);
     });
@@ -15702,6 +15812,24 @@ const USB = (() => {
   // PWA: register the service worker when served over http(s); the
   // file:// case (opening index.html directly) skips it silently.
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    // The worker is cache-first, so a returning visitor runs the PREVIOUS
+    // build and only picks up the new one when they next navigate. That is
+    // fine for a cosmetic change and wrong for a correctness fix, so when a
+    // new worker takes control, reload once onto it — unless there are
+    // unsaved edits in memory, which a reload would throw away. (Those keep
+    // the old build until the user saves and reloads themselves, which the
+    // beforeunload guard already prompts for.)
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloaded) return;   // first install replaces nothing
+      for (const st of edStates.values()) {
+        edRecomputeDirty(st);
+        if (edIsDirty(st)) return;              // unsaved work wins over freshness
+      }
+      reloaded = true;
+      location.reload();
+    });
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 

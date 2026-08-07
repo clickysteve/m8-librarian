@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased — deep review round: a data-corruption fix, dead play buttons, and a big performance pass
+
+A full code and performance review against pt-librarian. The headline is a
+silent data-corruption bug that had survived every safety net in the app.
+
+### Fixed — data corruption (please update)
+- **Editing one chain could rewrite every other chain you had opened.** The chain, phrase and table side panels are re-filled in place on every render, but their wiring attached a fresh listener to the *panel* each time, and every stale listener closed over the chain or phrase that was open when it was wired. Opening chain 02, then chain 03, then pressing Delete once wrote to **both** — and because the damage happened before the dirty map was built, the save preview, the byte verify and the re-parse all confirmed it as correct. The panels are now replaced with a fresh node per render, so a listener dies with the element it was bound to. Same fix covers the phrase and table editors.
+- **The same leak froze and then killed the tab, losing unsaved edits.** Listener count doubled per edit: by the 13th table edit one keystroke took 27 seconds, and a longer session crashed the renderer with the whole in-memory editing session in it. Now flat: one live listener per panel no matter how many renders, and commit time stays ~25ms.
+- Table-only saves recorded an empty ref list in the on-card audit log, so the trail couldn't say which tables changed.
+- In the table editor, `Delete` left a half-typed hex digit in the buffer, so typing `1`, pressing Delete, then typing `A` committed `0x1A` — a value never entered.
+
+### Fixed — silently wrong output
+- **The song's global transpose was parsed, displayed, and then ignored by everything.** Any song with a non-zero transpose previewed, rendered to WAV and exported to MIDI at the wrong pitch, with no indication. It now applies in both the player and the MIDI export, stacking with the chain-step transpose as it does on hardware.
+- **Playback ignored pan.** The audio graph had a stereo panner that only ever received centre, so hard-panned kits collapsed to mono in previews, WAV renders and stems. The instrument's mixer pan is now honoured.
+
+### Fixed — features that existed but could not be reached
+- **Section play had no button.** The row ▶ documented last round was never wired: the grid emitted `data-rlbl` where the transport matched `data-row`. Every row now has a ▶ in its gutter (and the row number plays it too), running the section-play path that was already built and tested.
+- **▶ on every chain** in the pattern editor's chain list, and on the **chain and phrase editor headers**.
+- **Space played the chain even with a phrase open.** It resolved the panel with a bare `.pv-detail`, which always matched the chain panel first, so the phrase branch could never fire. The same bug meant the phrase editor never lit its currently-playing step during playback. Both now resolve the two panels explicitly.
+
+### Performance
+Measured on synthetic cards in headless Chromium; the review's own harness is the source of both numbers.
+
+- **Card load on a 500-song / 300-instrument library: 1055ms → 217ms.** DOM nodes 744,000 → 101,000; event listeners 147,000 → 4,500.
+- The instrument rows built one "used in" chip **per song per instrument** — quadratic in a normal collection, since instrument names are shared across songs by design, and all of it inside a panel that starts collapsed. The list is now capped at 8 with a `+N more…` that expands on click.
+- **The song list view is now streamed and its detail built on expand.** It was rendering every row's full collapsed detail up front: 156 DOM nodes per song against 9 in the compact view. At 1000 songs the list is now flat at ~3,500 nodes instead of 156,000, and a filter keystroke costs 13ms of script instead of 234ms. Instrument lists stream the same way.
+- **The Stats tab no longer rebuilds when it isn't showing**, and `fmtDate` reuses one `Intl.DateTimeFormat` instead of constructing one per song — together 341ms of every card load on a large library.
+- **The sample browser's filter box is debounced** like every other filter in the app: ~100ms of blocking work per keystroke at 5,000 samples, now 0.
+
+### Delivery
+- **The service worker now hands over the new build in the same visit.** It is cache-first, so a returning visitor ran the *previous* build and only picked up the new one on their next navigation — acceptable for a cosmetic change, wrong for a correctness fix. The cache version is bumped (which purges the stale one on activate) and the page now reloads once when a new worker takes control. If there are unsaved edits in memory the reload is skipped, because losing someone's work to fetch a fix would be its own bug.
+
+### Verified sound (no change needed)
+Scanning is O(n) and reads each file exactly once; incremental rescan re-reads zero bytes. The FX render loop memoises uniform locations, gates the 2.7MB texture upload on unchanged frames, and idles correctly. The windowed-looping player frees its nodes and holds a flat heap over long loops. The editor's byte encoders round-trip cleanly through 40 iterations of randomised mutation against a real card, and the save protocol's freshness guard, backup, verify and rollback are all correct.
+
 ## Unreleased — the pt 1.2.0/1.3.0 catch-up: background feedback + Lottes CRT
 
 ### Effects
